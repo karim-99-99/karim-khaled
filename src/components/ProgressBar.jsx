@@ -21,3 +21,5 @@ const ProgressBar = ({ current, total, label = 'التقدم' }) => {
 
 export default ProgressBar;
 
+
+
