@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserByEmail, setCurrentUser } from '../services/storageService';
 import Header from '../components/Header';
-
+import backgroundImage from '../assets/kareem.jpg';
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,9 +41,9 @@ const Login = () => {
         <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md border-t-4 border-primary-500">
         <div className="text-center mb-8">
           <img
-            src="/بدايتي في القدرات والتحصيلي.png"
+            src={backgroundImage}
             alt="Logo"
-            className="h-16 w-16 mx-auto mb-4 object-contain"
+            className="h-28 w-32 mx-auto mb-4 object-contain rounded-3xl"
           />
           <h1 className="text-2xl md:text-3xl font-bold text-dark-600 mb-2">نظام التعليم</h1>
           <p className="text-base md:text-lg text-dark-600 font-medium">تسجيل الدخول / Login</p>
