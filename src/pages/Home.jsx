@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { getSubjects } from '../services/storageService';
 import { useEffect, useState } from 'react';
+import Header from '../components/Header';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -16,13 +17,14 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="max-w-6xl mx-auto px-4 py-8 md:py-12">
+        <div className="text-center mb-8 md:mb-12">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-3 md:mb-4 leading-tight">
             مرحباً! اختر المادة
           </h1>
-          <p className="text-xl text-gray-600">
+          <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">
             Welcome! Choose a Subject
           </p>
         </div>
@@ -35,32 +37,20 @@ const Home = () => {
               className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 p-8"
             >
               <div className="text-center">
-                <div className="text-6xl mb-4">
+                <div className="text-5xl md:text-6xl mb-4">
                   {subject.id === 'subj1' ? '🔢' : '🔬'}
                 </div>
-                <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-600 mb-2">
                   {subject.name}
                 </h2>
-                <p className="text-xl text-gray-600">{subject.nameEn}</p>
-                <div className="mt-4 text-sm text-gray-500">
+                <p className="text-lg md:text-xl text-dark-600 font-medium">{subject.nameEn}</p>
+                <div className="mt-4 text-sm md:text-base text-dark-500 font-medium">
                   {subject.chapters.length} فصول / {subject.chapters.length} Chapters
                 </div>
               </div>
-              <div className="absolute inset-0 rounded-2xl border-4 border-transparent group-hover:border-blue-400 transition"></div>
+              <div className="absolute inset-0 rounded-2xl border-4 border-transparent group-hover:border-primary-400 transition"></div>
             </button>
           ))}
-        </div>
-
-        <div className="text-center mt-8">
-          <button
-            onClick={() => {
-              localStorage.removeItem('edu_current_user');
-              navigate('/login');
-            }}
-            className="text-gray-600 hover:text-gray-800 underline"
-          >
-            تسجيل الخروج / Logout
-          </button>
         </div>
       </div>
     </div>

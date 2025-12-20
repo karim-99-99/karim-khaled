@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSubjects, getQuestions, getQuestionsByLevel, addQuestion, updateQuestion, deleteQuestion, getLevelsByChapter } from '../../services/storageService';
+import Header from '../../components/Header';
 
 const Questions = () => {
   const navigate = useNavigate();
@@ -133,13 +134,15 @@ const Questions = () => {
   const levels = selectedChapter ? getLevelsByChapter(selectedChapter) : [];
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="py-8 px-4">
+        <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-gray-800">إدارة الأسئلة / Manage Questions</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-dark-600">إدارة الأسئلة / Manage Questions</h1>
           <button
             onClick={() => navigate('/admin/dashboard')}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition"
+            className="bg-dark-600 text-white px-4 py-2 rounded-lg hover:bg-dark-700 transition font-medium"
           >
             ← رجوع / Back
           </button>
@@ -149,7 +152,7 @@ const Questions = () => {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                 المادة / Subject
               </label>
               <select
@@ -167,7 +170,7 @@ const Questions = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                 الفصل / Chapter
               </label>
               <select
@@ -186,7 +189,7 @@ const Questions = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                 المستوى / Level
               </label>
               <select
@@ -210,12 +213,12 @@ const Questions = () => {
         {selectedLevel && (
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-800">
+              <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
                 الأسئلة ({questions.length}) / Questions ({questions.length})
               </h2>
               <button
                 onClick={handleAddNew}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
+                className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium"
               >
                 + إضافة سؤال جديد / Add Question
               </button>
@@ -226,11 +229,11 @@ const Questions = () => {
                 <div key={question.id} className="border rounded-lg p-4">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1">
-                      <p className="font-semibold text-gray-800">
+                      <p className="font-semibold text-base md:text-lg text-dark-600">
                         {index + 1}. {question.question}
                       </p>
                       {question.questionEn && (
-                        <p className="text-sm text-gray-600">{question.questionEn}</p>
+                        <p className="text-sm md:text-base text-dark-500">{question.questionEn}</p>
                       )}
                     </div>
                     <div className="flex gap-2">
@@ -253,11 +256,11 @@ const Questions = () => {
                       <div
                         key={answer.id}
                         className={`p-2 rounded ${
-                          answer.isCorrect ? 'bg-green-100 border-2 border-green-500' : 'bg-gray-100'
+                          answer.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
                         }`}
                       >
-                        <span className="font-semibold">{answer.id.toUpperCase()})</span> {answer.text}
-                        {answer.isCorrect && <span className="text-green-600 ml-1">✓</span>}
+                        <span className="font-semibold text-dark-600">{answer.id.toUpperCase()})</span> <span className="text-dark-600">{answer.text}</span>
+                        {answer.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
                       </div>
                     ))}
                   </div>
@@ -278,7 +281,7 @@ const Questions = () => {
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                       السؤال (عربي) / Question (Arabic)
                     </label>
                     <textarea
@@ -291,7 +294,7 @@ const Questions = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                       السؤال (إنجليزي) / Question (English) - Optional
                     </label>
                     <textarea
@@ -303,7 +306,7 @@ const Questions = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-3">
                       الإجابات / Answers (اختر الإجابة الصحيحة / Select Correct Answer)
                     </label>
                     {formData.answers.map((answer, index) => (
@@ -338,12 +341,12 @@ const Questions = () => {
                   </div>
 
                   <div className="flex gap-3">
-                    <button
-                      type="submit"
-                      className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-                    >
-                      حفظ / Save
-                    </button>
+                      <button
+                        type="submit"
+                        className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition font-medium"
+                      >
+                        حفظ / Save
+                      </button>
                     <button
                       type="button"
                       onClick={() => setShowForm(false)}
@@ -357,6 +360,7 @@ const Questions = () => {
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

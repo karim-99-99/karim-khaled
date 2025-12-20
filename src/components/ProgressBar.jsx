@@ -4,14 +4,14 @@ const ProgressBar = ({ current, total, label = 'التقدم' }) => {
   return (
     <div className="w-full">
       <div className="flex justify-between items-center mb-2">
-        <span className="text-sm font-medium text-gray-700">{label}</span>
-        <span className="text-sm font-medium text-gray-700">
+        <span className="text-xs md:text-sm font-medium text-dark-600">{label}</span>
+        <span className="text-xs md:text-sm font-medium text-dark-600">
           {current} / {total}
         </span>
       </div>
       <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
         <div
-          className="bg-blue-500 h-3 rounded-full transition-all duration-300"
+          className="bg-primary-500 h-3 rounded-full transition-all duration-300"
           style={{ width: `${percentage}%` }}
         />
       </div>
@@ -20,5 +20,4 @@ const ProgressBar = ({ current, total, label = 'التقدم' }) => {
 };
 
 export default ProgressBar;
-
 

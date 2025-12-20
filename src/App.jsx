@@ -3,8 +3,14 @@ import { useEffect } from 'react';
 import { initializeDefaultData, getCurrentUser } from './services/storageService';
 import ProtectedRoute from './components/ProtectedRoute';
 
-// Student Pages
+// Public Pages
+import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
+import CoursesPage from './pages/CoursesPage';
+import AboutPage from './pages/AboutPage';
+import ContactPage from './pages/ContactPage';
+
+// Student Pages
 import Home from './pages/Home';
 import Chapters from './pages/Chapters';
 import Levels from './pages/Levels';
@@ -16,20 +22,6 @@ import AdminDashboard from './pages/admin/Dashboard';
 import AdminQuestions from './pages/admin/Questions';
 import AdminVideos from './pages/admin/Videos';
 
-function RootRedirect() {
-  const currentUser = getCurrentUser();
-  
-  if (currentUser) {
-    return currentUser.role === 'admin' ? (
-      <Navigate to="/admin/dashboard" replace />
-    ) : (
-      <Navigate to="/home" replace />
-    );
-  }
-  
-  return <Navigate to="/login" replace />;
-}
-
 function App() {
   useEffect(() => {
     // Initialize default data on app load
@@ -40,10 +32,11 @@ function App() {
     <div className="App" dir="rtl">
       <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
-          
-          {/* Root redirect */}
-          <Route path="/" element={<RootRedirect />} />
+          <Route path="/courses" element={<CoursesPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
 
           {/* Student Routes */}
           <Route
@@ -116,7 +109,7 @@ function App() {
           {/* Catch all - redirect to login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-    </div>
+      </div>
   );
 }
 

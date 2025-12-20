@@ -1,4 +1,5 @@
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import Header from '../components/Header';
 
 const Result = () => {
   const { subjectId, chapterId, levelId } = useParams();
@@ -8,9 +9,9 @@ const Result = () => {
   const { score = 0, correctCount = 0, totalQuestions = 50 } = location.state || {};
 
   const getScoreColor = () => {
-    if (score >= 80) return 'text-green-600';
+    if (score >= 80) return 'text-yellow-500';
     if (score >= 60) return 'text-yellow-600';
-    return 'text-red-600';
+    return 'text-dark-600';
   };
 
   const getScoreMessage = () => {
@@ -28,28 +29,30 @@ const Result = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="py-12 px-4">
+        <div className="max-w-2xl mx-auto">
+        <div className="bg-white rounded-2xl shadow-lg p-8 text-center border-t-4 border-primary-500">
           <div className="text-8xl mb-4">{getScoreEmoji()}</div>
           
-          <h1 className="text-4xl font-bold text-gray-800 mb-4">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-4 leading-tight">
             {getScoreMessage()}
           </h1>
 
-          <div className={`text-6xl font-bold mb-4 ${getScoreColor()}`}>
+          <div className={`text-4xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 ${getScoreColor()}`}>
             {score}%
           </div>
 
-          <div className="bg-gray-100 rounded-xl p-6 mb-6">
-            <div className="grid grid-cols-2 gap-4 text-lg">
+          <div className="bg-gray-100 rounded-xl p-5 md:p-6 mb-6">
+            <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-gray-600 mb-2">الإجابات الصحيحة / Correct</p>
-                <p className="text-2xl font-bold text-green-600">{correctCount}</p>
+                <p className="text-sm md:text-base lg:text-lg text-dark-600 mb-2 font-medium">الإجابات الصحيحة / Correct</p>
+                <p className="text-xl md:text-2xl lg:text-3xl font-bold text-yellow-500">{correctCount}</p>
               </div>
               <div>
-                <p className="text-gray-600 mb-2">إجمالي الأسئلة / Total</p>
-                <p className="text-2xl font-bold text-gray-800">{totalQuestions}</p>
+                <p className="text-sm md:text-base lg:text-lg text-dark-600 mb-2 font-medium">إجمالي الأسئلة / Total</p>
+                <p className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-600">{totalQuestions}</p>
               </div>
             </div>
           </div>
@@ -57,7 +60,7 @@ const Result = () => {
           <div className="space-y-4">
             <button
               onClick={() => navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`)}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition text-lg"
+              className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition text-lg"
             >
               العودة للمستويات / Back to Levels
             </button>
@@ -69,6 +72,7 @@ const Result = () => {
               الصفحة الرئيسية / Home
             </button>
           </div>
+        </div>
         </div>
       </div>
     </div>

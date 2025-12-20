@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserByEmail, setCurrentUser } from '../services/storageService';
+import Header from '../components/Header';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -34,16 +35,23 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500 px-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+    <div className="min-h-screen bg-gray-50">
+      <Header />
+      <div className="flex items-center justify-center px-4 py-12">
+        <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md border-t-4 border-primary-500">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">نظام التعليم</h1>
-          <p className="text-gray-600">تسجيل الدخول / Login</p>
+          <img
+            src="/بدايتي في القدرات والتحصيلي.png"
+            alt="Logo"
+            className="h-16 w-16 mx-auto mb-4 object-contain"
+          />
+          <h1 className="text-2xl md:text-3xl font-bold text-dark-600 mb-2">نظام التعليم</h1>
+          <p className="text-base md:text-lg text-dark-600 font-medium">تسجيل الدخول / Login</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
               البريد الإلكتروني / Email
             </label>
             <input
@@ -51,13 +59,13 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
               placeholder="example@email.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
               كلمة المرور / Password
             </label>
             <input
@@ -65,30 +73,31 @@ const Login = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
               placeholder="••••••••"
             />
           </div>
 
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
+            <div className="bg-yellow-50 border border-yellow-300 text-dark-600 px-4 py-3 rounded-lg font-medium">
               {error}
             </div>
           )}
 
           <button
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg hover:shadow-xl"
+            className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition shadow-lg hover:shadow-xl"
           >
             تسجيل الدخول / Login
           </button>
         </form>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>حساب تجريبي للطالب / Test Student Account:</p>
-          <p className="mt-2 font-mono text-xs">student@test.com / student123</p>
-          <p className="mt-2">حساب المدير / Admin Account:</p>
-          <p className="font-mono text-xs">admin@teacher.com / admin123</p>
+        <div className="mt-6 text-center text-xs md:text-sm text-dark-600">
+          <p className="font-medium">حساب تجريبي للطالب / Test Student Account:</p>
+          <p className="mt-2 font-mono text-xs md:text-sm text-dark-500">student@test.com / student123</p>
+          <p className="mt-2 font-medium">حساب المدير / Admin Account:</p>
+          <p className="font-mono text-xs md:text-sm text-dark-500">admin@teacher.com / admin123</p>
+        </div>
         </div>
       </div>
     </div>
