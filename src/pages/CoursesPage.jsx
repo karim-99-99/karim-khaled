@@ -1,21 +1,21 @@
 import { useNavigate } from 'react-router-dom';
-import { getSubjects, getCurrentUser } from '../services/storageService';
+import { getSections, getCurrentUser } from '../services/storageService';
 import { useEffect, useState } from 'react';
 import Header from '../components/Header';
 
 const CoursesPage = () => {
   const navigate = useNavigate();
-  const [subjects, setSubjects] = useState([]);
+  const [sections, setSections] = useState([]);
   const currentUser = getCurrentUser();
 
   useEffect(() => {
-    const allSubjects = getSubjects();
-    setSubjects(allSubjects);
+    const allSections = getSections();
+    setSections(allSections);
   }, []);
 
-  const handleSubjectClick = (subjectId) => {
+  const handleSectionClick = (sectionId) => {
     if (currentUser && currentUser.role === 'student') {
-      navigate(`/subject/${subjectId}/chapters`);
+      navigate(`/section/${sectionId}/subjects`);
     } else {
       navigate('/login');
     }
@@ -36,27 +36,27 @@ const CoursesPage = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {subjects.map((subject) => (
+          {sections.map((section) => (
             <div
-              key={subject.id}
+              key={section.id}
               className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-8 border-t-4 border-primary-500"
             >
               <div className="text-center">
                 <div className="text-5xl md:text-6xl mb-4">
-                  {subject.id === 'subj1' ? '🔢' : '🔬'}
+                  {section.id === 'section_tahseel' ? '📚' : '🧠'}
                 </div>
                 <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-600 mb-2">
-                  {subject.name}
+                  {section.name}
                 </h2>
-                <p className="text-lg md:text-xl text-dark-600 mb-4 font-medium">{subject.nameEn}</p>
+                <p className="text-lg md:text-xl text-dark-600 mb-4 font-medium">{section.nameEn}</p>
                 <p className="text-base md:text-lg text-dark-600 mb-6 font-medium">
-                  {subject.chapters.length} فصول / {subject.chapters.length} Chapters
+                  {section.subjects.length} مواد / {section.subjects.length} Subjects
                 </p>
                 <button
-                  onClick={() => handleSubjectClick(subject.id)}
+                  onClick={() => handleSectionClick(section.id)}
                   className="w-full px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-semibold transition-colors"
                 >
-                  {currentUser ? 'ابدأ التعلم / Start Learning' : 'تسجيل الدخول / Login'}
+                  {currentUser ? 'استكشف القسم / Explore Section' : 'تسجيل الدخول / Login'}
                 </button>
               </div>
             </div>

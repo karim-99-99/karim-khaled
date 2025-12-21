@@ -7,7 +7,8 @@ import ProgressBar from '../components/ProgressBar';
 import Header from '../components/Header';
 
 const Quiz = () => {
-  const { subjectId, chapterId, levelId } = useParams();
+  // Support both new structure (with sectionId, categoryId, itemId) and legacy (levelId)
+  const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } = useParams();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -17,18 +18,21 @@ const Quiz = () => {
   const [showVideo, setShowVideo] = useState(false);
   const [video, setVideo] = useState(null);
   const currentUser = getCurrentUser();
-  const level = getLevelById(levelId);
+  // Use itemId if available (new structure), otherwise use levelId (legacy)
+  const actualItemId = itemId || levelId;
+  const level = getLevelById(actualItemId);
 
   useEffect(() => {
-    const quizQuestions = getQuestionsByLevel(levelId);
+    const quizQuestions = getQuestionsByLevel(actualItemId);
     
     // If no questions, create sample questions
     if (quizQuestions.length === 0) {
       const sampleQuestions = [];
       for (let i = 1; i <= 50; i++) {
         sampleQuestions.push({
-          id: `q_${levelId}_${i}`,
-          levelId: levelId,
+          id: `q_${actualItemId}_${i}`,
+          itemId: actualItemId,
+          levelId: actualItemId, // Keep for backward compatibility
           question: `سؤال ${i}: ما هو 2 + 2؟`,
           questionEn: `Question ${i}: What is 2 + 2?`,
           answers: [
@@ -45,11 +49,11 @@ const Quiz = () => {
     }
 
     const loadVideo = async () => {
-      const levelVideo = getVideoByLevel(levelId);
+      const levelVideo = getVideoByLevel(actualItemId);
       if (levelVideo && levelVideo.isFileUpload && levelVideo.url.startsWith('indexeddb://')) {
         // Load video from IndexedDB
         try {
-          const videoFile = await getVideoFile(levelId);
+          const videoFile = await getVideoFile(actualItemId);
           if (videoFile) {
             setVideo({ ...levelVideo, url: videoFile.url });
           } else {
@@ -64,7 +68,7 @@ const Quiz = () => {
       }
     };
     loadVideo();
-  }, [levelId]);
+  }, [actualItemId]);
 
   const currentQuestion = questions[currentIndex];
 
@@ -110,7 +114,8 @@ const Quiz = () => {
     if (currentUser) {
       saveProgress({
         userId: currentUser.id,
-        levelId: levelId,
+        levelId: actualItemId,
+        itemId: actualItemId,
         score: score,
         correctAnswers: correctCount,
         totalQuestions: questions.length,
@@ -118,13 +123,25 @@ const Quiz = () => {
       });
     }
 
-    navigate(`/subject/${subjectId}/chapter/${chapterId}/level/${levelId}/result`, {
-      state: {
-        score,
-        correctCount,
-        totalQuestions: questions.length,
-      },
-    });
+    // Navigate based on structure (new or legacy)
+    if (sectionId && categoryId && itemId) {
+      navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/result`, {
+        state: {
+          score,
+          correctCount,
+          totalQuestions: questions.length,
+        },
+      });
+    } else {
+      // Legacy route
+      navigate(`/subject/${subjectId}/chapter/${chapterId}/level/${levelId}/result`, {
+        state: {
+          score,
+          correctCount,
+          totalQuestions: questions.length,
+        },
+      });
+    }
   };
 
   const getAnswerStyle = (answer) => {
@@ -171,7 +188,7 @@ const Quiz = () => {
         {/* Header */}
         <div className="mb-6">
           <button
-            onClick={() => navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`)}
+            onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`)}
             className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
           >
             ← رجوع / Back
@@ -200,14 +217,24 @@ const Quiz = () => {
         {/* Question Card */}
         <div className="bg-white rounded-xl shadow-lg p-8 mb-6">
           <div className="mb-6">
+            {/* Question Image */}
+            {currentQuestion?.image && (
+              <div className="mb-4 flex justify-center">
+                <img
+                  src={currentQuestion.image}
+                  alt="Question"
+                  className="w-full max-w-full h-auto max-h-[300px] sm:max-h-[400px] md:max-h-[500px] rounded-lg border shadow-md object-contain"
+                />
+              </div>
+            )}
             <p className="text-xs md:text-sm text-dark-500 mb-2 font-medium">
               السؤال {currentIndex + 1} من {questions.length} / Question {currentIndex + 1} of {questions.length}
             </p>
-            <h2 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600 mb-2 leading-relaxed">
-              {currentQuestion?.question}
-            </h2>
+            <div className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600 mb-2 leading-relaxed">
+              <div dangerouslySetInnerHTML={{ __html: currentQuestion?.question || '' }} />
+            </div>
             {currentQuestion?.questionEn && (
-              <p className="text-base md:text-lg text-dark-600 font-medium">{currentQuestion.questionEn}</p>
+              <div className="text-base md:text-lg text-dark-600 font-medium" dangerouslySetInnerHTML={{ __html: currentQuestion.questionEn }} />
             )}
           </div>
 

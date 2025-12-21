@@ -1,20 +1,18 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { getLevelsByChapter, getLevelProgress, getCurrentUser } from '../services/storageService';
+import { getItemsByChapter, getLevelProgress, getCurrentUser, getChapterById } from '../services/storageService';
 import Header from '../components/Header';
 
 const Levels = () => {
-  const { subjectId, chapterId } = useParams();
+  const { sectionId, subjectId, categoryId, chapterId } = useParams();
   const navigate = useNavigate();
-  const levels = getLevelsByChapter(chapterId);
+  const chapter = getChapterById(chapterId);
+  const items = chapter ? chapter.items : [];
   const currentUser = getCurrentUser();
 
-  const handleLevelClick = (levelId) => {
-    navigate(`/subject/${subjectId}/chapter/${chapterId}/level/${levelId}/quiz`);
-  };
 
-  const getLevelStatus = (levelId) => {
+  const getItemStatus = (itemId) => {
     if (!currentUser) return 'locked';
-    const progress = getLevelProgress(currentUser.id, levelId);
+    const progress = getLevelProgress(currentUser.id, itemId);
     return progress ? 'completed' : 'available';
   };
 
@@ -25,30 +23,28 @@ const Levels = () => {
         <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <button
-            onClick={() => navigate(`/subject/${subjectId}/chapters`)}
+            onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`)}
             className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
           >
             ← رجوع / Back
           </button>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
-            المستويات / Levels
+            {chapter?.name || 'الدروس'} / {chapter?.nameEn || 'Lessons'}
           </h1>
-          <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">اختر المستوى / Choose Level</p>
+          <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">اختر الدرس / Choose Lesson</p>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {levels.map((level) => {
-            const status = getLevelStatus(level.id);
-            const progress = currentUser ? getLevelProgress(currentUser.id, level.id) : null;
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {items.map((item) => {
+            const status = getItemStatus(item.id);
+            const progress = currentUser ? getLevelProgress(currentUser.id, item.id) : null;
             
             return (
-              <button
-                key={level.id}
-                onClick={() => handleLevelClick(level.id)}
-                disabled={status === 'locked'}
+              <div
+                key={item.id}
                 className={`
-                  relative bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 p-6 text-center
-                  ${status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''}
+                  relative bg-white rounded-xl shadow-lg p-6
+                  ${status === 'locked' ? 'opacity-50' : ''}
                 `}
               >
                 {status === 'completed' && (
@@ -59,12 +55,43 @@ const Levels = () => {
                     {progress.score}%
                   </div>
                 )}
-                <div className="text-3xl md:text-4xl mb-2">🎯</div>
-                <h2 className="text-base md:text-lg lg:text-xl font-bold text-dark-600 mb-1">
-                  {level.name}
-                </h2>
-                <p className="text-xs md:text-sm lg:text-base text-dark-500 font-medium">{level.nameEn}</p>
-              </button>
+                
+                <div className="text-center mb-4">
+                  <div className="text-3xl md:text-4xl mb-2">
+                    📚
+                  </div>
+                  <h2 className="text-base md:text-lg lg:text-xl font-bold text-dark-600 mb-1">
+                    {item.name}
+                  </h2>
+                  <p className="text-xs md:text-sm lg:text-base text-dark-500 font-medium">{item.nameEn}</p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${item.id}/video`)}
+                    disabled={status === 'locked'}
+                    className={`
+                      bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2
+                      ${status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                  >
+                    🎥 مشاهدة الفيديو / Watch Video
+                  </button>
+                  
+                  {item.hasTest && (
+                    <button
+                      onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${item.id}/quiz`)}
+                      disabled={status === 'locked'}
+                      className={`
+                        bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2
+                        ${status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''}
+                      `}
+                    >
+                      📝 حل الاختبار / Take Quiz
+                    </button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>

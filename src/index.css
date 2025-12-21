@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Quill Editor Styles */
+.ql-editor {
+  min-height: 200px;
+  font-size: 16px;
+  direction: rtl;
+}
+
+.ql-editor.ql-blank::before {
+  font-style: normal;
+  color: #999;
+}
+
 @keyframes float-rotate {
   0% {
     transform: translateY(0px) rotate(0deg) scale(1);

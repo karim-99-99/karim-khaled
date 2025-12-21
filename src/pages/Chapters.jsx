@@ -1,22 +1,22 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { getSubjectById } from '../services/storageService';
+import { getCategoryById } from '../services/storageService';
 import Header from '../components/Header';
 
 const Chapters = () => {
-  const { subjectId } = useParams();
+  const { sectionId, subjectId, categoryId } = useParams();
   const navigate = useNavigate();
-  const subject = getSubjectById(subjectId);
+  const category = getCategoryById(categoryId);
 
-  if (!subject) {
+  if (!category) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-2xl text-gray-600">المادة غير موجودة / Subject not found</p>
+        <p className="text-2xl text-gray-600">التصنيف غير موجود / Category not found</p>
       </div>
     );
   }
 
   const handleChapterClick = (chapterId) => {
-    navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);
+    navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
   };
 
   return (
@@ -26,19 +26,19 @@ const Chapters = () => {
         <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <button
-            onClick={() => navigate('/home')}
+            onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/categories`)}
             className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
           >
             ← رجوع / Back
           </button>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
-            {subject.name} / {subject.nameEn}
+            {category.name} / {category.nameEn}
           </h1>
           <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">اختر الفصل / Choose Chapter</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {subject.chapters.map((chapter, index) => (
+          {category.chapters.map((chapter, index) => (
             <button
               key={chapter.id}
               onClick={() => handleChapterClick(chapter.id)}
@@ -54,7 +54,7 @@ const Chapters = () => {
               </h2>
               <p className="text-base md:text-lg text-dark-600 font-medium">{chapter.nameEn}</p>
               <div className="mt-4 text-sm md:text-base text-dark-500 font-medium">
-                10 مستويات / 10 Levels
+                {chapter.items.length} درس / {chapter.items.length} Lessons
               </div>
             </button>
           ))}

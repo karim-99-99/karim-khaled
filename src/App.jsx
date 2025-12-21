@@ -12,10 +12,13 @@ import ContactPage from './pages/ContactPage';
 
 // Student Pages
 import Home from './pages/Home';
+import Subjects from './pages/Subjects';
+import Categories from './pages/Categories';
 import Chapters from './pages/Chapters';
 import Levels from './pages/Levels';
 import Quiz from './pages/Quiz';
 import Result from './pages/Result';
+import Video from './pages/Video';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/Dashboard';
@@ -47,6 +50,63 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/section/:sectionId/subjects"
+            element={
+              <ProtectedRoute>
+                <Subjects />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/section/:sectionId/subject/:subjectId/categories"
+            element={
+              <ProtectedRoute>
+                <Categories />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapters"
+            element={
+              <ProtectedRoute>
+                <Chapters />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapter/:chapterId/items"
+            element={
+              <ProtectedRoute>
+                <Levels />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapter/:chapterId/item/:itemId/quiz"
+            element={
+              <ProtectedRoute>
+                <Quiz />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapter/:chapterId/item/:itemId/result"
+            element={
+              <ProtectedRoute>
+                <Result />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapter/:chapterId/item/:itemId/video"
+            element={
+              <ProtectedRoute>
+                <Video />
+              </ProtectedRoute>
+            }
+          />
+          {/* Legacy routes for backward compatibility */}
           <Route
             path="/subject/:subjectId/chapters"
             element={

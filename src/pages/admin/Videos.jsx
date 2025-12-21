@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getSubjects, getVideos, getVideoByLevel, addVideo, updateVideo, deleteVideo, getLevelsByChapter } from '../../services/storageService';
+import { getSubjects, getVideos, getVideoByLevel, addVideo, updateVideo, deleteVideo, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory } from '../../services/storageService';
 import { saveVideoFile, getVideoFile, deleteVideoFile } from '../../services/videoStorage';
 import Header from '../../components/Header';
 
@@ -8,6 +8,7 @@ const Videos = () => {
   const navigate = useNavigate();
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('');
   const [videos, setVideos] = useState([]);
@@ -55,6 +56,14 @@ const Videos = () => {
 
   const handleSubjectChange = (subjectId) => {
     setSelectedSubject(subjectId);
+    setSelectedCategory('');
+    setSelectedChapter('');
+    setSelectedLevel('');
+    setVideos([]);
+  };
+
+  const handleCategoryChange = (categoryId) => {
+    setSelectedCategory(categoryId);
     setSelectedChapter('');
     setSelectedLevel('');
     setVideos([]);
@@ -254,7 +263,6 @@ const Videos = () => {
   };
 
   const selectedSubjectObj = subjects.find(s => s.id === selectedSubject);
-  const selectedChapterObj = selectedSubjectObj?.chapters.find(c => c.id === selectedChapter);
   const levels = selectedChapter ? getLevelsByChapter(selectedChapter) : [];
 
   return (
@@ -274,7 +282,7 @@ const Videos = () => {
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                 المادة / Subject
@@ -295,16 +303,35 @@ const Videos = () => {
 
             <div>
               <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                التصنيف / Category
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                disabled={!selectedSubject}
+                className="w-full px-4 py-2 border rounded-lg"
+              >
+                <option value="">اختر التصنيف / Select Category</option>
+                {selectedSubjectObj?.categories?.map(category => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} / {category.nameEn}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                 الفصل / Chapter
               </label>
               <select
                 value={selectedChapter}
                 onChange={(e) => handleChapterChange(e.target.value)}
-                disabled={!selectedSubject}
+                disabled={!selectedCategory}
                 className="w-full px-4 py-2 border rounded-lg"
               >
                 <option value="">اختر الفصل / Select Chapter</option>
-                {selectedSubjectObj?.chapters.map(chapter => (
+                {getChaptersByCategory(selectedCategory).map(chapter => (
                   <option key={chapter.id} value={chapter.id}>
                     {chapter.name} / {chapter.nameEn}
                   </option>

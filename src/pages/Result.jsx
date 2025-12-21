@@ -2,7 +2,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 
 const Result = () => {
-  const { subjectId, chapterId, levelId } = useParams();
+  // Support both new structure and legacy
+  const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -59,10 +60,16 @@ const Result = () => {
 
           <div className="space-y-4">
             <button
-              onClick={() => navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`)}
+              onClick={() => {
+                if (sectionId && categoryId && itemId) {
+                  navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
+                } else {
+                  navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);
+                }
+              }}
               className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition text-lg"
             >
-              العودة للمستويات / Back to Levels
+              العودة للدروس / Back to Lessons
             </button>
             
             <button
