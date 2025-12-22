@@ -94,69 +94,124 @@ const SinglePage = () => {
       {/* الرئيسية Section */}
       <section id="landing" className="min-h-screen bg-white relative overflow-hidden">
         {/* Decorative Background Elements - Using brand colors: E8CCAD, EC802B, EDC55B, 66BCB4 */}
-        {/* Large orange circle - bottom left */}
-        <div className="absolute bottom-0 left-0 w-32 h-32 md:w-48 md:h-48 lg:w-64 lg:h-64 rounded-full opacity-20 hidden md:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
+        {/* Small orange circle - bottom left - visible on mobile */}
+        <div className="absolute bottom-0 left-0 w-20 h-20 md:w-32 md:h-32 rounded-full opacity-15" style={{ zIndex: 0, background: '#EC802B' }}></div>
         
-        {/* Small beige circle - top left */}
-        <div className="absolute top-20 left-8 w-8 h-8 md:w-12 md:h-12 rounded-full opacity-30 hidden lg:block" style={{ zIndex: 0, background: '#E8CCAD' }}></div>
+        {/* Small beige circle - top left - visible on mobile */}
+        <div className="absolute top-20 left-8 w-12 h-12 md:w-18 md:h-18 rounded-full opacity-20" style={{ zIndex: 0, background: '#E8CCAD' }}></div>
         
-        {/* Dotted turquoise square - mid left */}
-        <div className="absolute top-40 left-16 w-16 h-16 md:w-24 md:h-24 opacity-30 hidden lg:block" style={{ zIndex: 0 }}>
+        {/* Small turquoise circle - mid left - visible on mobile */}
+        <div className="absolute top-1/3 left-4 w-16 h-16 md:w-24 md:h-24 rounded-full opacity-15" style={{ zIndex: 0, background: '#66BCB4' }}></div>
+        
+        {/* Small dotted turquoise square - mid left */}
+        <div className="absolute top-40 left-16 w-12 h-12 md:w-18 md:h-18 opacity-20 hidden md:block" style={{ zIndex: 0 }}>
           <svg width="100%" height="100%">
             <defs>
-              <pattern id="dots-square-turquoise" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
-                <circle cx="4" cy="4" r="1.5" fill="#66BCB4" />
+              <pattern id="dots-square-turquoise" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
+                <circle cx="3" cy="3" r="1" fill="#66BCB4" />
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#dots-square-turquoise)" />
           </svg>
         </div>
         
-        {/* Dotted golden yellow triangle outline - below dotted square */}
-        <div className="absolute top-56 left-20 w-12 h-12 md:w-16 md:h-16 opacity-25 hidden lg:block" style={{ zIndex: 0 }}>
+        {/* Small dotted golden yellow triangle - below dotted square */}
+        <div className="absolute top-56 left-20 w-10 h-10 md:w-14 md:h-14 opacity-20 hidden md:block" style={{ zIndex: 0 }}>
           <svg width="100%" height="100%">
-            <polygon points="50,10 90,90 10,90" stroke="#EDC55B" strokeWidth="2" fill="none" strokeDasharray="3,3" />
+            <polygon points="50,10 90,90 10,90" stroke="#EDC55B" strokeWidth="1.5" fill="none" strokeDasharray="2,2" />
           </svg>
         </div>
         
-        {/* Small orange circle - top right */}
-        <div className="absolute top-12 right-12 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-40 hidden lg:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
+        {/* Additional small triangle - mid left */}
+        <div className="absolute top-2/3 left-12 w-8 h-8 md:w-12 md:h-12 opacity-15 hidden md:block" style={{ zIndex: 0 }}>
+          <svg width="100%" height="100%">
+            <polygon points="50,5 95,95 5,95" stroke="#E8CCAD" strokeWidth="1.5" fill="none" strokeDasharray="3,3" />
+          </svg>
+        </div>
         
-        {/* Golden yellow pie chart segment - top right near logo */}
-        <div className="absolute top-8 right-24 w-12 h-12 md:w-16 md:h-16 opacity-30 hidden lg:block" style={{ zIndex: 0 }}>
+        {/* Small orange circles - top right - visible on mobile */}
+        <div className="absolute top-12 right-12 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-25" style={{ zIndex: 0, background: '#EC802B' }}></div>
+        <div className="absolute top-24 right-24 w-5 h-5 md:w-7 md:h-7 rounded-full opacity-20 hidden md:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
+        
+        {/* Small golden yellow pie chart segment - top right */}
+        <div className="absolute top-8 right-24 w-10 h-10 md:w-14 md:h-14 opacity-25 hidden md:block" style={{ zIndex: 0 }}>
           <svg width="100%" height="100%" viewBox="0 0 100 100">
-            <path d="M 50,50 L 50,10 A 40,40 0 0,1 90,50 Z" fill="#EDC55B" opacity="0.6" />
+            <path d="M 50,50 L 50,20 A 30,30 0 0,1 80,50 Z" fill="#EDC55B" opacity="0.5" />
           </svg>
         </div>
         
-        {/* Small turquoise circle - mid right */}
-        <div className="absolute top-1/3 right-16 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-35 hidden lg:block" style={{ zIndex: 0, background: '#66BCB4' }}></div>
-        
-        {/* Beige square with wavy pattern - bottom right */}
-        <div className="absolute bottom-20 right-12 w-16 h-16 md:w-24 md:h-24 opacity-25 hidden lg:block" style={{ zIndex: 0 }}>
+        {/* Additional small pie segment - mid right */}
+        <div className="absolute top-1/2 right-20 w-8 h-8 md:w-12 md:h-12 opacity-15 hidden md:block" style={{ zIndex: 0 }}>
           <svg width="100%" height="100%" viewBox="0 0 100 100">
-            <rect width="80" height="80" x="10" y="10" fill="#E8CCAD" opacity="0.3" />
-            <path d="M 20,50 Q 30,30 40,50 T 60,50 T 80,50" stroke="#EC802B" strokeWidth="2" fill="none" />
+            <path d="M 50,50 L 50,25 A 25,25 0 0,1 75,50 Z" fill="#EDC55B" opacity="0.4" />
           </svg>
         </div>
         
-        {/* Small X shape - bottom left (dark gray) */}
-        <div className="absolute bottom-32 left-12 w-8 h-8 md:w-10 md:h-10 opacity-20 hidden lg:block" style={{ zIndex: 0 }}>
+        {/* Small turquoise circles - mid right */}
+        <div className="absolute top-1/3 right-16 w-7 h-7 md:w-10 md:h-10 rounded-full opacity-20 hidden md:block" style={{ zIndex: 0, background: '#66BCB4' }}></div>
+        <div className="absolute top-2/3 right-12 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-25 hidden md:block" style={{ zIndex: 0, background: '#66BCB4' }}></div>
+        
+        {/* Small turquoise circle - bottom right */}
+        <div className="absolute bottom-16 right-8 w-14 h-14 md:w-24 md:h-24 rounded-full opacity-12 hidden md:block" style={{ zIndex: 0, background: '#66BCB4' }}></div>
+        
+        {/* Small beige square with wavy pattern - bottom right */}
+        <div className="absolute bottom-20 right-12 w-12 h-12 md:w-18 md:h-18 opacity-20 hidden md:block" style={{ zIndex: 0 }}>
+          <svg width="100%" height="100%" viewBox="0 0 100 100">
+            <rect width="60" height="60" x="20" y="20" fill="#E8CCAD" opacity="0.3" />
+            <path d="M 25,50 Q 30,35 40,50 T 55,50 T 75,50" stroke="#EC802B" strokeWidth="1.5" fill="none" />
+          </svg>
+        </div>
+        
+        {/* Small wavy square - top center */}
+        <div className="absolute top-40 left-1/2 w-10 h-10 md:w-16 md:h-16 opacity-15 hidden md:block transform -translate-x-1/2" style={{ zIndex: 0 }}>
+          <svg width="100%" height="100%" viewBox="0 0 100 100">
+            <rect width="60" height="60" x="20" y="20" fill="#E8CCAD" opacity="0.3" />
+            <path d="M 25,50 Q 35,35 45,50 T 65,50 T 85,50" stroke="#66BCB4" strokeWidth="1.5" fill="none" />
+          </svg>
+        </div>
+        
+        {/* Small X shapes - decorative */}
+        <div className="absolute bottom-32 left-12 w-6 h-6 md:w-8 md:h-8 opacity-15 hidden md:block" style={{ zIndex: 0 }}>
           <svg width="100%" height="100%" viewBox="0 0 24 24">
-            <line x1="4" y1="4" x2="20" y2="20" stroke="#3D3D3D" strokeWidth="2" />
-            <line x1="20" y1="4" x2="4" y2="20" stroke="#3D3D3D" strokeWidth="2" />
+            <line x1="4" y1="4" x2="20" y2="20" stroke="#3D3D3D" strokeWidth="1.5" />
+            <line x1="20" y1="4" x2="4" y2="20" stroke="#3D3D3D" strokeWidth="1.5" />
           </svg>
         </div>
         
-        {/* Additional decorative elements with brand colors */}
-        {/* Golden yellow circle - mid left */}
-        <div className="absolute top-1/2 left-20 w-10 h-10 md:w-14 md:h-14 rounded-full opacity-25 hidden lg:block" style={{ zIndex: 0, background: '#EDC55B' }}></div>
+        <div className="absolute top-1/4 right-1/4 w-5 h-5 md:w-7 md:h-7 opacity-12 hidden md:block" style={{ zIndex: 0 }}>
+          <svg width="100%" height="100%" viewBox="0 0 24 24">
+            <line x1="4" y1="4" x2="20" y2="20" stroke="#EC802B" strokeWidth="1.5" />
+            <line x1="20" y1="4" x2="4" y2="20" stroke="#EC802B" strokeWidth="1.5" />
+          </svg>
+        </div>
         
-        {/* Orange small circle - bottom center */}
-        <div className="absolute bottom-40 left-1/2 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-30 hidden lg:block transform -translate-x-1/2" style={{ zIndex: 0, background: '#EC802B' }}></div>
+        {/* Small golden yellow circles - mid left */}
+        <div className="absolute top-1/2 left-20 w-9 h-9 md:w-14 md:h-14 rounded-full opacity-15 hidden md:block" style={{ zIndex: 0, background: '#EDC55B' }}></div>
+        <div className="absolute top-3/4 left-16 w-7 h-7 md:w-10 md:h-10 rounded-full opacity-20 hidden md:block" style={{ zIndex: 0, background: '#EDC55B' }}></div>
         
-        {/* Turquoise circle - top center */}
-        <div className="absolute top-32 left-1/2 w-8 h-8 md:w-10 md:h-10 rounded-full opacity-25 hidden lg:block transform -translate-x-1/2" style={{ zIndex: 0, background: '#66BCB4' }}></div>
+        {/* Small orange circles - bottom center and scattered */}
+        <div className="absolute bottom-40 left-1/2 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-20 hidden md:block transform -translate-x-1/2" style={{ zIndex: 0, background: '#EC802B' }}></div>
+        <div className="absolute bottom-60 left-1/4 w-5 h-5 md:w-7 md:h-7 rounded-full opacity-25 hidden md:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
+        <div className="absolute bottom-80 right-1/4 w-5 h-5 md:w-8 md:h-8 rounded-full opacity-20 hidden md:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
+        
+        {/* Small turquoise circles - top center and scattered */}
+        <div className="absolute top-32 left-1/2 w-8 h-8 md:w-12 md:h-12 rounded-full opacity-15 hidden md:block transform -translate-x-1/2" style={{ zIndex: 0, background: '#66BCB4' }}></div>
+        <div className="absolute top-48 right-1/3 w-7 h-7 md:w-10 md:h-10 rounded-full opacity-20 hidden md:block" style={{ zIndex: 0, background: '#66BCB4' }}></div>
+        <div className="absolute top-64 left-1/3 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-25 hidden md:block" style={{ zIndex: 0, background: '#66BCB4' }}></div>
+        
+        {/* Small hexagon shape - decorative */}
+        <div className="absolute top-1/3 left-1/4 w-8 h-8 md:w-12 md:h-12 opacity-15 hidden md:block" style={{ zIndex: 0 }}>
+          <svg width="100%" height="100%" viewBox="0 0 100 100">
+            <polygon points="50,5 90,27.5 90,72.5 50,95 10,72.5 10,27.5" stroke="#EDC55B" strokeWidth="1.5" fill="none" strokeDasharray="2,2" />
+          </svg>
+        </div>
+        
+        {/* Small star shape - decorative */}
+        <div className="absolute bottom-1/4 right-1/3 w-7 h-7 md:w-10 md:h-10 opacity-15 hidden md:block" style={{ zIndex: 0 }}>
+          <svg width="100%" height="100%" viewBox="0 0 100 100">
+            <polygon points="50,5 61,35 95,35 68,57 79,91 50,70 21,91 32,57 5,35 39,35" stroke="#EC802B" strokeWidth="1.5" fill="none" />
+          </svg>
+        </div>
         
         <div className="relative py-16 md:py-24" style={{ zIndex: 1 }}>
           <div className="relative max-w-7xl mx-auto px-4 z-10">
