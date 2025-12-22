@@ -2,7 +2,9 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSubjects, getQuestions, getQuestionsByLevel, addQuestion, updateQuestion, deleteQuestion, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory } from '../../services/storageService';
 import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
 import Header from '../../components/Header';
+import { isArabicBrowser } from '../../utils/language';
 
 const Questions = () => {
   const navigate = useNavigate();
@@ -86,7 +88,7 @@ const Questions = () => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert('حجم الصورة كبير جداً. الحد الأقصى 5 ميجابايت / Image size too large. Maximum 5MB');
+        alert(isArabicBrowser() ? 'حجم الصورة كبير جداً. الحد الأقصى 5 ميجابايت' : 'Image size too large. Maximum 5MB');
         return;
       }
       
@@ -144,6 +146,13 @@ const Questions = () => {
       imageInputRef.current.value = '';
     }
     setShowForm(true);
+    // Force focus after modal opens
+    setTimeout(() => {
+      const quillEditor = document.querySelector('.ql-editor');
+      if (quillEditor) {
+        quillEditor.focus();
+      }
+    }, 100);
   };
 
   const handleEdit = (question) => {
@@ -173,7 +182,7 @@ const Questions = () => {
   };
 
   const handleDelete = (questionId) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا السؤال؟ / Are you sure?')) {
+    if (window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا السؤال؟' : 'Are you sure?')) {
       deleteQuestion(questionId);
       setQuestions(getQuestionsByLevel(selectedLevel));
     }
@@ -197,7 +206,7 @@ const Questions = () => {
     e.preventDefault();
 
     if (!selectedLevel) {
-      alert('يرجى اختيار المستوى أولاً / Please select a level first');
+      alert(isArabicBrowser() ? 'يرجى اختيار المستوى أولاً' : 'Please select a level first');
       return;
     }
 
@@ -241,12 +250,12 @@ const Questions = () => {
       <div className="py-8 px-4">
         <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-center">
-          <h1 className="text-2xl md:text-3xl font-bold text-dark-600">إدارة الأسئلة / Manage Questions</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-dark-600">{isArabicBrowser() ? 'إدارة الأسئلة' : 'Manage Questions'}</h1>
           <button
             onClick={() => navigate('/admin/dashboard')}
             className="bg-dark-600 text-white px-4 py-2 rounded-lg hover:bg-dark-700 transition font-medium"
           >
-            ← رجوع / Back
+            ← {isArabicBrowser() ? 'رجوع' : 'Back'}
           </button>
         </div>
 
@@ -265,7 +274,7 @@ const Questions = () => {
                 <option value="">اختر المادة / Select Subject</option>
                 {subjects.map(subject => (
                   <option key={subject.id} value={subject.id}>
-                    {subject.name} / {subject.nameEn}
+                    {subject.name}
                   </option>
                 ))}
               </select>
@@ -284,7 +293,7 @@ const Questions = () => {
                 <option value="">اختر التصنيف / Select Category</option>
                 {selectedSubjectObj?.categories?.map(category => (
                   <option key={category.id} value={category.id}>
-                    {category.name} / {category.nameEn}
+                    {category.name}
                   </option>
                 ))}
               </select>
@@ -303,7 +312,7 @@ const Questions = () => {
                 <option value="">اختر الفصل / Select Chapter</option>
                 {getChaptersByCategory(selectedCategory).map(chapter => (
                   <option key={chapter.id} value={chapter.id}>
-                    {chapter.name} / {chapter.nameEn}
+                    {chapter.name}
                   </option>
                 ))}
               </select>
@@ -322,7 +331,7 @@ const Questions = () => {
                 <option value="">اختر المستوى / Select Level</option>
                 {levels.map(level => (
                   <option key={level.id} value={level.id}>
-                    {level.name} / {level.nameEn}
+                    {level.name}
                   </option>
                 ))}
               </select>
@@ -334,14 +343,14 @@ const Questions = () => {
         {selectedLevel && (
           <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
-              <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
-                الأسئلة ({questions.length}) / Questions ({questions.length})
+                <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
+                {isArabicBrowser() ? 'الأسئلة' : 'Questions'} ({questions.length})
               </h2>
               <button
                 onClick={handleAddNew}
                 className="bg-primary-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-primary-600 transition font-medium text-sm sm:text-base w-full sm:w-auto"
               >
-                + إضافة سؤال جديد / Add Question
+                + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add Question'}
               </button>
             </div>
 
@@ -373,13 +382,13 @@ const Questions = () => {
                         onClick={() => handleEdit(question)}
                         className="flex-1 sm:flex-none bg-yellow-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-yellow-600 text-sm sm:text-base transition"
                       >
-                        تعديل / Edit
+                        {isArabicBrowser() ? 'تعديل' : 'Edit'}
                       </button>
                       <button
                         onClick={() => handleDelete(question.id)}
                         className="flex-1 sm:flex-none bg-red-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-red-600 text-sm sm:text-base transition"
                       >
-                        حذف / Delete
+                        {isArabicBrowser() ? 'حذف' : 'Delete'}
                       </button>
                     </div>
                   </div>
@@ -427,8 +436,12 @@ const Questions = () => {
 
         {/* Add/Edit Form Modal */}
         {showForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-2xl lg:max-w-4xl w-full max-h-[95vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4" onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowForm(false);
+            }
+          }}>
+            <div className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-2xl lg:max-w-4xl w-full max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">
                   {editingQuestion ? 'تعديل سؤال / Edit Question' : 'إضافة سؤال جديد / Add Question'}
@@ -439,7 +452,7 @@ const Questions = () => {
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                       السؤال (عربي) / Question (Arabic)
                     </label>
-                    <div className="bg-white">
+                    <div className="bg-white" style={{ pointerEvents: 'auto' }}>
                       <ReactQuill
                         theme="snow"
                         value={formData.question}
@@ -447,7 +460,8 @@ const Questions = () => {
                         modules={quillModules}
                         placeholder="اكتب السؤال هنا... / Write question here..."
                         className="bg-white"
-                        style={{ height: '200px', marginBottom: '50px' }}
+                        style={{ height: '200px', marginBottom: '50px', pointerEvents: 'auto' }}
+                        readOnly={false}
                       />
                     </div>
                   </div>
@@ -456,7 +470,7 @@ const Questions = () => {
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                       السؤال (إنجليزي) / Question (English) - Optional
                     </label>
-                    <div className="bg-white">
+                    <div className="bg-white" style={{ pointerEvents: 'auto' }}>
                       <ReactQuill
                         theme="snow"
                         value={formData.questionEn}
@@ -464,7 +478,8 @@ const Questions = () => {
                         modules={quillModules}
                         placeholder="Write question in English..."
                         className="bg-white"
-                        style={{ height: '200px', marginBottom: '50px' }}
+                        style={{ height: '200px', marginBottom: '50px', pointerEvents: 'auto' }}
+                        readOnly={false}
                       />
                     </div>
                   </div>
@@ -570,14 +585,20 @@ const Questions = () => {
                             onChange={(e) => handleAnswerChange(index, 'text', e.target.value)}
                             placeholder="الإجابة (عربي) / Answer (Arabic)"
                             required
-                            className="flex-1 px-3 py-2 border rounded"
+                            disabled={false}
+                            readOnly={false}
+                            className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            style={{ pointerEvents: 'auto' }}
                           />
                           <input
                             type="text"
                             value={answer.textEn}
                             onChange={(e) => handleAnswerChange(index, 'textEn', e.target.value)}
                             placeholder="Answer (English)"
-                            className="flex-1 px-3 py-2 border rounded"
+                            disabled={false}
+                            readOnly={false}
+                            className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
+                            style={{ pointerEvents: 'auto' }}
                           />
                         </div>
                       </div>
@@ -589,14 +610,14 @@ const Questions = () => {
                         type="submit"
                         className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition font-medium"
                       >
-                        حفظ / Save
+                        {isArabicBrowser() ? 'حفظ' : 'Save'}
                       </button>
                     <button
                       type="button"
                       onClick={() => setShowForm(false)}
                       className="flex-1 bg-gray-400 text-white py-2 rounded-lg hover:bg-gray-500 transition"
                     >
-                      إلغاء / Cancel
+                      {isArabicBrowser() ? 'إلغاء' : 'Cancel'}
                     </button>
                   </div>
                 </form>

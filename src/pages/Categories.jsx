@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { getSubjectById } from '../services/storageService';
 import Header from '../components/Header';
+import { isArabicBrowser } from '../utils/language';
 
 const Categories = () => {
   const { sectionId, subjectId } = useParams();
@@ -10,10 +11,12 @@ const Categories = () => {
   if (!subject) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-2xl text-gray-600">المادة غير موجودة / Subject not found</p>
+        <p className="text-2xl text-gray-600">المادة غير موجودة - Subject ID: {subjectId}</p>
       </div>
     );
   }
+
+  const categories = subject.categories || [];
 
   const handleCategoryClick = (categoryId) => {
     navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`);
@@ -29,39 +32,50 @@ const Categories = () => {
             onClick={() => navigate(`/section/${sectionId}/subjects`)}
             className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
           >
-            ← رجوع / Back
+            ← رجوع
           </button>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
-            {subject.name} / {subject.nameEn}
+            {subject.name}
           </h1>
-          <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">اختر التصنيف / Choose Category</p>
+          <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">اختر التصنيف</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-          {subject.categories.map((category) => (
+        {categories.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-xl text-gray-600">لا توجد تصنيفات متاحة</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {categories.map((category) => (
             <button
               key={category.id}
               onClick={() => handleCategoryClick(category.id)}
-              className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 p-8 text-center"
+              className="bg-accent-100 border-2 border-accent-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-center relative"
             >
               <div className="text-5xl md:text-6xl mb-4">
                 {category.hasTests ? '📚' : '🎥'}
               </div>
-              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-600 mb-2">
+              {!category.hasTests && (
+                <div className="absolute top-4 left-4 bg-pink-200 text-dark-700 px-3 py-1 rounded-full text-sm font-semibold">
+                  مجانا
+                </div>
+              )}
+              <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-900 mb-2">
                 {category.name}
               </h2>
-              <p className="text-lg md:text-xl text-dark-600 font-medium">{category.nameEn}</p>
-              <div className="mt-4 text-sm md:text-base text-dark-500 font-medium">
-                {category.chapters.length} فصول / {category.chapters.length} Chapters
+              
+              <div className="mt-4 text-sm md:text-base text-dark-600 font-medium">
+                {category.chapters.length} فصول
               </div>
               {!category.hasTests && (
-                <div className="mt-2 text-xs md:text-sm text-orange-600 font-medium">
-                  فيديوهات فقط / Videos Only
+                <div className="mt-2 text-xs md:text-sm text-primary-600 font-medium">
+                  فيديوهات فقط
                 </div>
               )}
             </button>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         </div>
       </div>
     </div>

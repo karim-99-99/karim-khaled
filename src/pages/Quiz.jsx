@@ -5,6 +5,7 @@ import { getVideoFile } from '../services/videoStorage';
 import VideoModal from '../components/VideoModal';
 import ProgressBar from '../components/ProgressBar';
 import Header from '../components/Header';
+import { isArabicBrowser } from '../utils/language';
 
 const Quiz = () => {
   // Support both new structure (with sectionId, categoryId, itemId) and legacy (levelId)
@@ -175,7 +176,7 @@ const Quiz = () => {
   if (questions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg md:text-xl lg:text-2xl text-dark-600 font-medium">جاري التحميل... / Loading...</p>
+        <p className="text-lg md:text-xl lg:text-2xl text-dark-600 font-medium">جاري التحميل...</p>
       </div>
     );
   }
@@ -191,25 +192,25 @@ const Quiz = () => {
             onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`)}
             className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
           >
-            ← رجوع / Back
+            ← رجوع
           </button>
           
           <div className="bg-white rounded-xl shadow-lg p-6 mb-4 border-t-4 border-primary-500">
             <div className="flex justify-between items-center mb-4">
               <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
-                {level?.name || 'المستوى'} / {level?.nameEn || 'Level'}
+                {level?.name || 'المستوى'}
               </h1>
               <button
                 onClick={() => setShowVideo(true)}
                 className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition flex items-center gap-2"
               >
-                🎥 مشاهدة الفيديو / Watch Video
+                🎥 {isArabicBrowser() ? 'مشاهدة الفيديو' : ' '}
               </button>
             </div>
             <ProgressBar
               current={currentIndex + 1}
               total={questions.length}
-              label={`السؤال / Question`}
+              label={isArabicBrowser() ? 'السؤال' : ''}
             />
           </div>
         </div>
@@ -228,12 +229,12 @@ const Quiz = () => {
               </div>
             )}
             <p className="text-xs md:text-sm text-dark-500 mb-2 font-medium">
-              السؤال {currentIndex + 1} من {questions.length} / Question {currentIndex + 1} of {questions.length}
+              السؤال {currentIndex + 1} من {questions.length}
             </p>
             <div className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600 mb-2 leading-relaxed">
               <div dangerouslySetInnerHTML={{ __html: currentQuestion?.question || '' }} />
             </div>
-            {currentQuestion?.questionEn && (
+            {!isArabicBrowser() && currentQuestion?.questionEn && (
               <div className="text-base md:text-lg text-dark-600 font-medium" dangerouslySetInnerHTML={{ __html: currentQuestion.questionEn }} />
             )}
           </div>
@@ -252,7 +253,7 @@ const Quiz = () => {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-base md:text-lg">{answer.text}</span>
-                  {answer.textEn && (
+                  {!isArabicBrowser() && answer.textEn && (
                     <span className="text-xs md:text-sm opacity-75">{answer.textEn}</span>
                   )}
                 </div>
@@ -274,7 +275,7 @@ const Quiz = () => {
             disabled={currentIndex === 0}
             className="bg-gray-400 text-white px-6 py-3 rounded-lg hover:bg-gray-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            ← السابق / Previous
+            ← {isArabicBrowser() ? 'السابق' : ''}
           </button>
 
           {showResult && (
@@ -283,8 +284,8 @@ const Quiz = () => {
             className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition font-medium"
           >
               {currentIndex < questions.length - 1
-                ? 'التالي / Next →'
-                : 'إنهاء الاختبار / Finish Quiz'}
+                ? (isArabicBrowser() ? 'التالي →' : ' ')
+                : (isArabicBrowser() ? 'إنهاء الاختبار' : ' ')}
             </button>
           )}
         </div>

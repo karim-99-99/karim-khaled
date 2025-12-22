@@ -10,7 +10,7 @@ const ContactPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    alert('شكراً لك! سيتم الرد عليك قريباً / Thank you! We will get back to you soon.');
+    alert('شكراً لك! سيتم الرد عليك قريباً ');
     setFormData({ name: '', email: '', message: '' });
   };
 
@@ -21,10 +21,10 @@ const ContactPage = () => {
       <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
         <div className="text-center mb-8 md:mb-12">
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-3 md:mb-4 leading-tight">
-            تواصل معنا / Contact Us
+            تواصل معنا 
           </h1>
           <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">
-            نحن هنا لمساعدتك / We are here to help you
+            نحن هنا لمساعدتك 
           </p>
         </div>
 
@@ -32,12 +32,12 @@ const ContactPage = () => {
           {/* Contact Form */}
           <div className="bg-white rounded-lg shadow-lg p-6 md:p-8">
             <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-600 mb-4 md:mb-6">
-              أرسل لنا رسالة / Send Us a Message
+              أرسل لنا رسالة 
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
             <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-              الاسم / Name
+              الاسم 
             </label>
                 <input
                   type="text"
@@ -49,7 +49,7 @@ const ContactPage = () => {
               </div>
               <div>
             <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-              البريد الإلكتروني / Email
+              البريد الإلكتروني 
             </label>
                 <input
                   type="email"
@@ -61,7 +61,7 @@ const ContactPage = () => {
               </div>
               <div>
             <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-              الرسالة / Message
+              الرسالة 
             </label>
                 <textarea
                   value={formData.message}
@@ -75,7 +75,7 @@ const ContactPage = () => {
                 type="submit"
                 className="w-full px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg font-semibold transition-colors"
               >
-                إرسال / Send
+                إرسال 
               </button>
             </form>
           </div>
@@ -87,7 +87,7 @@ const ContactPage = () => {
                 <div className="text-3xl">📧</div>
                 <div>
                   <h3 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600 mb-2">
-                    البريد الإلكتروني / Email
+                    البريد الإلكتروني 
                   </h3>
                   <p className="text-base md:text-lg text-dark-600 font-medium">info@educationsystem.com</p>
                 </div>
@@ -99,7 +99,7 @@ const ContactPage = () => {
                 <div className="text-2xl md:text-3xl">📱</div>
                 <div>
                   <h3 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600 mb-2">
-                    الهاتف / Phone
+                    الهاتف 
                   </h3>
                   <p className="text-base md:text-lg text-dark-600 font-medium">+966 50 123 4567</p>
                 </div>
@@ -111,23 +111,13 @@ const ContactPage = () => {
                 <div className="text-2xl md:text-3xl">📍</div>
                 <div>
                   <h3 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600 mb-2">
-                    العنوان / Address
+                    العنوان 
                   </h3>
                   <p className="text-base md:text-lg text-dark-600 font-medium">
-                    المملكة العربية السعودية / Kingdom of Saudi Arabia
+                    المملكة العربية السعودية 
                   </p>
                 </div>
               </div>
-            </div>
-
-            <div className="bg-primary-50 rounded-lg p-5 md:p-6 border-r-4 border-primary-500">
-              <h3 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600 mb-2">
-                ساعات العمل / Working Hours
-              </h3>
-              <p className="text-base md:text-lg text-dark-600 font-medium">
-                الأحد - الخميس: 9 ص - 5 م<br />
-                Sunday - Thursday: 9 AM - 5 PM
-              </p>
             </div>
           </div>
         </div>

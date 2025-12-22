@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getSubjects, getVideos, getVideoByLevel, addVideo, updateVideo, deleteVideo, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory } from '../../services/storageService';
 import { saveVideoFile, getVideoFile, deleteVideoFile } from '../../services/videoStorage';
 import Header from '../../components/Header';
+import { isArabicBrowser } from '../../utils/language';
 
 const Videos = () => {
   const navigate = useNavigate();
@@ -295,7 +296,7 @@ const Videos = () => {
                 <option value="">اختر المادة / Select Subject</option>
                 {subjects.map(subject => (
                   <option key={subject.id} value={subject.id}>
-                    {subject.name} / {subject.nameEn}
+                    {subject.name}
                   </option>
                 ))}
               </select>
@@ -314,7 +315,7 @@ const Videos = () => {
                 <option value="">اختر التصنيف / Select Category</option>
                 {selectedSubjectObj?.categories?.map(category => (
                   <option key={category.id} value={category.id}>
-                    {category.name} / {category.nameEn}
+                    {category.name}
                   </option>
                 ))}
               </select>
@@ -333,7 +334,7 @@ const Videos = () => {
                 <option value="">اختر الفصل / Select Chapter</option>
                 {getChaptersByCategory(selectedCategory).map(chapter => (
                   <option key={chapter.id} value={chapter.id}>
-                    {chapter.name} / {chapter.nameEn}
+                    {chapter.name}
                   </option>
                 ))}
               </select>
@@ -352,7 +353,7 @@ const Videos = () => {
                 <option value="">اختر المستوى / Select Level</option>
                 {levels.map(level => (
                   <option key={level.id} value={level.id}>
-                    {level.name} / {level.nameEn}
+                    {level.name}
                   </option>
                 ))}
               </select>

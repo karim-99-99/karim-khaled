@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getVideoByLevel, getItemById } from '../services/storageService';
 import { getVideoFile } from '../services/videoStorage';
 import Header from '../components/Header';
+import { isArabicBrowser } from '../utils/language';
 
 const Video = () => {
   const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } = useParams();
@@ -67,7 +68,7 @@ const Video = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-lg md:text-xl lg:text-2xl text-dark-600 font-medium">جاري التحميل... / Loading...</p>
+        <p className="text-lg md:text-xl lg:text-2xl text-dark-600 font-medium">جاري التحميل...</p>
       </div>
     );
   }
@@ -82,10 +83,10 @@ const Video = () => {
               onClick={handleBack}
               className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
             >
-              ← رجوع / Back
+              ← رجوع
             </button>
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
-              <p className="text-xl text-gray-600">لا يوجد فيديو متاح / No video available</p>
+              <p className="text-xl text-gray-600">{isArabicBrowser() ? 'لا يوجد فيديو متاح' : 'No video available'}</p>
             </div>
           </div>
         </div>
@@ -107,13 +108,15 @@ const Video = () => {
           
           <div className="bg-white rounded-2xl shadow-lg p-8">
             <h1 className="text-2xl md:text-3xl font-bold text-dark-600 mb-4 text-center">
-              {video.title || item?.name || 'فيديو تعليمي'} / {video.titleEn || item?.nameEn || 'Educational Video'}
+              {isArabicBrowser() 
+                ? (video.title || item?.name || 'فيديو تعليمي')
+                : (video.titleEn || item?.nameEn || 'Educational Video')}
             </h1>
             
             <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-white font-medium">جاري تحميل الفيديو... / Loading video...</p>
+                  <p className="text-white font-medium">{isArabicBrowser() ? 'جاري تحميل الفيديو...' : 'Loading video...'}</p>
                 </div>
               ) : actualVideoUrl && (actualVideoUrl.includes('youtube.com') || actualVideoUrl.includes('youtu.be')) ? (
                 <iframe
@@ -130,11 +133,11 @@ const Video = () => {
                   className="w-full h-full"
                   autoPlay={false}
                 >
-                  متصفحك لا يدعم تشغيل الفيديو / Your browser does not support video playback
+                  {isArabicBrowser() ? 'متصفحك لا يدعم تشغيل الفيديو' : 'Your browser does not support video playback'}
                 </video>
               ) : (
                 <div className="flex items-center justify-center h-full">
-                  <p className="text-white font-medium">لا يوجد فيديو متاح / No video available</p>
+                  <p className="text-white font-medium">{isArabicBrowser() ? 'لا يوجد فيديو متاح' : 'No video available'}</p>
                 </div>
               )}
             </div>

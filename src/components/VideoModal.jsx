@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getVideoFile } from '../services/videoStorage';
+import { isArabicBrowser } from '../utils/language';
 
 const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليمي' }) => {
   const [actualVideoUrl, setActualVideoUrl] = useState(null);
@@ -70,7 +71,7 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
           <div className="aspect-video w-full">
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-dark-600 font-medium">جاري تحميل الفيديو... / Loading video...</p>
+                <p className="text-dark-600 font-medium">{isArabicBrowser() ? 'جاري تحميل الفيديو...' : 'Loading video...'}</p>
               </div>
             ) : actualVideoUrl && (actualVideoUrl.includes('youtube.com') || actualVideoUrl.includes('youtu.be')) ? (
               <iframe
@@ -86,11 +87,11 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
                 className="w-full h-full rounded"
                 autoPlay={false}
               >
-                متصفحك لا يدعم تشغيل الفيديو / Your browser does not support video playback
+                {isArabicBrowser() ? 'متصفحك لا يدعم تشغيل الفيديو' : 'Your browser does not support video playback'}
               </video>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-dark-600 font-medium">لا يوجد فيديو متاح / No video available</p>
+                <p className="text-dark-600 font-medium">{isArabicBrowser() ? 'لا يوجد فيديو متاح' : 'No video available'}</p>
               </div>
             )}
           </div>

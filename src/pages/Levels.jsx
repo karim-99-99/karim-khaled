@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getItemsByChapter, getLevelProgress, getCurrentUser, getChapterById } from '../services/storageService';
+import { getItemsByChapter, getLevelProgress, getCurrentUser, getChapterById, updateItemName } from '../services/storageService';
 import Header from '../components/Header';
+import { isArabicBrowser } from '../utils/language';
 
 const Levels = () => {
   const { sectionId, subjectId, categoryId, chapterId } = useParams();
@@ -8,12 +10,37 @@ const Levels = () => {
   const chapter = getChapterById(chapterId);
   const items = chapter ? chapter.items : [];
   const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
+  const [editingItem, setEditingItem] = useState(null);
+  const [editName, setEditName] = useState('');
 
 
   const getItemStatus = (itemId) => {
     if (!currentUser) return 'locked';
     const progress = getLevelProgress(currentUser.id, itemId);
     return progress ? 'completed' : 'available';
+  };
+
+  const handleEditClick = (item, e) => {
+    e.stopPropagation();
+    setEditingItem(item.id);
+    setEditName(item.name);
+  };
+
+  const handleSaveEdit = (itemId, e) => {
+    e.stopPropagation();
+    if (editName.trim()) {
+      updateItemName(itemId, editName.trim());
+      setEditingItem(null);
+      setEditName('');
+      window.location.reload(); // Reload to show changes
+    }
+  };
+
+  const handleCancelEdit = (e) => {
+    e.stopPropagation();
+    setEditingItem(null);
+    setEditName('');
   };
 
   return (
@@ -26,12 +53,12 @@ const Levels = () => {
             onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`)}
             className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
           >
-            ← رجوع / Back
+            ← رجوع
           </button>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
-            {chapter?.name || 'الدروس'} / {chapter?.nameEn || 'Lessons'}
+            {chapter?.name || 'الدروس'}
           </h1>
-          <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">اختر الدرس / Choose Lesson</p>
+          <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">اختر الدرس</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -43,10 +70,26 @@ const Levels = () => {
               <div
                 key={item.id}
                 className={`
-                  relative bg-white rounded-xl shadow-lg p-6
+                  relative bg-secondary-100 border-2 border-secondary-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6
                   ${status === 'locked' ? 'opacity-50' : ''}
                 `}
               >
+                {isAdmin && (
+                  <button
+                    onClick={(e) => editingItem === item.id ? handleSaveEdit(item.id, e) : handleEditClick(item, e)}
+                    className="absolute top-2 left-2 bg-primary-500 hover:bg-primary-600 text-white p-2 rounded-lg text-sm font-medium z-10"
+                  >
+                    {editingItem === item.id ? '💾' : '✏️'}
+                  </button>
+                )}
+                {isAdmin && editingItem === item.id && (
+                  <button
+                    onClick={handleCancelEdit}
+                    className="absolute top-2 left-12 bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg text-sm font-medium z-10"
+                  >
+                    ✕
+                  </button>
+                )}
                 {status === 'completed' && (
                   <div className="absolute top-2 right-2 bg-yellow-500 text-white text-lg md:text-xl w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center shadow-md font-bold">✓</div>
                 )}
@@ -60,10 +103,21 @@ const Levels = () => {
                   <div className="text-3xl md:text-4xl mb-2">
                     📚
                   </div>
-                  <h2 className="text-base md:text-lg lg:text-xl font-bold text-dark-600 mb-1">
-                    {item.name}
-                  </h2>
-                  <p className="text-xs md:text-sm lg:text-base text-dark-500 font-medium">{item.nameEn}</p>
+                  {editingItem === item.id ? (
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-full text-base md:text-lg lg:text-xl font-bold text-dark-900 mb-1 border-2 border-primary-500 rounded px-2 py-1 bg-white"
+                      autoFocus
+                    />
+                  ) : (
+                    <h2 className="text-base md:text-lg lg:text-xl font-bold text-dark-900 mb-1">
+                      {item.name}
+                    </h2>
+                  )}
+                
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -75,7 +129,7 @@ const Levels = () => {
                       ${status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''}
                     `}
                   >
-                    🎥 مشاهدة الفيديو / Watch Video
+                    🎥 {isArabicBrowser() ? 'مشاهدة الفيديو' : ''}
                   </button>
                   
                   {item.hasTest && (
@@ -87,7 +141,7 @@ const Levels = () => {
                         ${status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''}
                       `}
                     >
-                      📝 حل الاختبار / Take Quiz
+                      📝 {isArabicBrowser() ? 'حل الاختبار' : ''}
                     </button>
                   )}
                 </div>

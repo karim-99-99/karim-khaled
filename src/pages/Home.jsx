@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { getSections } from '../services/storageService';
 import { useEffect, useState } from 'react';
 import Header from '../components/Header';
+import { isArabicBrowser } from '../utils/language';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -24,31 +25,29 @@ const Home = () => {
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-3 md:mb-4 leading-tight">
             مرحباً! اختر القسم
           </h1>
-          <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">
-            Welcome! Choose a Section
-          </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
           {sections.map((section) => (
             <button
               key={section.id}
               onClick={() => handleSectionClick(section.id)}
-              className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 p-8"
+              className={`group relative ${
+                section.id === 'section_tahseel' ? 'bg-secondary-100 border-secondary-300' : 'bg-accent-100 border-accent-300'
+              } rounded-xl border-2 p-6 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2`}
             >
               <div className="text-center">
                 <div className="text-5xl md:text-6xl mb-4">
                   {section.id === 'section_tahseel' ? '📚' : '🧠'}
                 </div>
-                <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-600 mb-2">
+                <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-900 mb-2">
                   {section.name}
                 </h2>
-                <p className="text-lg md:text-xl text-dark-600 font-medium">{section.nameEn}</p>
-                <div className="mt-4 text-sm md:text-base text-dark-500 font-medium">
-                  {section.subjects.length} مواد / {section.subjects.length} Subjects
+              
+                <div className="mt-4 text-sm md:text-base text-dark-600 font-medium">
+                  {section.subjects.length} مواد
                 </div>
               </div>
-              <div className="absolute inset-0 rounded-2xl border-4 border-transparent group-hover:border-primary-400 transition"></div>
             </button>
           ))}
         </div>

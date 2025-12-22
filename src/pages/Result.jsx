@@ -1,5 +1,6 @@
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
+import { isArabicBrowser } from '../utils/language';
 
 const Result = () => {
   // Support both new structure and legacy
@@ -16,11 +17,13 @@ const Result = () => {
   };
 
   const getScoreMessage = () => {
-    if (score >= 90) return 'ممتاز! / Excellent!';
-    if (score >= 80) return 'جيد جداً! / Very Good!';
-    if (score >= 60) return 'جيد / Good';
-    if (score >= 50) return 'مقبول / Acceptable';
-    return 'تحتاج للمزيد من الممارسة / Need More Practice';
+    if (isArabicBrowser()) {
+      if (score >= 90) return 'ممتاز!';
+      if (score >= 80) return 'جيد جداً!';
+      if (score >= 60) return 'جيد';
+      if (score >= 50) return 'مقبول';
+      return 'تحتاج للمزيد من الممارسة';
+    } 
   };
 
   const getScoreEmoji = () => {
@@ -48,11 +51,11 @@ const Result = () => {
           <div className="bg-gray-100 rounded-xl p-5 md:p-6 mb-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm md:text-base lg:text-lg text-dark-600 mb-2 font-medium">الإجابات الصحيحة / Correct</p>
+                <p className="text-sm md:text-base lg:text-lg text-dark-600 mb-2 font-medium">{isArabicBrowser() ? 'الإجابات الصحيحة' : ''}</p>
                 <p className="text-xl md:text-2xl lg:text-3xl font-bold text-yellow-500">{correctCount}</p>
               </div>
               <div>
-                <p className="text-sm md:text-base lg:text-lg text-dark-600 mb-2 font-medium">إجمالي الأسئلة / Total</p>
+                <p className="text-sm md:text-base lg:text-lg text-dark-600 mb-2 font-medium">{isArabicBrowser() ? 'إجمالي الأسئلة' : ''}</p>
                 <p className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-600">{totalQuestions}</p>
               </div>
             </div>
@@ -69,14 +72,14 @@ const Result = () => {
               }}
               className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition text-lg"
             >
-              العودة للدروس / Back to Lessons
+              {isArabicBrowser() ? 'العودة للدروس' : ''}
             </button>
             
             <button
               onClick={() => navigate('/home')}
               className="w-full bg-gray-300 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-400 transition text-lg"
             >
-              الصفحة الرئيسية / Home
+              {isArabicBrowser() ? 'الصفحة الرئيسية' : ''}
             </button>
           </div>
         </div>
