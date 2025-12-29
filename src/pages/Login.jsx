@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getUserByEmail, setCurrentUser } from '../services/storageService';
 import Header from '../components/Header';
 import backgroundImage from '../assets/kareem.jpg';
@@ -9,6 +9,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -28,8 +29,13 @@ const Login = () => {
 
     setCurrentUser(user);
     
-    // Navigate to courses page for both admin and student
-    navigate('/courses');
+    // Check if there's a redirect parameter, otherwise go to courses
+    const redirectPath = searchParams.get('redirect');
+    if (redirectPath) {
+      navigate(redirectPath);
+    } else {
+      navigate('/courses');
+    }
   };
 
   return (

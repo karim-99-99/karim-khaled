@@ -76,14 +76,7 @@ const SinglePage = () => {
   };
 
   const handleDiscoverCourses = () => {
-    const user = getCurrentUser();
-    if (!user) {
-      // If not logged in, navigate to login page
-      navigate('/login');
-      return;
-    }
-    
-    // Navigate to unified courses page for both admin and student
+    // Navigate to courses page - accessible without login
     navigate('/courses');
   };
 

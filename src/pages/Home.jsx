@@ -54,7 +54,7 @@ const Home = () => {
       </div>
       
       {/* Small orange circles - scattered */}
-      <div className="absolute top-1/4 left-1/3 w-6 h-6 md:w-8 md:w-8 rounded-full opacity-25 hidden md:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
+      <div className="absolute top-1/4 left-1/3 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-25 hidden md:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
       <div className="absolute bottom-1/3 right-1/4 w-7 h-7 md:w-10 md:h-10 rounded-full opacity-20 hidden md:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
       
       {/* Small beige square with wavy pattern - top center */}

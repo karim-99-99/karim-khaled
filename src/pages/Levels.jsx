@@ -16,9 +16,27 @@ const Levels = () => {
 
 
   const getItemStatus = (itemId) => {
-    if (!currentUser) return 'locked';
+    if (!currentUser) return 'available'; // Allow viewing for non-authenticated users
     const progress = getLevelProgress(currentUser.id, itemId);
     return progress ? 'completed' : 'available';
+  };
+
+  const handleVideoClick = (itemId) => {
+    if (!currentUser) {
+      // Redirect to login with return path
+      navigate(`/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`);
+      return;
+    }
+    navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`);
+  };
+
+  const handleQuizClick = (itemId) => {
+    if (!currentUser) {
+      // Redirect to login with return path
+      navigate(`/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`);
+      return;
+    }
+    navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`);
   };
 
   const handleEditClick = (item, e) => {
@@ -71,7 +89,6 @@ const Levels = () => {
                 key={item.id}
                 className={`
                   relative bg-secondary-100 border-2 border-secondary-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6
-                  ${status === 'locked' ? 'opacity-50' : ''}
                 `}
               >
                 {isAdmin && (
@@ -122,24 +139,16 @@ const Levels = () => {
 
                 <div className="flex flex-col gap-2">
                   <button
-                    onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${item.id}/video`)}
-                    disabled={status === 'locked'}
-                    className={`
-                      bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2
-                      ${status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''}
-                    `}
+                    onClick={() => handleVideoClick(item.id)}
+                    className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2"
                   >
                     🎥 {isArabicBrowser() ? 'مشاهدة الفيديو' : ''}
                   </button>
                   
                   {item.hasTest && (
                     <button
-                      onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${item.id}/quiz`)}
-                      disabled={status === 'locked'}
-                      className={`
-                        bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2
-                        ${status === 'locked' ? 'opacity-50 cursor-not-allowed' : ''}
-                      `}
+                      onClick={() => handleQuizClick(item.id)}
+                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
                     >
                       📝 {isArabicBrowser() ? 'حل الاختبار' : ''}
                     </button>

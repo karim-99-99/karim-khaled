@@ -40,54 +40,21 @@ function App() {
             } 
           />
           
-          {/* Unified courses page - accessible by both admin and student */}
-          <Route 
-            path="/courses" 
-            element={
-              <ProtectedRoute>
-                <Home />
-              </ProtectedRoute>
-            } 
-          />
-          {/* Subjects page - shows materials (رياضيات, فيزياء, etc.) */}
-          <Route 
-            path="/section/:sectionId/subjects" 
-            element={
-              <ProtectedRoute>
-                <Subjects />
-              </ProtectedRoute>
-            } 
-          />
+          {/* Public browsing routes - accessible without login */}
+          {/* Unified courses page - accessible without authentication */}
+          <Route path="/courses" element={<Home />} />
           
-          {/* Categories page - shows التأسيس and التجميعات */}
-          <Route 
-            path="/section/:sectionId/subject/:subjectId/categories" 
-            element={
-              <ProtectedRoute>
-                <Categories />
-              </ProtectedRoute>
-            } 
-          />
+          {/* Subjects page - shows materials (رياضيات, فيزياء, etc.) - public */}
+          <Route path="/section/:sectionId/subjects" element={<Subjects />} />
           
-          {/* Chapters page - shows فصول after selecting category */}
-          <Route 
-            path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapters" 
-            element={
-              <ProtectedRoute>
-                <Chapters />
-              </ProtectedRoute>
-            } 
-          />
+          {/* Categories page - shows التأسيس and التجميعات - public */}
+          <Route path="/section/:sectionId/subject/:subjectId/categories" element={<Categories />} />
           
-          {/* Levels/Items page - shows دروس after selecting chapter */}
-          <Route 
-            path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapter/:chapterId/items" 
-            element={
-              <ProtectedRoute>
-                <Levels />
-              </ProtectedRoute>
-            } 
-          />
+          {/* Chapters page - shows فصول after selecting category - public */}
+          <Route path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapters" element={<Chapters />} />
+          
+          {/* Levels/Items page - shows دروس after selecting chapter - public */}
+          <Route path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapter/:chapterId/items" element={<Levels />} />
           
           {/* Video page - watch video for a lesson */}
           <Route 

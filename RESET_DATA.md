@@ -14,3 +14,9 @@ location.reload();
 
 أو افتح الملف `src/services/storageService.js` وابحث عن `initializeDefaultData` وقم بتشغيله.
 
+
+
+
+
+
+
