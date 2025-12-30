@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { getUserByEmail, setCurrentUser } from '../services/storageService';
 import Header from '../components/Header';
 import backgroundImage from '../assets/kareem.jpg';
@@ -27,6 +27,12 @@ const Login = () => {
       return;
     }
 
+    // Check if account is active (admin accounts are always active)
+    if (user.role === 'student' && user.isActive !== true) {
+      setError('حسابك غير مفعّل. يرجى التواصل مع المدير لتفعيل حسابك.');
+      return;
+    }
+
     setCurrentUser(user);
     
     // Check if there's a redirect parameter, otherwise go to courses
@@ -34,7 +40,11 @@ const Login = () => {
     if (redirectPath) {
       navigate(redirectPath);
     } else {
-      navigate('/courses');
+      if (user.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/courses');
+      }
     }
   };
 
@@ -92,9 +102,21 @@ const Login = () => {
             type="submit"
             className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition shadow-lg hover:shadow-xl"
           >
-            {isArabicBrowser() ? 'تسجيل الدخول' : ''}
+            {isArabicBrowser() ? 'تسجيل الدخول' : 'Login'}
           </button>
         </form>
+
+        <div className="mt-6 text-center space-y-3">
+          <p className="text-sm text-dark-600">
+            {isArabicBrowser() ? 'ليس لديك حساب؟' : "Don't have an account?"}
+          </p>
+          <Link 
+            to="/register" 
+            className="block w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 transition shadow-lg hover:shadow-xl"
+          >
+            {isArabicBrowser() ? 'إنشاء حساب جديد' : 'Create New Account'}
+          </Link>
+        </div>
 
         <div className="mt-6 text-center text-xs md:text-sm text-dark-600">
           <p className="font-medium">{isArabicBrowser() ? 'حساب تجريبي للطالب:' : ''}</p>

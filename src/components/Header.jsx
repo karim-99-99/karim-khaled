@@ -119,24 +119,14 @@ const Header = () => {
                           {isArabicBrowser() ? 'لوحة التحكم' : 'Dashboard'}
                         </Link>
                         <Link
-                          to="/admin/questions"
+                          to="/admin/users"
                           className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
                           onClick={() => {
                             setIsUserMenuOpen(false);
                             setIsMenuOpen(false);
                           }}
                         >
-                          {isArabicBrowser() ? 'إدارة الأسئلة' : 'Manage Questions'}
-                        </Link>
-                        <Link
-                          to="/admin/videos"
-                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsMenuOpen(false);
-                          }}
-                        >
-                          {isArabicBrowser() ? 'إدارة الفيديوهات' : 'Manage Videos'}
+                          {isArabicBrowser() ? 'إدارة المستخدمين' : 'User Management'}
                         </Link>
                       </>
                     ) : (
@@ -151,6 +141,16 @@ const Header = () => {
                         {isArabicBrowser() ? 'الدورات' : 'Courses'}
                       </Link>
                     )}
+                    <Link
+                      to="/register"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors border-t border-gray-200"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      {isArabicBrowser() ? 'إنشاء حساب جديد' : 'Create New Account'}
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
@@ -161,12 +161,20 @@ const Header = () => {
                 )}
               </div>
             ) : (
-              <Link
-                to="/login"
-                className="absolute left-0 px-4 py-2 border-2 border-primary-500 rounded-full bg-transparent hover:bg-primary-500 hover:text-white transition-colors font-medium text-primary-500"
-              >
-                دخول / تسجيل
-              </Link>
+              <div className="absolute left-0 flex items-center gap-2">
+                <Link
+                  to="/register"
+                  className="px-4 py-2 border-2 border-primary-500 rounded-full bg-transparent hover:bg-primary-500 hover:text-white transition-colors font-medium text-primary-500"
+                >
+                  إنشاء حساب
+                </Link>
+                <Link
+                  to="/login"
+                  className="px-4 py-2 border-2 border-primary-500 rounded-full bg-transparent hover:bg-primary-500 hover:text-white transition-colors font-medium text-primary-500"
+                >
+                  تسجيل الدخول
+                </Link>
+              </div>
             )}
           </nav>
 
@@ -198,24 +206,14 @@ const Header = () => {
                             لوحة التحكم
                           </Link>
                           <Link
-                            to="/admin/questions"
+                            to="/admin/users"
                             className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                             onClick={() => {
                               setIsUserMenuOpen(false);
                               setIsMenuOpen(false);
                             }}
                           >
-                            إدارة الأسئلة
-                          </Link>
-                          <Link
-                            to="/admin/videos"
-                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                            onClick={() => {
-                              setIsUserMenuOpen(false);
-                              setIsMenuOpen(false);
-                            }}
-                          >
-                            إدارة الفيديوهات
+                            إدارة المستخدمين
                           </Link>
                         </>
                       ) : (
@@ -230,6 +228,16 @@ const Header = () => {
                           الدورات
                         </Link>
                       )}
+                      <Link
+                        to="/register"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right border-t border-gray-200"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        إنشاء حساب جديد
+                      </Link>
                       <button
                         onClick={handleLogout}
                         className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
@@ -297,13 +305,22 @@ const Header = () => {
               </Link>
 
               {!currentUser && (
-                <Link
-                  to="/login"
-                  className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-medium text-center text-dark-600"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  دخول / تسجيل
-                </Link>
+                <>
+                  <Link
+                    to="/register"
+                    className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-medium text-center text-dark-600"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    إنشاء حساب
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-medium text-center text-dark-600"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    تسجيل الدخول
+                  </Link>
+                </>
               )}
             </nav>
           </div>

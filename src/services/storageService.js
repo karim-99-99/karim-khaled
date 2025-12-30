@@ -64,6 +64,129 @@ export const getUsers = () => {
   }
 };
 
+// Get user by username
+export const getUserByUsername = (username) => {
+  try {
+    const usersJson = localStorage.getItem(STORAGE_KEYS.USERS);
+    if (!usersJson) return null;
+    
+    const users = JSON.parse(usersJson);
+    const normalizedUsername = username.toLowerCase().trim();
+    return users.find(user => user.username && user.username.toLowerCase().trim() === normalizedUsername) || null;
+  } catch (error) {
+    console.error('Error getting user by username:', error);
+    return null;
+  }
+};
+
+// Get user by ID
+export const getUserById = (userId) => {
+  try {
+    const usersJson = localStorage.getItem(STORAGE_KEYS.USERS);
+    if (!usersJson) return null;
+    
+    const users = JSON.parse(usersJson);
+    return users.find(user => user.id === userId) || null;
+  } catch (error) {
+    console.error('Error getting user by id:', error);
+    return null;
+  }
+};
+
+// Add new user (registration)
+export const addUser = (userData) => {
+  try {
+    const users = getUsers();
+    // Check if email already exists
+    if (getUserByEmail(userData.email)) {
+      throw new Error('البريد الإلكتروني مستخدم بالفعل');
+    }
+    // Check if username already exists
+    if (userData.username && getUserByUsername(userData.username)) {
+      throw new Error('اسم المستخدم مستخدم بالفعل');
+    }
+    
+    const newUser = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...userData,
+      role: userData.role || 'student',
+      isActive: false, // New users are inactive by default
+      createdAt: new Date().toISOString(),
+    };
+    users.push(newUser);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    return newUser;
+  } catch (error) {
+    console.error('Error adding user:', error);
+    throw error;
+  }
+};
+
+// Update user (for admin to activate/deactivate or update info)
+export const updateUser = (userId, updates) => {
+  try {
+    const users = getUsers();
+    const index = users.findIndex(u => u.id === userId);
+    if (index === -1) {
+      throw new Error('المستخدم غير موجود');
+    }
+    
+    // If updating email, check if it's not used by another user
+    if (updates.email && updates.email !== users[index].email) {
+      const existingUser = getUserByEmail(updates.email);
+      if (existingUser && existingUser.id !== userId) {
+        throw new Error('البريد الإلكتروني مستخدم بالفعل');
+      }
+    }
+    
+    // If updating username, check if it's not used by another user
+    if (updates.username && updates.username !== users[index].username) {
+      const existingUser = getUserByUsername(updates.username);
+      if (existingUser && existingUser.id !== userId) {
+        throw new Error('اسم المستخدم مستخدم بالفعل');
+      }
+    }
+    
+    users[index] = {
+      ...users[index],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    
+    // If updating current user, update it in localStorage as well
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      setCurrentUser(users[index]);
+    }
+    
+    return users[index];
+  } catch (error) {
+    console.error('Error updating user:', error);
+    throw error;
+  }
+};
+
+// Delete user
+export const deleteUser = (userId) => {
+  try {
+    const users = getUsers();
+    const filtered = users.filter(u => u.id !== userId);
+    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(filtered));
+    
+    // If deleting current user, logout
+    const currentUser = getCurrentUser();
+    if (currentUser && currentUser.id === userId) {
+      logout();
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    throw error;
+  }
+};
+
 // Reset all data (helper function for debugging)
 export const resetAllData = () => {
   localStorage.removeItem(STORAGE_KEYS.SECTIONS);
@@ -98,19 +221,49 @@ export const initializeDefaultData = () => {
         {
           id: '1',
           name: 'طالب تجريبي',
+          username: 'student',
           email: 'student@test.com',
           password: 'student123',
-          role: 'student'
+          phone: '',
+          role: 'student',
+          isActive: true
         },
         {
           id: '2',
           name: 'مدير',
+          username: 'admin',
           email: 'admin@teacher.com',
           password: 'admin123',
-          role: 'admin'
+          phone: '',
+          role: 'admin',
+          isActive: true
         }
       ];
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(defaultUsers));
+    } else {
+      // Update existing users to have isActive field if missing
+      let needsUpdate = false;
+      const updatedUsers = existingUsers.map(user => {
+        if (user.isActive === undefined) {
+          needsUpdate = true;
+          return {
+            ...user,
+            username: user.username || user.email.split('@')[0], // Add username if missing
+            isActive: user.role === 'admin' ? true : false // Admin always active, students inactive by default
+          };
+        }
+        if (!user.username && user.email) {
+          needsUpdate = true;
+          return {
+            ...user,
+            username: user.email.split('@')[0]
+          };
+        }
+        return user;
+      });
+      if (needsUpdate) {
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
+      }
     }
 
     // Initialize sections if they don't exist or if structure is invalid

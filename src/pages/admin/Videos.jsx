@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getSubjects, getVideos, getVideoByLevel, addVideo, updateVideo, deleteVideo, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory } from '../../services/storageService';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { getSubjects, getVideos, getVideoByLevel, addVideo, updateVideo, deleteVideo, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory, getItemById, getChapterById, getCategoryById, getSections } from '../../services/storageService';
 import { saveVideoFile, getVideoFile, deleteVideoFile } from '../../services/videoStorage';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
 
 const Videos = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const itemIdFromUrl = searchParams.get('itemId');
+  const returnUrl = searchParams.get('returnUrl');
+  
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -24,9 +28,45 @@ const Videos = () => {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
 
+  // Helper function to find item's parent information
+  const findItemParents = (itemId) => {
+    const sections = getSections();
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        for (const category of (subject.categories || [])) {
+          for (const chapter of (category.chapters || [])) {
+            const item = (chapter.items || []).find(i => i.id === itemId);
+            if (item) {
+              return { subject, category, chapter };
+            }
+          }
+        }
+      }
+    }
+    return null;
+  };
+
   useEffect(() => {
     setSubjects(getSubjects());
-  }, []);
+    
+    // If itemId is in URL, auto-select the appropriate dropdowns
+    if (itemIdFromUrl) {
+      const parents = findItemParents(itemIdFromUrl);
+      if (parents) {
+        setSelectedSubject(parents.subject.id);
+        setSelectedCategory(parents.category.id);
+        setSelectedChapter(parents.chapter.id);
+        setSelectedLevel(itemIdFromUrl);
+        // Auto-open form if no video exists
+        setTimeout(() => {
+          const video = getVideoByLevel(itemIdFromUrl);
+          if (!video) {
+            setShowForm(true);
+          }
+        }, 100);
+      }
+    }
+  }, [itemIdFromUrl]);
 
   useEffect(() => {
     const loadVideos = async () => {
@@ -249,7 +289,7 @@ const Videos = () => {
     const video = getVideoByLevel(selectedLevel);
     setVideos(video ? [video] : []);
     
-    // Delay closing to show success message
+    // Delay closing to show success message, then navigate back
     setTimeout(() => {
       setShowForm(false);
       setFormData({
@@ -260,6 +300,11 @@ const Videos = () => {
       setUploadedFile(null);
       setUploadProgress('');
       setUploadMethod('url');
+      
+      // Navigate back to lessons page if returnUrl is provided
+      if (returnUrl) {
+        navigate(returnUrl);
+      }
     }, 1000);
   };
 
@@ -274,7 +319,13 @@ const Videos = () => {
         <div className="mb-6 flex justify-between items-center">
           <h1 className="text-2xl md:text-3xl font-bold text-dark-600">إدارة الفيديوهات / Manage Videos</h1>
           <button
-            onClick={() => navigate('/admin/dashboard')}
+            onClick={() => {
+              if (returnUrl) {
+                navigate(returnUrl);
+              } else {
+                navigate('/admin/dashboard');
+              }
+            }}
             className="bg-dark-600 text-white px-4 py-2 rounded-lg hover:bg-dark-700 transition font-medium"
           >
             ← رجوع / Back

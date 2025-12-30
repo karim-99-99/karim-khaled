@@ -4,7 +4,9 @@ import { initializeDefaultData } from './services/storageService';
 import SinglePage from './pages/SinglePage';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/admin/Dashboard';
+import AdminUsers from './pages/admin/AdminUsers';
 import Subjects from './pages/Subjects';
 import Categories from './pages/Categories';
 import Chapters from './pages/Chapters';
@@ -29,6 +31,7 @@ function App() {
           {/* Public routes */}
           <Route path="/" element={<SinglePage />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           
           {/* Protected student routes */}
           <Route 
@@ -166,8 +169,16 @@ function App() {
           <Route 
             path="/admin/videos" 
             element={
-              <ProtectedRoute requiredRole="admin">
+              <ProtectedRoute requiredRole="admin" checkActive={false}>
                 <Videos />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/users" 
+            element={
+              <ProtectedRoute requiredRole="admin" checkActive={false}>
+                <AdminUsers />
               </ProtectedRoute>
             } 
           />

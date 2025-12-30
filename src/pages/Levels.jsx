@@ -27,6 +27,12 @@ const Levels = () => {
       navigate(`/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`);
       return;
     }
+    if (isAdmin) {
+      // For admin: navigate to video upload page with itemId pre-selected and return URL
+      const returnUrl = `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`;
+      navigate(`/admin/videos?itemId=${itemId}&returnUrl=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
     navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`);
   };
 
@@ -34,6 +40,12 @@ const Levels = () => {
     if (!currentUser) {
       // Redirect to login with return path
       navigate(`/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`);
+      return;
+    }
+    if (isAdmin) {
+      // For admin: navigate to questions management page with itemId and return URL
+      const returnUrl = `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`;
+      navigate(`/admin/questions?itemId=${itemId}&returnUrl=${encodeURIComponent(returnUrl)}`);
       return;
     }
     navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`);
@@ -138,20 +150,42 @@ const Levels = () => {
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => handleVideoClick(item.id)}
-                    className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2"
-                  >
-                    🎥 {isArabicBrowser() ? 'مشاهدة الفيديو' : ''}
-                  </button>
-                  
-                  {item.hasTest && (
-                    <button
-                      onClick={() => handleQuizClick(item.id)}
-                      className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
-                    >
-                      📝 {isArabicBrowser() ? 'حل الاختبار' : ''}
-                    </button>
+                  {isAdmin ? (
+                    <>
+                      <button
+                        onClick={() => handleVideoClick(item.id)}
+                        className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2"
+                      >
+                        📤 {isArabicBrowser() ? 'رفع فيديو للدرس' : 'Upload Video'}
+                      </button>
+                      
+                      {item.hasTest && (
+                        <button
+                          onClick={() => handleQuizClick(item.id)}
+                          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
+                        >
+                          📝 {isArabicBrowser() ? 'إدارة الاختبار' : 'Manage Quiz'}
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handleVideoClick(item.id)}
+                        className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2"
+                      >
+                        🎥 {isArabicBrowser() ? 'مشاهدة الفيديو' : 'Watch Video'}
+                      </button>
+                      
+                      {item.hasTest && (
+                        <button
+                          onClick={() => handleQuizClick(item.id)}
+                          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
+                        >
+                          📝 {isArabicBrowser() ? 'حل الاختبار' : 'Take Quiz'}
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

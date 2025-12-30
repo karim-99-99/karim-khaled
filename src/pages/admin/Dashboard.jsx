@@ -27,6 +27,17 @@ const Dashboard = () => {
           </h1>
         </div>
 
+        {/* Admin Actions */}
+        <div className="mb-8 flex justify-center">
+          <button
+            onClick={() => navigate('/admin/users')}
+            className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl flex items-center gap-2"
+          >
+            <span>👥</span>
+            <span>{isArabicBrowser() ? 'إدارة المستخدمين' : 'User Management'}</span>
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
           {sections.map((section) => (
             <button

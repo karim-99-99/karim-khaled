@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { getCurrentUser, logout } from '../services/storageService';
 import logoimage from '../assets/karim.png';
 
@@ -129,12 +130,20 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                 )}
               </div>
             ) : (
-              <button
-                onClick={() => handleNavClick('login')}
-                className="absolute left-0 px-4 py-2 border-2 border-primary-500 rounded-full bg-transparent hover:bg-primary-500 hover:text-white transition-colors font-medium text-primary-500"
-              >
-                دخول / تسجيل
-              </button>
+              <div className="absolute left-0 flex items-center gap-2">
+                <Link
+                  to="/register"
+                  className="px-4 py-2 border-2 border-primary-500 rounded-full bg-transparent hover:bg-primary-500 hover:text-white transition-colors font-medium text-primary-500"
+                >
+                  إنشاء حساب
+                </Link>
+                <Link
+                  to="/login"
+                  className="px-4 py-2 border-2 border-primary-500 rounded-full bg-transparent hover:bg-primary-500 hover:text-white transition-colors font-medium text-primary-500"
+                >
+                  تسجيل الدخول
+                </Link>
+              </div>
             )}
           </nav>
 
@@ -241,12 +250,22 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
               </button>
 
               {!currentUser && (
-                <button
-                  onClick={() => handleNavClick('login')}
-                  className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-medium text-center text-dark-600"
-                >
-                  دخول / تسجيل
-                </button>
+                <>
+                  <Link
+                    to="/register"
+                    className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-medium text-center text-dark-600"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    إنشاء حساب
+                  </Link>
+                  <Link
+                    to="/login"
+                    className="px-4 py-2 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-medium text-center text-dark-600"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    تسجيل الدخول
+                  </Link>
+                </>
               )}
             </nav>
           </div>
