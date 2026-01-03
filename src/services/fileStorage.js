@@ -1,8 +1,8 @@
-// IndexedDB storage for large video files
+// IndexedDB storage for PDF/Word file attachments
 
 const DB_NAME = 'EducationalSystemDB';
-const DB_VERSION = 2; // Updated to match fileStorage
-const VIDEO_STORE = 'videos';
+const DB_VERSION = 2; // Incremented to add file store
+const FILE_STORE = 'files';
 
 // Initialize IndexedDB
 const initDB = () => {
@@ -25,12 +25,9 @@ const initDB = () => {
 
     request.onupgradeneeded = (event) => {
       const db = event.target.result;
-      if (!db.objectStoreNames.contains(VIDEO_STORE)) {
-        db.createObjectStore(VIDEO_STORE, { keyPath: 'levelId' });
-      }
-      // Also create files store if upgrading from version 1
-      if (!db.objectStoreNames.contains('files')) {
-        db.createObjectStore('files', { keyPath: 'itemId' });
+      // Create file store if it doesn't exist
+      if (!db.objectStoreNames.contains(FILE_STORE)) {
+        db.createObjectStore(FILE_STORE, { keyPath: 'itemId' });
       }
     };
 
@@ -41,67 +38,66 @@ const initDB = () => {
   });
 };
 
-// Save video file to IndexedDB
-export const saveVideoFile = async (levelId, videoFile, metadata) => {
+// Save file attachment to IndexedDB
+export const saveFileAttachment = async (itemId, file, metadata) => {
   try {
     const db = await initDB();
     
     // Convert file to ArrayBuffer for storage
     let arrayBuffer;
     try {
-      arrayBuffer = await videoFile.arrayBuffer();
+      arrayBuffer = await file.arrayBuffer();
     } catch (error) {
       console.error('Error converting file to ArrayBuffer:', error);
-      throw new Error('Failed to read video file. Please try again.');
+      throw new Error('Failed to read file. Please try again.');
     }
 
-    const videoData = {
-      levelId,
+    const fileData = {
+      itemId,
       fileData: arrayBuffer,
-      fileName: videoFile.name,
-      fileType: videoFile.type,
-      fileSize: videoFile.size,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
       metadata: {
-        title: metadata.title,
-        titleEn: metadata.titleEn,
         uploadedAt: new Date().toISOString(),
+        ...metadata
       },
     };
 
     return new Promise((resolve, reject) => {
-      const transaction = db.transaction([VIDEO_STORE], 'readwrite');
-      const store = transaction.objectStore(VIDEO_STORE);
+      const transaction = db.transaction([FILE_STORE], 'readwrite');
+      const store = transaction.objectStore(FILE_STORE);
       
       transaction.onerror = (event) => {
         console.error('Transaction error:', event.target.error);
-        reject(new Error('Failed to save video. Database transaction error.'));
+        reject(new Error('Failed to save file. Database transaction error.'));
       };
       
       transaction.oncomplete = () => {
         resolve();
       };
       
-      const request = store.put(videoData);
+      const request = store.put(fileData);
       request.onerror = (event) => {
         console.error('Store request error:', event.target.error);
-        reject(new Error(`Failed to save video: ${event.target.error?.message || 'Unknown error'}`));
+        reject(new Error(`Failed to save file: ${event.target.error?.message || 'Unknown error'}`));
       };
     });
   } catch (error) {
-    console.error('Error saving video file:', error);
+    console.error('Error saving file attachment:', error);
     throw error;
   }
 };
 
-// Get video file from IndexedDB
-export const getVideoFile = async (levelId) => {
+// Get file attachment from IndexedDB
+export const getFileAttachment = async (itemId) => {
   try {
     const db = await initDB();
-    const transaction = db.transaction([VIDEO_STORE], 'readonly');
-    const store = transaction.objectStore(VIDEO_STORE);
+    const transaction = db.transaction([FILE_STORE], 'readonly');
+    const store = transaction.objectStore(FILE_STORE);
 
     return new Promise((resolve, reject) => {
-      const request = store.get(levelId);
+      const request = store.get(itemId);
       request.onsuccess = () => {
         if (request.result) {
           // Convert ArrayBuffer back to Blob
@@ -121,45 +117,45 @@ export const getVideoFile = async (levelId) => {
       request.onerror = () => reject(request.error);
     });
   } catch (error) {
-    console.error('Error getting video file:', error);
+    console.error('Error getting file attachment:', error);
     throw error;
   }
 };
 
-// Delete video file from IndexedDB
-export const deleteVideoFile = async (levelId) => {
+// Delete file attachment from IndexedDB
+export const deleteFileAttachment = async (itemId) => {
   try {
     const db = await initDB();
-    const transaction = db.transaction([VIDEO_STORE], 'readwrite');
-    const store = transaction.objectStore(VIDEO_STORE);
+    const transaction = db.transaction([FILE_STORE], 'readwrite');
+    const store = transaction.objectStore(FILE_STORE);
 
     return new Promise((resolve, reject) => {
-      const request = store.delete(levelId);
+      const request = store.delete(itemId);
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
   } catch (error) {
-    console.error('Error deleting video file:', error);
+    console.error('Error deleting file attachment:', error);
     throw error;
   }
 };
 
-// Get video file size for a level
-export const getVideoFileSize = async (levelId) => {
+// Get file attachment size for an item
+export const getFileAttachmentSize = async (itemId) => {
   try {
     const db = await initDB();
-    const transaction = db.transaction([VIDEO_STORE], 'readonly');
-    const store = transaction.objectStore(VIDEO_STORE);
+    const transaction = db.transaction([FILE_STORE], 'readonly');
+    const store = transaction.objectStore(FILE_STORE);
 
     return new Promise((resolve, reject) => {
-      const request = store.get(levelId);
+      const request = store.get(itemId);
       request.onsuccess = () => {
         resolve(request.result ? request.result.fileSize : 0);
       };
       request.onerror = () => reject(request.error);
     });
   } catch (error) {
-    console.error('Error getting video file size:', error);
+    console.error('Error getting file attachment size:', error);
     return 0;
   }
 };

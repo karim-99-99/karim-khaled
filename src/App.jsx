@@ -14,8 +14,13 @@ import Levels from './pages/Levels';
 import Quiz from './pages/Quiz';
 import Result from './pages/Result';
 import Video from './pages/Video';
+import FileViewer from './pages/FileViewer';
 import Questions from './pages/admin/Questions';
 import Videos from './pages/admin/Videos';
+import ChaptersManagement from './pages/admin/ChaptersManagement';
+import LessonsManagement from './pages/admin/LessonsManagement';
+import ClassroomsManagement from './pages/admin/ClassroomsManagement';
+import FilesManagement from './pages/admin/FilesManagement';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -25,7 +30,12 @@ function App() {
   }, []);
 
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <div className="App" dir="rtl">
         <Routes>
           {/* Public routes */}
@@ -65,6 +75,16 @@ function App() {
             element={
               <ProtectedRoute>
                 <Video />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* File viewer page - view file attachment for a lesson */}
+          <Route 
+            path="/section/:sectionId/subject/:subjectId/category/:categoryId/chapter/:chapterId/item/:itemId/file" 
+            element={
+              <ProtectedRoute>
+                <FileViewer />
               </ProtectedRoute>
             } 
           />
@@ -171,6 +191,38 @@ function App() {
             element={
               <ProtectedRoute requiredRole="admin" checkActive={false}>
                 <Videos />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/chapters" 
+            element={
+              <ProtectedRoute requiredRole="admin" checkActive={false}>
+                <ChaptersManagement />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/lessons" 
+            element={
+              <ProtectedRoute requiredRole="admin" checkActive={false}>
+                <LessonsManagement />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/classrooms" 
+            element={
+              <ProtectedRoute requiredRole="admin" checkActive={false}>
+                <ClassroomsManagement />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/admin/files" 
+            element={
+              <ProtectedRoute requiredRole="admin" checkActive={false}>
+                <FilesManagement />
               </ProtectedRoute>
             } 
           />

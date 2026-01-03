@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   SECTIONS: 'sections',
   QUESTIONS: 'questions',
   VIDEOS: 'videos',
+  FILES: 'files',
   PROGRESS: 'progress',
 };
 
@@ -111,6 +112,15 @@ export const addUser = (userData) => {
       ...userData,
       role: userData.role || 'student',
       isActive: false, // New users are inactive by default
+      // Access permissions
+      permissions: userData.permissions || {
+        hasAbilitiesAccess: false,
+        hasCollectionAccess: false,
+        abilitiesSubjects: {
+          verbal: false,
+          quantitative: false
+        }
+      },
       createdAt: new Date().toISOString(),
     };
     users.push(newUser);
@@ -193,6 +203,7 @@ export const resetAllData = () => {
   localStorage.removeItem(STORAGE_KEYS.USERS);
   localStorage.removeItem(STORAGE_KEYS.QUESTIONS);
   localStorage.removeItem(STORAGE_KEYS.VIDEOS);
+  localStorage.removeItem(STORAGE_KEYS.FILES);
   localStorage.removeItem(STORAGE_KEYS.PROGRESS);
   localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
   console.log('All data cleared. Reloading...');
@@ -226,7 +237,15 @@ export const initializeDefaultData = () => {
           password: 'student123',
           phone: '',
           role: 'student',
-          isActive: true
+          isActive: true,
+          permissions: {
+            hasAbilitiesAccess: true,
+            hasCollectionAccess: true,
+            abilitiesSubjects: {
+              verbal: true,
+              quantitative: true
+            }
+          }
         },
         {
           id: '2',
@@ -244,22 +263,35 @@ export const initializeDefaultData = () => {
       // Update existing users to have isActive field if missing
       let needsUpdate = false;
       const updatedUsers = existingUsers.map(user => {
+        let updated = false;
+        const userUpdate = { ...user };
+        
         if (user.isActive === undefined) {
-          needsUpdate = true;
-          return {
-            ...user,
-            username: user.username || user.email.split('@')[0], // Add username if missing
-            isActive: user.role === 'admin' ? true : false // Admin always active, students inactive by default
-          };
+          updated = true;
+          userUpdate.username = user.username || user.email.split('@')[0];
+          userUpdate.isActive = user.role === 'admin' ? true : false;
         }
         if (!user.username && user.email) {
-          needsUpdate = true;
-          return {
-            ...user,
-            username: user.email.split('@')[0]
+          updated = true;
+          userUpdate.username = user.email.split('@')[0];
+        }
+        // Add permissions if missing
+        if (!user.permissions) {
+          updated = true;
+          userUpdate.permissions = {
+            hasAbilitiesAccess: false,
+            hasCollectionAccess: false,
+            abilitiesSubjects: {
+              verbal: false,
+              quantitative: false
+            }
           };
         }
-        return user;
+        
+        if (updated) {
+          needsUpdate = true;
+        }
+        return userUpdate;
       });
       if (needsUpdate) {
         localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(updatedUsers));
@@ -392,6 +424,9 @@ export const initializeDefaultData = () => {
     }
     if (!localStorage.getItem(STORAGE_KEYS.VIDEOS)) {
       localStorage.setItem(STORAGE_KEYS.VIDEOS, JSON.stringify([]));
+    }
+    if (!localStorage.getItem(STORAGE_KEYS.FILES)) {
+      localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify([]));
     }
     if (!localStorage.getItem(STORAGE_KEYS.PROGRESS)) {
       localStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify([]));
@@ -788,5 +823,389 @@ export const deleteVideo = (videoId) => {
     localStorage.setItem(STORAGE_KEYS.VIDEOS, JSON.stringify(filtered));
   } catch (error) {
     console.error('Error deleting video:', error);
+  }
+};
+
+// Add chapter to category
+export const addChapterToCategory = (categoryId, chapterName) => {
+  try {
+    const sections = getSections();
+    let updated = false;
+    
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        const category = (subject.categories || []).find(c => c.id === categoryId);
+        if (category) {
+          const newChapter = {
+            id: `${categoryId}_chapter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            name: chapterName,
+            items: []
+          };
+          if (!category.chapters) {
+            category.chapters = [];
+          }
+          category.chapters.push(newChapter);
+          updated = true;
+          break;
+        }
+      }
+      if (updated) break;
+    }
+    
+    if (updated) {
+      localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error adding chapter:', error);
+    return false;
+  }
+};
+
+// Delete chapter from category
+export const deleteChapterFromCategory = (chapterId) => {
+  try {
+    const sections = getSections();
+    let updated = false;
+    
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        for (const category of (subject.categories || [])) {
+          const chapterIndex = (category.chapters || []).findIndex(ch => ch.id === chapterId);
+          if (chapterIndex !== -1) {
+            category.chapters.splice(chapterIndex, 1);
+            updated = true;
+            break;
+          }
+        }
+        if (updated) break;
+      }
+      if (updated) break;
+    }
+    
+    if (updated) {
+      localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error deleting chapter:', error);
+    return false;
+  }
+};
+
+// Add item/lesson to chapter
+export const addItemToChapter = (chapterId, itemName, hasTest = true) => {
+  try {
+    const sections = getSections();
+    let updated = false;
+    
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        for (const category of (subject.categories || [])) {
+          const chapter = (category.chapters || []).find(ch => ch.id === chapterId);
+          if (chapter) {
+            const newItem = {
+              id: `${chapterId}_item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: itemName,
+              hasTest: hasTest
+            };
+            if (!chapter.items) {
+              chapter.items = [];
+            }
+            chapter.items.push(newItem);
+            updated = true;
+            break;
+          }
+        }
+        if (updated) break;
+      }
+      if (updated) break;
+    }
+    
+    if (updated) {
+      localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error adding item:', error);
+    return false;
+  }
+};
+
+// Delete item/lesson from chapter
+export const deleteItemFromChapter = (itemId) => {
+  try {
+    const sections = getSections();
+    let updated = false;
+    
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        for (const category of (subject.categories || [])) {
+          for (const chapter of (category.chapters || [])) {
+            const itemIndex = (chapter.items || []).findIndex(i => i.id === itemId);
+            if (itemIndex !== -1) {
+              chapter.items.splice(itemIndex, 1);
+              updated = true;
+              break;
+            }
+          }
+          if (updated) break;
+        }
+        if (updated) break;
+      }
+      if (updated) break;
+    }
+    
+    if (updated) {
+      localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error deleting item:', error);
+    return false;
+  }
+};
+
+// Get file attachment by level/item ID
+export const getFileByLevel = (levelId) => {
+  try {
+    const filesJson = localStorage.getItem(STORAGE_KEYS.FILES);
+    if (!filesJson) return null;
+    const allFiles = JSON.parse(filesJson);
+    return allFiles.find(f => f.itemId === levelId || f.levelId === levelId) || null;
+  } catch (error) {
+    console.error('Error getting file by level:', error);
+    return null;
+  }
+};
+
+// Get all files
+export const getFiles = () => {
+  try {
+    const filesJson = localStorage.getItem(STORAGE_KEYS.FILES);
+    return filesJson ? JSON.parse(filesJson) : [];
+  } catch (error) {
+    console.error('Error getting files:', error);
+    return [];
+  }
+};
+
+// Add file attachment metadata
+export const addFile = (fileData) => {
+  try {
+    const files = getFiles();
+    const newFile = {
+      id: `f_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      ...fileData,
+      itemId: fileData.levelId || fileData.itemId,
+      createdAt: new Date().toISOString(),
+    };
+    files.push(newFile);
+    localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
+  } catch (error) {
+    console.error('Error adding file:', error);
+  }
+};
+
+// Update file attachment metadata
+export const updateFile = (fileId, fileData) => {
+  try {
+    const files = getFiles();
+    const index = files.findIndex(f => f.id === fileId);
+    if (index !== -1) {
+      files[index] = {
+        ...files[index],
+        ...fileData,
+        updatedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(files));
+    }
+  } catch (error) {
+    console.error('Error updating file:', error);
+  }
+};
+
+// Delete file attachment metadata
+export const deleteFile = (fileId) => {
+  try {
+    const files = getFiles();
+    const filtered = files.filter(f => f.id !== fileId);
+    localStorage.setItem(STORAGE_KEYS.FILES, JSON.stringify(filtered));
+  } catch (error) {
+    console.error('Error deleting file:', error);
+  }
+};
+
+// Get classrooms by subject ID
+export const getClassroomsBySubject = (subjectId) => {
+  try {
+    const subject = getSubjectById(subjectId);
+    return subject ? (subject.classrooms || []) : [];
+  } catch (error) {
+    console.error('Error getting classrooms by subject:', error);
+    return [];
+  }
+};
+
+// Add classroom to subject
+export const addClassroomToSubject = (subjectId, classroomName) => {
+  try {
+    const sections = getSections();
+    let updated = false;
+    
+    for (const section of sections) {
+      const subject = section.subjects.find(s => s.id === subjectId);
+      if (subject) {
+        const newClassroom = {
+          id: `${subjectId}_classroom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          name: classroomName,
+          lessons: []
+        };
+        if (!subject.classrooms) {
+          subject.classrooms = [];
+        }
+        subject.classrooms.push(newClassroom);
+        updated = true;
+        break;
+      }
+    }
+    
+    if (updated) {
+      localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error adding classroom:', error);
+    return false;
+  }
+};
+
+// Delete classroom from subject
+export const deleteClassroomFromSubject = (classroomId) => {
+  try {
+    const sections = getSections();
+    let updated = false;
+    
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        if (subject.classrooms) {
+          const classroomIndex = subject.classrooms.findIndex(c => c.id === classroomId);
+          if (classroomIndex !== -1) {
+            subject.classrooms.splice(classroomIndex, 1);
+            updated = true;
+            break;
+          }
+        }
+      }
+      if (updated) break;
+    }
+    
+    if (updated) {
+      localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error deleting classroom:', error);
+    return false;
+  }
+};
+
+// Get classroom by ID
+export const getClassroomById = (classroomId) => {
+  try {
+    const sections = getSections();
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        if (subject.classrooms) {
+          const classroom = subject.classrooms.find(c => c.id === classroomId);
+          if (classroom) return classroom;
+        }
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('Error getting classroom by id:', error);
+    return null;
+  }
+};
+
+// Add lesson to classroom
+export const addLessonToClassroom = (classroomId, lessonName, hasTest = true) => {
+  try {
+    const sections = getSections();
+    let updated = false;
+    
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        if (subject.classrooms) {
+          const classroom = subject.classrooms.find(c => c.id === classroomId);
+          if (classroom) {
+            const newLesson = {
+              id: `${classroomId}_lesson_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: lessonName,
+              hasTest: hasTest
+            };
+            if (!classroom.lessons) {
+              classroom.lessons = [];
+            }
+            classroom.lessons.push(newLesson);
+            updated = true;
+            break;
+          }
+        }
+      }
+      if (updated) break;
+    }
+    
+    if (updated) {
+      localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error adding lesson to classroom:', error);
+    return false;
+  }
+};
+
+// Delete lesson from classroom
+export const deleteLessonFromClassroom = (lessonId) => {
+  try {
+    const sections = getSections();
+    let updated = false;
+    
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        if (subject.classrooms) {
+          for (const classroom of subject.classrooms) {
+            if (classroom.lessons) {
+              const lessonIndex = classroom.lessons.findIndex(l => l.id === lessonId);
+              if (lessonIndex !== -1) {
+                classroom.lessons.splice(lessonIndex, 1);
+                updated = true;
+                break;
+              }
+            }
+          }
+          if (updated) break;
+        }
+      }
+      if (updated) break;
+    }
+    
+    if (updated) {
+      localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error deleting lesson from classroom:', error);
+    return false;
   }
 };

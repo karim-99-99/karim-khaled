@@ -9,6 +9,16 @@ const AdminUsers = () => {
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [permissions, setPermissions] = useState({
+    hasAbilitiesAccess: false,
+    hasCollectionAccess: false,
+    abilitiesSubjects: {
+      verbal: false,
+      quantitative: false
+    }
+  });
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
 
@@ -82,6 +92,54 @@ const AdminUsers = () => {
     }
   };
 
+  const handleOpenPermissions = (user) => {
+    setSelectedUser(user);
+    setPermissions(user.permissions || {
+      hasAbilitiesAccess: false,
+      hasCollectionAccess: false,
+      abilitiesSubjects: {
+        verbal: false,
+        quantitative: false
+      }
+    });
+    setShowPermissionsModal(true);
+  };
+
+  const handleClosePermissions = () => {
+    setShowPermissionsModal(false);
+    setSelectedUser(null);
+  };
+
+  const handleSavePermissions = () => {
+    if (!selectedUser) return;
+
+    try {
+      updateUser(selectedUser.id, { permissions });
+      loadUsers();
+      handleClosePermissions();
+    } catch (error) {
+      console.error('Error updating permissions:', error);
+      alert(error.message || 'حدث خطأ أثناء تحديث الصلاحيات');
+    }
+  };
+
+  const handlePermissionChange = (field, value) => {
+    if (field === 'verbal' || field === 'quantitative') {
+      setPermissions({
+        ...permissions,
+        abilitiesSubjects: {
+          ...permissions.abilitiesSubjects,
+          [field]: value
+        }
+      });
+    } else {
+      setPermissions({
+        ...permissions,
+        [field]: value
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -144,6 +202,7 @@ const AdminUsers = () => {
                     <th className="px-4 py-3 text-right font-semibold">{isArabicBrowser() ? 'البريد الإلكتروني' : 'Email'}</th>
                     <th className="px-4 py-3 text-right font-semibold">{isArabicBrowser() ? 'الهاتف' : 'Phone'}</th>
                     <th className="px-4 py-3 text-center font-semibold">{isArabicBrowser() ? 'الحالة' : 'Status'}</th>
+                    <th className="px-4 py-3 text-center font-semibold">{isArabicBrowser() ? 'الصلاحيات' : 'Permissions'}</th>
                     <th className="px-4 py-3 text-center font-semibold">{isArabicBrowser() ? 'تاريخ التسجيل' : 'Registered'}</th>
                     <th className="px-4 py-3 text-center font-semibold">{isArabicBrowser() ? 'الإجراءات' : 'Actions'}</th>
                   </tr>
@@ -151,7 +210,7 @@ const AdminUsers = () => {
                 <tbody className="divide-y divide-gray-200">
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-4 py-8 text-center text-dark-600">
+                      <td colSpan="8" className="px-4 py-8 text-center text-dark-600">
                         {isArabicBrowser() ? 'لا توجد حسابات مسجلة' : 'No registered accounts'}
                       </td>
                     </tr>
@@ -175,6 +234,25 @@ const AdminUsers = () => {
                               : (isArabicBrowser() ? 'غير مفعّل' : 'Inactive')}
                           </span>
                         </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex flex-col gap-1 items-center">
+                            {user.permissions?.hasAbilitiesAccess && (
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                {isArabicBrowser() ? 'قدرات' : 'Abilities'}
+                              </span>
+                            )}
+                            {user.permissions?.hasCollectionAccess && (
+                              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
+                                {isArabicBrowser() ? 'تحصيل' : 'Collection'}
+                              </span>
+                            )}
+                            {!user.permissions?.hasAbilitiesAccess && !user.permissions?.hasCollectionAccess && (
+                              <span className="text-xs text-gray-500">
+                                {isArabicBrowser() ? 'لا توجد صلاحيات' : 'No permissions'}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-center text-sm text-dark-600">
                           {user.createdAt
                             ? new Date(user.createdAt).toLocaleDateString('ar-SA', {
@@ -185,7 +263,14 @@ const AdminUsers = () => {
                             : '-'}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2">
+                          <div className="flex items-center justify-center gap-2 flex-wrap">
+                            <button
+                              onClick={() => handleOpenPermissions(user)}
+                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-200 transition"
+                              title={isArabicBrowser() ? 'إدارة الصلاحيات' : 'Manage Permissions'}
+                            >
+                              {isArabicBrowser() ? 'صلاحيات' : 'Permissions'}
+                            </button>
                             <button
                               onClick={() => handleToggleActive(user.id)}
                               className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
@@ -237,9 +322,124 @@ const AdminUsers = () => {
           </div>
         </div>
       </div>
+
+      {/* Permissions Modal */}
+      {showPermissionsModal && selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-dark-600">
+                  {isArabicBrowser() ? 'إدارة الصلاحيات' : 'Manage Permissions'}
+                </h2>
+                <button
+                  onClick={handleClosePermissions}
+                  className="text-gray-500 hover:text-gray-700 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="mb-4">
+                <p className="text-dark-600 font-medium mb-2">
+                  {isArabicBrowser() ? 'المستخدم:' : 'User:'} {selectedUser.name || selectedUser.username || selectedUser.email}
+                </p>
+              </div>
+
+              {/* Section Access */}
+              <div className="space-y-4 mb-6">
+                <div className="border-b pb-4">
+                  <h3 className="text-lg font-semibold text-dark-600 mb-3">
+                    {isArabicBrowser() ? 'الوصول إلى الأقسام' : 'Section Access'}
+                  </h3>
+                  
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={permissions.hasCollectionAccess}
+                        onChange={(e) => handlePermissionChange('hasCollectionAccess', e.target.checked)}
+                        className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                      />
+                      <span className="text-dark-600 font-medium">
+                        {isArabicBrowser() ? 'الوصول إلى قسم التحصيل' : 'Access to Collection Section'}
+                      </span>
+                    </label>
+
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={permissions.hasAbilitiesAccess}
+                        onChange={(e) => handlePermissionChange('hasAbilitiesAccess', e.target.checked)}
+                        className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                      />
+                      <span className="text-dark-600 font-medium">
+                        {isArabicBrowser() ? 'الوصول إلى قسم القدرات' : 'Access to Abilities Section'}
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Abilities Subjects (only show if abilities access is enabled) */}
+                {permissions.hasAbilitiesAccess && (
+                  <div className="border-b pb-4">
+                    <h3 className="text-lg font-semibold text-dark-600 mb-3">
+                      {isArabicBrowser() ? 'المواد في قسم القدرات' : 'Abilities Section Subjects'}
+                    </h3>
+                    
+                    <div className="space-y-3 pr-6">
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={permissions.abilitiesSubjects.verbal}
+                          onChange={(e) => handlePermissionChange('verbal', e.target.checked)}
+                          className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                        />
+                        <span className="text-dark-600 font-medium">
+                          {isArabicBrowser() ? 'اللفظي' : 'Verbal'}
+                        </span>
+                      </label>
+
+                      <label className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={permissions.abilitiesSubjects.quantitative}
+                          onChange={(e) => handlePermissionChange('quantitative', e.target.checked)}
+                          className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                        />
+                        <span className="text-dark-600 font-medium">
+                          {isArabicBrowser() ? 'الكمي' : 'Quantitative'}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={handleClosePermissions}
+                  className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
+                >
+                  {isArabicBrowser() ? 'إلغاء' : 'Cancel'}
+                </button>
+                <button
+                  onClick={handleSavePermissions}
+                  className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition font-medium"
+                >
+                  {isArabicBrowser() ? 'حفظ' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default AdminUsers;
+
+
 

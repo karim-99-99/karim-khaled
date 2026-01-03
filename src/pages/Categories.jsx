@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { getSubjectById } from '../services/storageService';
+import { getSubjectById, getCurrentUser } from '../services/storageService';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
 
@@ -7,6 +7,8 @@ const Categories = () => {
   const { sectionId, subjectId } = useParams();
   const navigate = useNavigate();
   const subject = getSubjectById(subjectId);
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
 
   if (!subject) {
     return (
@@ -28,12 +30,14 @@ const Categories = () => {
       <div className="py-12 px-4">
         <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <button
-            onClick={() => navigate(`/section/${sectionId}/subjects`)}
-            className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
-          >
-            ← رجوع
-          </button>
+          <div className="flex justify-between items-start mb-4">
+            <button
+              onClick={() => navigate(`/section/${sectionId}/subjects`)}
+              className="text-primary-600 hover:text-primary-700 flex items-center gap-2 font-medium"
+            >
+              ← رجوع
+            </button>
+          </div>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
             {subject.name}
           </h1>
@@ -65,7 +69,7 @@ const Categories = () => {
               </h2>
               
               <div className="mt-4 text-sm md:text-base text-dark-600 font-medium">
-                {category.chapters.length} فصول
+                {category.chapters?.length || 0} فصول
               </div>
               {!category.hasTests && (
                 <div className="mt-2 text-xs md:text-sm text-primary-600 font-medium">

@@ -1,17 +1,33 @@
 import { useNavigate } from 'react-router-dom';
-import { getSections } from '../services/storageService';
+import { getSections, getCurrentUser } from '../services/storageService';
 import { useEffect, useState } from 'react';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { hasSectionAccess } from '../components/ProtectedRoute';
 
 const Home = () => {
   const navigate = useNavigate();
   const [sections, setSections] = useState([]);
 
   useEffect(() => {
-    const allSections = getSections();
-    setSections(allSections);
-  }, []);
+    try {
+      const currentUser = getCurrentUser();
+      const allSections = getSections() || [];
+      // Filter sections based on user permissions (if logged in)
+      if (currentUser && currentUser.role === 'student') {
+        const filteredSections = allSections.filter(section => 
+          section && hasSectionAccess(currentUser, section.id)
+        );
+        setSections(filteredSections);
+      } else {
+        // Show all sections for non-logged in users or admins
+        setSections(allSections);
+      }
+    } catch (error) {
+      console.error('Error loading sections:', error);
+      setSections([]);
+    }
+  }, []); // Empty dependency array - only run once on mount
 
   const handleSectionClick = (sectionId) => {
     navigate(`/section/${sectionId}/subjects`);
@@ -92,7 +108,7 @@ const Home = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
-          {sections.map((section) => (
+          {sections && sections.length > 0 ? sections.map((section) => (
             <button
               key={section.id}
               onClick={() => handleSectionClick(section.id)}
@@ -109,11 +125,15 @@ const Home = () => {
                 </h2>
               
                 <div className="mt-4 text-sm md:text-base text-dark-600 font-medium">
-                  {section.subjects.length} مواد
+                  {section.subjects?.length || 0} مواد
                 </div>
               </div>
             </button>
-          ))}
+          )) : (
+            <div className="col-span-full text-center py-12">
+              <p className="text-xl text-gray-600">لا توجد أقسام متاحة</p>
+            </div>
+          )}
         </div>
       </div>
     </div>

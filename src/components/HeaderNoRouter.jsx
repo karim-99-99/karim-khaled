@@ -42,9 +42,9 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
   };
 
   return (
-    <header className="bg-transparent sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 relative">
-        <div className="flex items-center justify-center h-16 relative">
+    <header className="bg-transparent sticky top-0 z-50 bg-white ">
+      <div className="max-w-7xl mx-auto px-4 relative bg-white">
+        <div className="flex items-center justify-center h-16 relative bg-white">
           <button
             onClick={() => handleNavClick('landing')}
             className="absolute right-0 flex items-center gap-2  hover:opacity-80 transition-opacity"
@@ -86,7 +86,7 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
 
             {/* User Menu - Desktop */}
             {currentUser ? (
-              <div className="absolute left-0 relative">
+              <div className="absolute left-0 relative bg-white">
                 <button
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                   className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors font-medium text-white"
@@ -148,7 +148,7 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
           </nav>
 
           {/* Mobile Menu Button and User Button */}
-          <div className="md:hidden flex items-center gap-2 absolute left-0 z-10">
+          <div className="md:hidden flex items-center gap-2 absolute left-0 z-10 bg-white">
             {currentUser && (
               <>
                 {/* User Menu Selector - always visible for admin and student */}
@@ -222,7 +222,7 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden pb-4 border-t border-gray-200 mt-2 pt-4">
+          <div className="md:hidden pb-4 border-t border-gray-200 mt-2 pt-4 bg-white ">
             <nav className="flex flex-col gap-4">
               <button
                 onClick={() => handleNavClick('landing')}

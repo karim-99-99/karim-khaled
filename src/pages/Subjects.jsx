@@ -1,12 +1,14 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { getSectionById } from '../services/storageService';
+import { getSectionById, getCurrentUser } from '../services/storageService';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { hasSubjectAccess } from '../components/ProtectedRoute';
 
 const Subjects = () => {
   const { sectionId } = useParams();
   const navigate = useNavigate();
   const section = getSectionById(sectionId);
+  const currentUser = getCurrentUser();
 
   if (!section) {
     return (
@@ -39,7 +41,16 @@ const Subjects = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {section.subjects.map((subject) => {
+          {(section.subjects || [])
+            .filter(subject => {
+              // Filter subjects based on user permissions (if logged in as student)
+              if (currentUser && currentUser.role === 'student') {
+                return hasSubjectAccess(currentUser, subject.id);
+              }
+              // Show all subjects for non-logged in users or admins
+              return true;
+            })
+            .map((subject) => {
             // Choose icon based on subject
             const icons = {
               'الرياضيات': '🔢',

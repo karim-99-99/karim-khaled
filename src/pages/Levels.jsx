@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getItemsByChapter, getLevelProgress, getCurrentUser, getChapterById, updateItemName } from '../services/storageService';
+import { getItemsByChapter, getLevelProgress, getCurrentUser, getChapterById, updateItemName, getFileByLevel, getVideoByLevel, getQuestionsByLevel } from '../services/storageService';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
 
@@ -51,6 +51,21 @@ const Levels = () => {
     navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`);
   };
 
+  const handleFileClick = (itemId) => {
+    if (!currentUser) {
+      // Redirect to login with return path
+      navigate(`/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/file`);
+      return;
+    }
+    if (isAdmin) {
+      // For admin: navigate to file management page with itemId and return URL
+      const returnUrl = `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`;
+      navigate(`/admin/files?itemId=${itemId}&returnUrl=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+    navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/file`);
+  };
+
   const handleEditClick = (item, e) => {
     e.stopPropagation();
     setEditingItem(item.id);
@@ -79,12 +94,22 @@ const Levels = () => {
       <div className="py-12 px-4">
         <div className="max-w-6xl mx-auto">
         <div className="mb-8">
-          <button
-            onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`)}
-            className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
-          >
-            ← رجوع
-          </button>
+          <div className="flex justify-between items-start mb-4">
+            <button
+              onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`)}
+              className="text-primary-600 hover:text-primary-700 flex items-center gap-2 font-medium"
+            >
+              ← رجوع
+            </button>
+            {isAdmin && (
+              <button
+                onClick={() => navigate(`/admin/lessons?chapterId=${chapterId}`)}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+              >
+                📖 {isArabicBrowser() ? 'إدارة الدروس' : 'Manage Lessons'}
+              </button>
+            )}
+          </div>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
             {chapter?.name || 'الدروس'}
           </h1>
@@ -159,6 +184,13 @@ const Levels = () => {
                         📤 {isArabicBrowser() ? 'رفع فيديو للدرس' : 'Upload Video'}
                       </button>
                       
+                      <button
+                        onClick={() => handleFileClick(item.id)}
+                        className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition font-medium flex items-center justify-center gap-2"
+                      >
+                        📄 {isArabicBrowser() ? 'رفع ملف مرفق' : 'Upload File'}
+                      </button>
+                      
                       {item.hasTest && (
                         <button
                           onClick={() => handleQuizClick(item.id)}
@@ -170,21 +202,52 @@ const Levels = () => {
                     </>
                   ) : (
                     <>
-                      <button
-                        onClick={() => handleVideoClick(item.id)}
-                        className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2"
-                      >
-                        🎥 {isArabicBrowser() ? 'مشاهدة الفيديو' : 'Watch Video'}
-                      </button>
-                      
-                      {item.hasTest && (
-                        <button
-                          onClick={() => handleQuizClick(item.id)}
-                          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
-                        >
-                          📝 {isArabicBrowser() ? 'حل الاختبار' : 'Take Quiz'}
-                        </button>
-                      )}
+                      {(() => {
+                        // Check what content exists for this lesson
+                        const video = getVideoByLevel(item.id);
+                        const file = getFileByLevel(item.id);
+                        const questions = getQuestionsByLevel(item.id);
+                        const hasExam = item.hasTest && questions && questions.length > 0;
+                        
+                        // Don't show any buttons if no content exists
+                        if (!video && !file && !hasExam) {
+                          return null;
+                        }
+                        
+                        return (
+                          <>
+                            {/* Show video button only if video exists */}
+                            {video && (
+                              <button
+                                onClick={() => handleVideoClick(item.id)}
+                                className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2"
+                              >
+                                🎥 {isArabicBrowser() ? 'مشاهدة الفيديو' : 'Watch Video'}
+                              </button>
+                            )}
+                            
+                            {/* Show file button only if file exists */}
+                            {file && (
+                              <button
+                                onClick={() => handleFileClick(item.id)}
+                                className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition font-medium flex items-center justify-center gap-2"
+                              >
+                                📄 {isArabicBrowser() ? 'قراءة الملف المرفق' : 'Read File'}
+                              </button>
+                            )}
+                            
+                            {/* Show exam button only if exam exists (hasTest flag is true AND questions exist) */}
+                            {hasExam && (
+                              <button
+                                onClick={() => handleQuizClick(item.id)}
+                                className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
+                              >
+                                📝 {isArabicBrowser() ? 'حل الاختبار' : 'Take Quiz'}
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
                     </>
                   )}
                 </div>

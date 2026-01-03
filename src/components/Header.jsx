@@ -186,7 +186,7 @@ const Header = () => {
                 <div className="relative">
                   <button
                     onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors font-medium text-white text-xs sm:text-sm whitespace-nowrap"
+                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-white md:bg-primary-500 hover:bg-gray-100 md:hover:bg-primary-600 rounded-lg transition-colors font-medium text-dark-600 md:text-white text-xs sm:text-sm whitespace-nowrap border border-gray-200 md:border-none"
                   >
                     {currentUser.name}
                     <span className="text-xs">▼</span>
@@ -260,7 +260,7 @@ const Header = () => {
               </>
             )}
             <button
-              className="p-2 text-dark-600 flex-shrink-0"
+              className="p-2 text-dark-600 flex-shrink-0 bg-white md:bg-transparent rounded-lg border border-gray-200 md:border-none"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label="Menu"
             >

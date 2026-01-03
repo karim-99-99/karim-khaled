@@ -28,13 +28,34 @@ const Dashboard = () => {
         </div>
 
         {/* Admin Actions */}
-        <div className="mb-8 flex justify-center">
+        <div className="mb-8 flex flex-wrap justify-center gap-4">
           <button
             onClick={() => navigate('/admin/users')}
             className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl flex items-center gap-2"
           >
             <span>👥</span>
             <span>{isArabicBrowser() ? 'إدارة المستخدمين' : 'User Management'}</span>
+          </button>
+          <button
+            onClick={() => navigate('/admin/chapters')}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl flex items-center gap-2"
+          >
+            <span>📚</span>
+            <span>{isArabicBrowser() ? 'إدارة الفصول' : 'Manage Chapters'}</span>
+          </button>
+          <button
+            onClick={() => navigate('/admin/lessons')}
+            className="bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl flex items-center gap-2"
+          >
+            <span>📖</span>
+            <span>{isArabicBrowser() ? 'إدارة الدروس' : 'Manage Lessons'}</span>
+          </button>
+          <button
+            onClick={() => navigate('/admin/classrooms')}
+            className="bg-purple-500 hover:bg-purple-600 text-white px-6 py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl flex items-center gap-2"
+          >
+            <span>🏫</span>
+            <span>{isArabicBrowser() ? 'إدارة الفصول الدراسية' : 'Manage Classrooms'}</span>
           </button>
         </div>
 
@@ -54,7 +75,7 @@ const Dashboard = () => {
                 </h2>
               
                 <div className="mt-4 text-sm md:text-base text-dark-500 font-medium">
-                  {section.subjects.length} {isArabicBrowser() ? 'مواد' : ''}
+                  {section.subjects?.length || 0} {isArabicBrowser() ? 'مواد' : ''}
                 </div>
               </div>
               <div className="absolute inset-0 rounded-2xl border-4 border-transparent group-hover:border-primary-400 transition"></div>
