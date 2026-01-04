@@ -5,6 +5,11 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
+import MathEditor from '../../components/MathEditor';
+import MathRenderer from '../../components/MathRenderer';
+import { InlineMath, BlockMath } from 'react-katex';
+import 'katex/dist/katex.min.css';
+import katex from 'katex';
 
 const Questions = () => {
   const navigate = useNavigate();
@@ -25,18 +30,155 @@ const Questions = () => {
   const [imageScale, setImageScale] = useState(100); // Image scale percentage
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageSrc, setModalImageSrc] = useState(null);
+  const [showMathEditor, setShowMathEditor] = useState(false);
   const imageInputRef = useRef(null);
+  const quillRef = useRef(null);
+  const isConvertingRef = useRef(false);
   const [formData, setFormData] = useState({
     question: '',
     questionEn: '',
     image: null, // base64 encoded image
     answers: [
-      { id: 'a', text: '', textEn: '', isCorrect: false },
-      { id: 'b', text: '', textEn: '', isCorrect: false },
-      { id: 'c', text: '', textEn: '', isCorrect: false },
-      { id: 'd', text: '', textEn: '', isCorrect: false },
+      { id: 'a', text: '', isCorrect: false },
+      { id: 'b', text: '', isCorrect: false },
+      { id: 'c', text: '', isCorrect: false },
+      { id: 'd', text: '', isCorrect: false },
     ],
   });
+
+  // Convert Western numerals (0-9) to Arabic numerals (٠-٩)
+  const convertToArabicNumerals = (text) => {
+    const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    return text.replace(/[0-9]/g, (digit) => arabicNumerals[parseInt(digit)]);
+  };
+
+  // Convert Arabic numerals (٠-٩) to Western numerals (0-9)
+  const convertToWesternNumerals = (text) => {
+    const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const westernNumerals = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    return text.replace(/[٠-٩]/g, (digit) => {
+      const index = arabicNumerals.indexOf(digit);
+      return index !== -1 ? westernNumerals[index] : digit;
+    });
+  };
+
+  // Detect if text contains Arabic characters
+  const hasArabicCharacters = (text) => {
+    // Arabic Unicode range: \u0600-\u06FF
+    return /[\u0600-\u06FF]/.test(text);
+  };
+
+  // Check context around cursor to determine language
+  const detectLanguageContext = (quill, cursorIndex) => {
+    const text = quill.getText();
+    
+    // Find the last non-numeric, non-whitespace, non-punctuation character before cursor
+    // This tells us what language the user is actively typing in
+    let lastLetterIndex = cursorIndex - 1;
+    while (lastLetterIndex >= 0) {
+      const char = text.charAt(lastLetterIndex);
+      // Skip numbers, spaces, and common punctuation
+      if (!/[0-9٠-٩\s.,;:!?\-_()\[\]{}\"']/.test(char)) {
+        // Check if it's Arabic
+        if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(char)) {
+          return 'ar';
+        }
+        // Check if it's Latin
+        if (/[a-zA-Z]/.test(char)) {
+          return 'en';
+        }
+      }
+      lastLetterIndex--;
+    }
+    
+    // If no letters found before cursor, check immediate context after cursor
+    let nextLetterIndex = cursorIndex;
+    while (nextLetterIndex < text.length && nextLetterIndex < cursorIndex + 10) {
+      const char = text.charAt(nextLetterIndex);
+      if (!/[0-9٠-٩\s.,;:!?\-_()\[\]{}\"']/.test(char)) {
+        if (/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(char)) {
+          return 'ar';
+        }
+        if (/[a-zA-Z]/.test(char)) {
+          return 'en';
+        }
+      }
+      nextLetterIndex++;
+    }
+    
+    // Check broader context (50 chars before, 10 after) for overall language
+    const start = Math.max(0, cursorIndex - 50);
+    const end = Math.min(text.length, cursorIndex + 10);
+    const context = text.substring(start, end);
+    
+    const arabicChars = context.match(/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g) || [];
+    const latinChars = context.match(/[a-zA-Z]/g) || [];
+    const arabicCount = arabicChars.length;
+    const latinCount = latinChars.length;
+    
+    // If Arabic characters exist in context, default to Arabic
+    if (arabicCount > 0) {
+      // If Arabic count is significant, use Arabic
+      if (arabicCount >= latinCount || arabicCount >= 3) {
+        return 'ar';
+      }
+    }
+    
+    // If only Latin characters, use English
+    if (latinCount > 0 && arabicCount === 0) {
+      return 'en';
+    }
+    
+    // Default: check page direction (this is an Arabic interface, so default to Arabic)
+    const htmlDir = document.documentElement.dir || document.documentElement.getAttribute('dir');
+    return (htmlDir === 'rtl' || isArabicBrowser()) ? 'ar' : 'en';
+  };
+
+  // Insert Arabic numeral at cursor position
+  const insertArabicNumeral = (number) => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      // Focus the editor if not already focused
+      const editorElement = quill.root;
+      if (document.activeElement !== editorElement) {
+        editorElement.focus();
+      }
+      
+      setTimeout(() => {
+        const range = quill.getSelection(true);
+        const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+        if (number >= 0 && number <= 9) {
+          const insertIndex = range ? range.index : quill.getLength() - 1;
+          quill.insertText(insertIndex, arabicNumerals[number]);
+          quill.setSelection(insertIndex + 1);
+        }
+      }, 10);
+    }
+  };
+
+  // Convert selected text numbers to Arabic numerals
+  const convertSelectionToArabic = () => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection(true);
+      if (range && range.length > 0) {
+        const selectedText = quill.getText(range.index, range.length);
+        const arabicText = convertToArabicNumerals(selectedText);
+        quill.deleteText(range.index, range.length);
+        quill.insertText(range.index, arabicText);
+        quill.setSelection(range.index, arabicText.length);
+      } else {
+        // If no selection, convert all numbers in the entire text
+        const fullText = quill.getText();
+        const arabicText = convertToArabicNumerals(fullText);
+        if (fullText !== arabicText) {
+          const currentLength = quill.getLength();
+          quill.deleteText(0, currentLength - 1);
+          quill.insertText(0, arabicText.substring(0, arabicText.length - 1));
+        }
+      }
+    }
+  };
 
   // Helper function to find item's parent information
   const findItemParents = (itemId) => {
@@ -55,6 +197,157 @@ const Questions = () => {
     }
     return null;
   };
+
+  // Handle text change in Quill editor (update form data)
+  const handleQuillChange = (content) => {
+    setFormData({ ...formData, question: content });
+  };
+
+  // Handle math equation insertion from MathEditor modal - insert as rendered HTML
+  const handleInsertMath = (latex) => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection(true);
+      if (range) {
+        try {
+          // Render LaTeX to HTML using KaTeX
+          const html = katex.renderToString(latex, {
+            throwOnError: false,
+            displayMode: false,
+          });
+          
+          // Insert rendered HTML directly into Quill
+          const selection = quill.getSelection(true);
+          
+          // Use pasteHTML by simulating a paste event
+          const clipboard = quill.clipboard;
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = html;
+          tempDiv.style.display = 'inline-block';
+          
+          // Convert HTML to Quill delta
+          const delta = clipboard.convert(tempDiv);
+          
+          // Insert at cursor position
+          quill.updateContents(
+            new quill.constructor.import('parchment').Delta()
+              .retain(selection.index)
+              .concat(delta),
+            'user'
+          );
+          
+          // Update form data
+          setTimeout(() => {
+            quill.setSelection(selection.index + delta.length(), 0);
+            const newContent = quill.root.innerHTML;
+            setFormData({ ...formData, question: newContent });
+          }, 10);
+        } catch (error) {
+          console.error('Error rendering math:', error);
+          // Fallback: insert as visual symbol if simple, otherwise as LaTeX
+          const simpleSymbols = {
+            'x^2': 'x²',
+            'x_1': 'x₁',
+            '\\sqrt{x}': '√x',
+            '\\sum_{i=1}^{n}': '∑',
+            '\\int_{a}^{b}': '∫',
+            '\\frac{a}{b}': '½'
+          };
+          if (simpleSymbols[latex]) {
+            insertMathSymbol(simpleSymbols[latex]);
+          } else {
+            insertMathEquation(latex);
+          }
+        }
+      }
+    }
+    setShowMathEditor(false);
+  };
+
+  // Insert math symbol directly into editor
+  const insertMathSymbol = (symbol) => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection(true);
+      if (range) {
+        quill.insertText(range.index, symbol);
+        quill.setSelection(range.index + symbol.length);
+        
+        // Update form data
+        const newContent = quill.root.innerHTML;
+        setFormData({ ...formData, question: newContent });
+      }
+    }
+  };
+
+  // Insert LaTeX math equation (wrapped in $$) - will be rendered when displayed
+  const insertMathEquation = (latex) => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection(true);
+      if (range) {
+        // Insert as LaTeX wrapped in $$ for rendering later
+        const mathWrapper = `$$${latex}$$`;
+        quill.insertText(range.index, mathWrapper);
+        quill.setSelection(range.index + mathWrapper.length);
+        
+        // Update form data
+        const newContent = quill.root.innerHTML;
+        setFormData({ ...formData, question: newContent });
+      }
+    }
+  };
+
+  // Insert math symbol directly (visual symbol, not LaTeX)
+  const insertMathSymbolVisual = (symbol) => {
+    if (quillRef.current) {
+      const quill = quillRef.current.getEditor();
+      const range = quill.getSelection(true);
+      if (range) {
+        quill.insertText(range.index, symbol);
+        quill.setSelection(range.index + symbol.length);
+        
+        // Update form data
+        const newContent = quill.root.innerHTML;
+        setFormData({ ...formData, question: newContent });
+      }
+    }
+  };
+
+  // Common math symbols for quick insertion
+  const quickMathSymbols = [
+    { label: '+', symbol: '+' },
+    { label: '−', symbol: '−' },
+    { label: '×', symbol: '×' },
+    { label: '÷', symbol: '÷' },
+    { label: '=', symbol: '=' },
+    { label: '≠', symbol: '≠' },
+    { label: '<', symbol: '<' },
+    { label: '>', symbol: '>' },
+    { label: '≤', symbol: '≤' },
+    { label: '≥', symbol: '≥' },
+    { label: '±', symbol: '±' },
+    { label: '√', symbol: '√' },
+    { label: '²', symbol: '²' },
+    { label: '³', symbol: '³' },
+    { label: '½', symbol: '½' },
+    { label: '¼', symbol: '¼' },
+    { label: '¾', symbol: '¾' },
+    { label: 'π', symbol: 'π' },
+    { label: '∞', symbol: '∞' },
+    { label: '∑', symbol: '∑' },
+    { label: '∫', symbol: '∫' },
+    { label: 'α', symbol: 'α' },
+    { label: 'β', symbol: 'β' },
+    { label: 'γ', symbol: 'γ' },
+    { label: 'δ', symbol: 'δ' },
+    { label: 'θ', symbol: 'θ' },
+    { label: 'λ', symbol: 'λ' },
+    { label: 'μ', symbol: 'μ' },
+    { label: 'σ', symbol: 'σ' },
+    { label: 'Δ', symbol: 'Δ' },
+    { label: 'Ω', symbol: 'Ω' },
+  ];
 
   // Configure Quill editor toolbar
   const quillModules = {
@@ -91,6 +384,94 @@ const Questions = () => {
       setQuestions(getQuestionsByLevel(selectedLevel));
     }
   }, [selectedLevel]);
+
+  // Set up Quill text-change handler for automatic number conversion
+  useEffect(() => {
+    if (quillRef.current && showForm) {
+      const quill = quillRef.current.getEditor();
+      
+      // Set editor direction to RTL to help with Arabic detection
+      const editorElement = quill.root;
+      if (editorElement) {
+        editorElement.setAttribute('dir', 'rtl');
+      }
+      
+      const handleTextChange = (delta, oldDelta, source) => {
+        if (source === 'user' && !isConvertingRef.current) {
+          setTimeout(() => {
+            if (isConvertingRef.current) return; // Skip if already converting
+            
+            const selection = quill.getSelection(true);
+            if (!selection) return;
+            
+            const text = quill.getText();
+            const cursorIndex = selection.index;
+            
+            // Need to check what was just typed
+            if (cursorIndex > 0) {
+              const lastChar = text.charAt(cursorIndex - 1);
+              
+              // If a Western number (0-9) was typed
+              if (/[0-9]/.test(lastChar)) {
+                const context = detectLanguageContext(quill, cursorIndex - 1);
+                
+                if (context === 'ar') {
+                  isConvertingRef.current = true;
+                  const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                  const arabicDigit = arabicNumerals[parseInt(lastChar)];
+                  
+                  quill.deleteText(cursorIndex - 1, 1, 'api');
+                  quill.insertText(cursorIndex - 1, arabicDigit, 'api');
+                  quill.setSelection(cursorIndex, 0, 'api');
+                  
+                  // Update formData
+                  const newContent = quill.root.innerHTML;
+                  setFormData(prev => ({ ...prev, question: newContent }));
+                  
+                  setTimeout(() => {
+                    isConvertingRef.current = false;
+                  }, 100);
+                }
+              }
+              // If an Arabic number was typed but context is English
+              else if (/[٠-٩]/.test(lastChar)) {
+                const context = detectLanguageContext(quill, cursorIndex - 1);
+                
+                if (context === 'en') {
+                  isConvertingRef.current = true;
+                  const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+                  const westernNumerals = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+                  const index = arabicNumerals.indexOf(lastChar);
+                  
+                  if (index !== -1) {
+                    const westernDigit = westernNumerals[index];
+                    quill.deleteText(cursorIndex - 1, 1, 'api');
+                    quill.insertText(cursorIndex - 1, westernDigit, 'api');
+                    quill.setSelection(cursorIndex, 0, 'api');
+                    
+                    // Update formData
+                    const newContent = quill.root.innerHTML;
+                    setFormData(prev => ({ ...prev, question: newContent }));
+                    
+                    setTimeout(() => {
+                      isConvertingRef.current = false;
+                    }, 100);
+                  }
+                }
+              }
+            }
+          }, 20);
+        }
+      };
+      
+      quill.on('text-change', handleTextChange);
+      
+      return () => {
+        quill.off('text-change', handleTextChange);
+        isConvertingRef.current = false;
+      };
+    }
+  }, [showForm]);
 
   const handleSubjectChange = (subjectId) => {
     setSelectedSubject(subjectId);
@@ -169,10 +550,10 @@ const Questions = () => {
       questionEn: '',
       image: null,
       answers: [
-        { id: 'a', text: '', textEn: '', isCorrect: false },
-        { id: 'b', text: '', textEn: '', isCorrect: false },
-        { id: 'c', text: '', textEn: '', isCorrect: false },
-        { id: 'd', text: '', textEn: '', isCorrect: false },
+        { id: 'a', text: '', isCorrect: false },
+        { id: 'b', text: '', isCorrect: false },
+        { id: 'c', text: '', isCorrect: false },
+        { id: 'd', text: '', isCorrect: false },
       ],
     });
     if (imageInputRef.current) {
@@ -194,11 +575,11 @@ const Questions = () => {
       question: question.question || '',
       questionEn: question.questionEn || '',
       image: question.image || null,
-      answers: question.answers || [
-        { id: 'a', text: '', textEn: '', isCorrect: false },
-        { id: 'b', text: '', textEn: '', isCorrect: false },
-        { id: 'c', text: '', textEn: '', isCorrect: false },
-        { id: 'd', text: '', textEn: '', isCorrect: false },
+      answers: question.answers ? question.answers.map((ans) => ({ id: ans.id, text: ans.text || '', isCorrect: ans.isCorrect || false })) : [
+        { id: 'a', text: '', isCorrect: false },
+        { id: 'b', text: '', isCorrect: false },
+        { id: 'c', text: '', isCorrect: false },
+        { id: 'd', text: '', isCorrect: false },
       ],
     });
     if (question.image) {
@@ -263,10 +644,10 @@ const Questions = () => {
       questionEn: '',
       image: null,
       answers: [
-        { id: 'a', text: '', textEn: '', isCorrect: false },
-        { id: 'b', text: '', textEn: '', isCorrect: false },
-        { id: 'c', text: '', textEn: '', isCorrect: false },
-        { id: 'd', text: '', textEn: '', isCorrect: false },
+        { id: 'a', text: '', isCorrect: false },
+        { id: 'b', text: '', isCorrect: false },
+        { id: 'c', text: '', isCorrect: false },
+        { id: 'd', text: '', isCorrect: false },
       ],
     });
     if (imageInputRef.current) {
@@ -407,7 +788,7 @@ const Questions = () => {
                     <div className="flex-1 w-full sm:w-auto">
                       <div className="font-semibold text-sm sm:text-base md:text-lg text-dark-600 mb-2 break-words">
                         <span>{index + 1}. </span>
-                        <span dangerouslySetInnerHTML={{ __html: question.question || '' }} />
+                        <MathRenderer html={question.question || ''} inline={false} />
                       </div>
                       {question.questionEn && (
                         <div className="text-xs sm:text-sm md:text-base text-dark-500 mb-2 break-words" dangerouslySetInnerHTML={{ __html: question.questionEn }} />
@@ -446,7 +827,7 @@ const Questions = () => {
                           answer.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
                         }`}
                       >
-                        <span className="font-semibold text-dark-600">{answer.id.toUpperCase()})</span> <span className="text-dark-600">{answer.text}</span>
+                        <span className="text-dark-600">{answer.text}</span>
                         {answer.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
                       </div>
                     ))}
@@ -480,6 +861,14 @@ const Questions = () => {
           </div>
         )}
 
+        {/* Math Editor Modal */}
+        {showMathEditor && (
+          <MathEditor
+            onInsert={handleInsertMath}
+            onClose={() => setShowMathEditor(false)}
+          />
+        )}
+
         {/* Add/Edit Form Modal */}
         {showForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4" onClick={(e) => {
@@ -496,33 +885,124 @@ const Questions = () => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      السؤال (عربي) / Question (Arabic)
+                      السؤال / Question
                     </label>
-                    <div className="bg-white" style={{ pointerEvents: 'auto' }}>
+                    <div className="mb-2 flex flex-wrap gap-2">
+                      <span className="text-xs md:text-sm text-gray-600 font-medium self-center">
+                        {isArabicBrowser() ? 'إدراج أرقام عربية:' : 'Insert Arabic Numbers:'}
+                      </span>
+                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                        <button
+                          key={num}
+                          type="button"
+                          onClick={() => insertArabicNumeral(num)}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm md:text-base font-medium transition min-w-[35px]"
+                          title={`${isArabicBrowser() ? 'إدراج' : 'Insert'} ${convertToArabicNumerals(String(num))}`}
+                        >
+                          {convertToArabicNumerals(String(num))}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={convertSelectionToArabic}
+                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded text-xs md:text-sm font-medium transition"
+                        title={isArabicBrowser() ? 'تحويل الأرقام المحددة إلى أرقام عربية' : 'Convert selected numbers to Arabic'}
+                      >
+                        {isArabicBrowser() ? 'تحويل المحدد' : 'Convert Selected'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowMathEditor(true)}
+                        className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center gap-1"
+                        title={isArabicBrowser() ? 'إدراج معادلة رياضية' : 'Insert Math Equation'}
+                      >
+                        <span>∑</span>
+                        <span>{isArabicBrowser() ? 'معادلة رياضية' : 'Math'}</span>
+                      </button>
+                    </div>
+                    
+                    {/* Math Symbols Toolbar */}
+                    <div className="mb-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="mb-2">
+                        <span className="text-xs md:text-sm text-gray-700 font-semibold">
+                          {isArabicBrowser() ? 'الرموز الرياضية السريعة:' : 'Quick Math Symbols:'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {quickMathSymbols.map((item, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => insertMathSymbol(item.symbol)}
+                            className="bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-3 py-1.5 rounded-md text-sm md:text-base font-medium transition border border-gray-300 hover:border-blue-400 min-w-[36px] text-center shadow-sm hover:shadow"
+                            title={`${isArabicBrowser() ? 'إدراج' : 'Insert'} ${item.label}`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Quick Math Templates */}
+                      <div className="mt-3 pt-3 border-t border-gray-300">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => insertMathSymbol('x²')}
+                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
+                            title={isArabicBrowser() ? 'إدراج x²' : 'Insert x²'}
+                          >
+                            x²
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertMathSymbol('x₁')}
+                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
+                            title={isArabicBrowser() ? 'إدراج x₁' : 'Insert x₁'}
+                          >
+                            x₁
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertMathSymbol('½')}
+                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
+                            title={isArabicBrowser() ? 'إدراج كسر' : 'Insert Fraction'}
+                          >
+                            ½
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertMathSymbol('√')}
+                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
+                            title={isArabicBrowser() ? 'إدراج جذر' : 'Insert Square Root'}
+                          >
+                            √
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertMathSymbol('∑')}
+                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
+                            title={isArabicBrowser() ? 'إدراج مجموع' : 'Insert Sum'}
+                          >
+                            ∑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => insertMathSymbol('∫')}
+                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
+                            title={isArabicBrowser() ? 'إدراج تكامل' : 'Insert Integral'}
+                          >
+                            ∫
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-white" style={{ pointerEvents: 'auto', direction: 'rtl' }}>
                       <ReactQuill
+                        ref={quillRef}
                         theme="snow"
                         value={formData.question}
-                        onChange={(value) => setFormData({ ...formData, question: value })}
+                        onChange={handleQuillChange}
                         modules={quillModules}
                         placeholder="اكتب السؤال هنا... / Write question here..."
-                        className="bg-white"
-                        style={{ height: '200px', marginBottom: '50px', pointerEvents: 'auto' }}
-                        readOnly={false}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      السؤال (إنجليزي) / Question (English) - Optional
-                    </label>
-                    <div className="bg-white" style={{ pointerEvents: 'auto' }}>
-                      <ReactQuill
-                        theme="snow"
-                        value={formData.questionEn}
-                        onChange={(value) => setFormData({ ...formData, questionEn: value })}
-                        modules={quillModules}
-                        placeholder="Write question in English..."
                         className="bg-white"
                         style={{ height: '200px', marginBottom: '50px', pointerEvents: 'auto' }}
                         readOnly={false}
@@ -624,23 +1104,12 @@ const Questions = () => {
                             onChange={() => handleCorrectAnswerChange(index)}
                             className="w-4 h-4"
                           />
-                          <span className="font-bold w-8">{answer.id.toUpperCase()})</span>
                           <input
                             type="text"
                             value={answer.text}
                             onChange={(e) => handleAnswerChange(index, 'text', e.target.value)}
-                            placeholder="الإجابة (عربي) / Answer (Arabic)"
+                            placeholder={isArabicBrowser() ? 'الإجابة' : 'Answer'}
                             required
-                            disabled={false}
-                            readOnly={false}
-                            className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            style={{ pointerEvents: 'auto' }}
-                          />
-                          <input
-                            type="text"
-                            value={answer.textEn}
-                            onChange={(e) => handleAnswerChange(index, 'textEn', e.target.value)}
-                            placeholder="Answer (English)"
                             disabled={false}
                             readOnly={false}
                             className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary-500"

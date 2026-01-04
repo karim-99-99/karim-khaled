@@ -51,11 +51,16 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
+    include: ['react', 'react-dom', 'react-router-dom', 'mathquill'],
   },
   server: {
     fs: {
       strict: false,
+    },
+  },
+  build: {
+    commonjsOptions: {
+      include: [/mathquill/, /node_modules/],
     },
   },
   preview: {

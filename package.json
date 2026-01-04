@@ -10,8 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "katex": "^0.16.27",
+    "mathquill": "^0.10.1-a",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-katex": "^3.1.0",
     "react-quill": "^2.0.0",
     "react-router-dom": "^6.26.0"
   },

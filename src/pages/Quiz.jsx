@@ -6,6 +6,7 @@ import VideoModal from '../components/VideoModal';
 import ProgressBar from '../components/ProgressBar';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import MathRenderer from '../components/MathRenderer';
 
 const Quiz = () => {
   // Support both new structure (with sectionId, categoryId, itemId) and legacy (levelId)
@@ -232,10 +233,12 @@ const Quiz = () => {
               السؤال {currentIndex + 1} من {questions.length}
             </p>
             <div className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600 mb-2 leading-relaxed">
-              <div dangerouslySetInnerHTML={{ __html: currentQuestion?.question || '' }} />
+              <MathRenderer html={currentQuestion?.question || ''} inline={false} />
             </div>
             {!isArabicBrowser() && currentQuestion?.questionEn && (
-              <div className="text-base md:text-lg text-dark-600 font-medium" dangerouslySetInnerHTML={{ __html: currentQuestion.questionEn }} />
+              <div className="text-base md:text-lg text-dark-600 font-medium">
+                <MathRenderer html={currentQuestion.questionEn} inline={false} />
+              </div>
             )}
           </div>
 
@@ -253,9 +256,6 @@ const Quiz = () => {
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-base md:text-lg">{answer.text}</span>
-                  {!isArabicBrowser() && answer.textEn && (
-                    <span className="text-xs md:text-sm opacity-75">{answer.textEn}</span>
-                  )}
                 </div>
               </button>
             ))}
