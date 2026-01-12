@@ -10,7 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ckeditor/ckeditor5-build-classic": "^41.4.2",
+    "@ckeditor/ckeditor5-react": "^11.0.1",
+    "@wiris/mathtype-ckeditor5": "^8.15.0",
+    "better-react-mathjax": "^2.4.0-beta-1",
     "katex": "^0.16.27",
+    "mathjax": "^3.2.2",
+    "mathlive": "^0.108.2",
     "mathquill": "^0.10.1-a",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -28,7 +34,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
-    "postcss": "^8.5.6",
+    "postcss": "^8.4.23",
     "tailwindcss": "^3.4.19",
     "vite": "npm:rolldown-vite@7.2.5"
   },

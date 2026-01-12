@@ -51,7 +51,23 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'mathquill'],
+    include: ['react', 'react-dom', 'react-router-dom'],
+    // Exclude ALL CKEditor packages to prevent duplication
+    // CKEditor 5 should not be pre-bundled by Vite to avoid module duplication
+    exclude: [
+      'mathquill',
+      '@wiris/mathtype-ckeditor5',
+      '@ckeditor/ckeditor5-react',
+      '@ckeditor/ckeditor5-editor-classic',
+      '@ckeditor/ckeditor5-essentials',
+      '@ckeditor/ckeditor5-basic-styles',
+      '@ckeditor/ckeditor5-heading',
+      '@ckeditor/ckeditor5-list',
+      '@ckeditor/ckeditor5-link',
+      '@ckeditor/ckeditor5-image',
+      '@ckeditor/ckeditor5-undo',
+      'ckeditor5',
+    ],
   },
   server: {
     fs: {

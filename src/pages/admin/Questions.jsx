@@ -7,9 +7,14 @@ import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
 import MathEditor from '../../components/MathEditor';
 import MathRenderer from '../../components/MathRenderer';
+import WordLikeEditor from '../../components/WordLikeEditor';
+import EquationEditor from '../../components/EquationEditor';
+import VisualEquationEditor from '../../components/VisualEquationEditor';
+import WYSIWYGEquationEditor from '../../components/WYSIWYGEquationEditor';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import katex from 'katex';
+import SimpleProfessionalMathEditor from '../../components/SimpleProfessionalMathEditor';
 
 const Questions = () => {
   const navigate = useNavigate();
@@ -31,6 +36,8 @@ const Questions = () => {
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageSrc, setModalImageSrc] = useState(null);
   const [showMathEditor, setShowMathEditor] = useState(false);
+  const [isLoadingForm, setIsLoadingForm] = useState(false);
+  // Using the best working editor - SimpleProfessionalMathEditor with RTL/LTR button!
   const imageInputRef = useRef(null);
   const quillRef = useRef(null);
   const isConvertingRef = useRef(false);
@@ -38,6 +45,7 @@ const Questions = () => {
     question: '',
     questionEn: '',
     image: null, // base64 encoded image
+    explanation: '', // Explanation for the correct answer
     answers: [
       { id: 'a', text: '', isCorrect: false },
       { id: 'b', text: '', isCorrect: false },
@@ -136,6 +144,13 @@ const Questions = () => {
 
   // Insert Arabic numeral at cursor position
   const insertArabicNumeral = (number) => {
+    // Use WordLikeEditor's exposed function if available
+    if (window.wordLikeEditorInsertArabic) {
+      window.wordLikeEditorInsertArabic(number);
+      return;
+    }
+    
+    // Fallback to old method if WordLikeEditor ref is available
     if (quillRef.current) {
       const quill = quillRef.current.getEditor();
       // Focus the editor if not already focused
@@ -158,6 +173,13 @@ const Questions = () => {
 
   // Convert selected text numbers to Arabic numerals
   const convertSelectionToArabic = () => {
+    // Use WordLikeEditor's exposed function if available
+    if (window.wordLikeEditorConvertSelection) {
+      window.wordLikeEditorConvertSelection();
+      return;
+    }
+    
+    // Fallback to old method
     if (quillRef.current) {
       const quill = quillRef.current.getEditor();
       const range = quill.getSelection(true);
@@ -200,7 +222,10 @@ const Questions = () => {
 
   // Handle text change in Quill editor (update form data)
   const handleQuillChange = (content) => {
-    setFormData({ ...formData, question: content });
+    setFormData((prevFormData) => ({
+      ...prevFormData,
+      question: content
+    }));
   };
 
   // Handle math equation insertion from MathEditor modal - insert as rendered HTML
@@ -385,93 +410,8 @@ const Questions = () => {
     }
   }, [selectedLevel]);
 
-  // Set up Quill text-change handler for automatic number conversion
-  useEffect(() => {
-    if (quillRef.current && showForm) {
-      const quill = quillRef.current.getEditor();
-      
-      // Set editor direction to RTL to help with Arabic detection
-      const editorElement = quill.root;
-      if (editorElement) {
-        editorElement.setAttribute('dir', 'rtl');
-      }
-      
-      const handleTextChange = (delta, oldDelta, source) => {
-        if (source === 'user' && !isConvertingRef.current) {
-          setTimeout(() => {
-            if (isConvertingRef.current) return; // Skip if already converting
-            
-            const selection = quill.getSelection(true);
-            if (!selection) return;
-            
-            const text = quill.getText();
-            const cursorIndex = selection.index;
-            
-            // Need to check what was just typed
-            if (cursorIndex > 0) {
-              const lastChar = text.charAt(cursorIndex - 1);
-              
-              // If a Western number (0-9) was typed
-              if (/[0-9]/.test(lastChar)) {
-                const context = detectLanguageContext(quill, cursorIndex - 1);
-                
-                if (context === 'ar') {
-                  isConvertingRef.current = true;
-                  const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-                  const arabicDigit = arabicNumerals[parseInt(lastChar)];
-                  
-                  quill.deleteText(cursorIndex - 1, 1, 'api');
-                  quill.insertText(cursorIndex - 1, arabicDigit, 'api');
-                  quill.setSelection(cursorIndex, 0, 'api');
-                  
-                  // Update formData
-                  const newContent = quill.root.innerHTML;
-                  setFormData(prev => ({ ...prev, question: newContent }));
-                  
-                  setTimeout(() => {
-                    isConvertingRef.current = false;
-                  }, 100);
-                }
-              }
-              // If an Arabic number was typed but context is English
-              else if (/[٠-٩]/.test(lastChar)) {
-                const context = detectLanguageContext(quill, cursorIndex - 1);
-                
-                if (context === 'en') {
-                  isConvertingRef.current = true;
-                  const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
-                  const westernNumerals = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-                  const index = arabicNumerals.indexOf(lastChar);
-                  
-                  if (index !== -1) {
-                    const westernDigit = westernNumerals[index];
-                    quill.deleteText(cursorIndex - 1, 1, 'api');
-                    quill.insertText(cursorIndex - 1, westernDigit, 'api');
-                    quill.setSelection(cursorIndex, 0, 'api');
-                    
-                    // Update formData
-                    const newContent = quill.root.innerHTML;
-                    setFormData(prev => ({ ...prev, question: newContent }));
-                    
-                    setTimeout(() => {
-                      isConvertingRef.current = false;
-                    }, 100);
-                  }
-                }
-              }
-            }
-          }, 20);
-        }
-      };
-      
-      quill.on('text-change', handleTextChange);
-      
-      return () => {
-        quill.off('text-change', handleTextChange);
-        isConvertingRef.current = false;
-      };
-    }
-  }, [showForm]);
+  // OLD REACTQUILL HANDLER REMOVED - Now using WordLikeEditor which handles its own events
+  // The WordLikeEditor component manages its own Quill instance and event handlers
 
   const handleSubjectChange = (subjectId) => {
     setSelectedSubject(subjectId);
@@ -540,6 +480,55 @@ const Questions = () => {
     }
   };
 
+  // Load sample questions (620 and 621)
+  const handleLoadSampleQuestions = () => {
+    const sampleQuestions = [
+      {
+        question: '<p>(620) = <span class="math-equation" contenteditable="false" data-latex="\\left(\\frac{1}{2} \\times \\frac{4}{3}\\right) \\div \\frac{9}{8}" style="display:inline-block;vertical-align:middle;padding:4px 8px;margin:0 4px;"></span></p>',
+        questionEn: '(620) = $$\\left(\\frac{1}{2} \\times \\frac{4}{3}\\right) \\div \\frac{9}{8}$$',
+        answers: [
+          { id: 'a', text: '$$\\frac{1}{3}$$', textEn: '$$\\frac{1}{3}$$', isCorrect: false },
+          { id: 'b', text: '$$\\frac{1}{4}$$', textEn: '$$\\frac{1}{4}$$', isCorrect: false },
+          { id: 'c', text: '$$\\frac{27}{8}$$', textEn: '$$\\frac{27}{8}$$', isCorrect: false },
+          { id: 'd', text: '$$\\frac{27}{16}$$', textEn: '$$\\frac{27}{16}$$', isCorrect: true },
+        ],
+      },
+      {
+        question: '<p>(621) مستطيل محيطه <span class="math-equation" contenteditable="false" data-latex="45\\frac{1}{3}" style="display:inline-block;vertical-align:middle;padding:4px 8px;margin:0 4px;"></span>، وعرضه <span class="math-equation" contenteditable="false" data-latex="10\\frac{3}{4}" style="display:inline-block;vertical-align:middle;padding:4px 8px;margin:0 4px;"></span>، فما طوله؟</p>',
+        questionEn: '(621) A rectangle whose perimeter is $$45\\frac{1}{3}$$, and its width is $$10\\frac{3}{4}$$, what is its length?',
+        answers: [
+          { id: 'a', text: '$$11\\frac{5}{12}$$', textEn: '$$11\\frac{5}{12}$$', isCorrect: false },
+          { id: 'b', text: '$$11\\frac{3}{4}$$', textEn: '$$11\\frac{3}{4}$$', isCorrect: false },
+          { id: 'c', text: '$$11\\frac{11}{12}$$', textEn: '$$11\\frac{11}{12}$$', isCorrect: false },
+          { id: 'd', text: '$$11\\frac{7}{12}$$', textEn: '$$11\\frac{7}{12}$$', isCorrect: true },
+        ],
+      },
+    ];
+
+    // Add each sample question
+    sampleQuestions.forEach((sampleQ, index) => {
+      const newQuestion = {
+        id: `sample_${Date.now()}_${index}`,
+        itemId: selectedLevel || itemIdFromUrl || 'default',
+        levelId: selectedLevel || itemIdFromUrl || 'default',
+        question: sampleQ.question,
+        questionEn: sampleQ.questionEn || sampleQ.question,
+        image: null,
+        answers: sampleQ.answers,
+      };
+      
+      addQuestion(newQuestion);
+    });
+
+    // Reload questions
+    const currentLevel = selectedLevel || itemIdFromUrl;
+    if (currentLevel) {
+      setQuestions(getQuestionsByLevel(currentLevel));
+    }
+    
+    alert(isArabicBrowser() ? 'تم تحميل الأسئلة النموذجية بنجاح!' : 'Sample questions loaded successfully!');
+  };
+
   const handleAddNew = () => {
     setEditingQuestion(null);
     setQuestionImage(null);
@@ -570,29 +559,40 @@ const Questions = () => {
   };
 
   const handleEdit = (question) => {
+    setIsLoadingForm(true);
     setEditingQuestion(question);
-    setFormData({
-      question: question.question || '',
-      questionEn: question.questionEn || '',
-      image: question.image || null,
-      answers: question.answers ? question.answers.map((ans) => ({ id: ans.id, text: ans.text || '', isCorrect: ans.isCorrect || false })) : [
-        { id: 'a', text: '', isCorrect: false },
-        { id: 'b', text: '', isCorrect: false },
-        { id: 'c', text: '', isCorrect: false },
-        { id: 'd', text: '', isCorrect: false },
-      ],
-    });
-    if (question.image) {
-      setQuestionImagePreview(question.image);
-    } else {
-      setQuestionImagePreview(null);
-    }
-    setQuestionImage(null);
-    setImageScale(100);
-    if (imageInputRef.current) {
-      imageInputRef.current.value = '';
-    }
-    setShowForm(true);
+    
+    // Use setTimeout to show loading state first, then load form
+    setTimeout(() => {
+      setFormData({
+        question: question.question || '',
+        questionEn: question.questionEn || '',
+        image: question.image || null,
+        explanation: question.explanation || '',
+        answers: question.answers ? question.answers.map((ans) => ({ id: ans.id, text: ans.text || '', isCorrect: ans.isCorrect || false })) : [
+          { id: 'a', text: '', isCorrect: false },
+          { id: 'b', text: '', isCorrect: false },
+          { id: 'c', text: '', isCorrect: false },
+          { id: 'd', text: '', isCorrect: false },
+        ],
+      });
+      if (question.image) {
+        setQuestionImagePreview(question.image);
+      } else {
+        setQuestionImagePreview(null);
+      }
+      setQuestionImage(null);
+      setImageScale(100);
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+      setShowForm(true);
+      
+      // Delay to allow form to render before showing editors
+      setTimeout(() => {
+        setIsLoadingForm(false);
+      }, 300);
+    }, 100);
   };
 
   const handleDelete = (questionId) => {
@@ -618,6 +618,7 @@ const Questions = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    e.stopPropagation();
 
     if (!selectedLevel) {
       alert(isArabicBrowser() ? 'يرجى اختيار المستوى أولاً' : 'Please select a level first');
@@ -643,6 +644,7 @@ const Questions = () => {
       question: '',
       questionEn: '',
       image: null,
+      explanation: '',
       answers: [
         { id: 'a', text: '', isCorrect: false },
         { id: 'b', text: '', isCorrect: false },
@@ -655,7 +657,8 @@ const Questions = () => {
     }
     
     // Navigate back to lessons page if returnUrl is provided and we came from a specific lesson
-    if (returnUrl && itemIdFromUrl) {
+    // Only navigate if explicitly saving (not on cancel or other actions)
+    if (returnUrl && itemIdFromUrl && e.target.type === 'submit') {
       setTimeout(() => {
         navigate(returnUrl);
       }, 500);
@@ -773,12 +776,20 @@ const Questions = () => {
                 <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
                 {isArabicBrowser() ? 'الأسئلة' : 'Questions'} ({questions.length})
               </h2>
+              <div className="flex gap-2 flex-wrap">
               <button
                 onClick={handleAddNew}
                 className="bg-primary-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-primary-600 transition font-medium text-sm sm:text-base w-full sm:w-auto"
               >
                 + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add Question'}
               </button>
+                <button
+                  onClick={handleLoadSampleQuestions}
+                  className="bg-green-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm sm:text-base w-full sm:w-auto"
+                >
+                  📝 {isArabicBrowser() ? 'تحميل أسئلة نموذجية' : 'Load Sample Questions'}
+                </button>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -786,10 +797,14 @@ const Questions = () => {
                 <div key={question.id} className="border rounded-lg p-3 sm:p-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
                     <div className="flex-1 w-full sm:w-auto">
+                      {/* Question with inline images */}
                       <div className="font-semibold text-sm sm:text-base md:text-lg text-dark-600 mb-2 break-words">
                         <span>{index + 1}. </span>
                         <MathRenderer html={question.question || ''} inline={false} />
                       </div>
+                      
+                      {/* Separator */}
+                      <div className="border-t border-gray-300 my-2"></div>
                       {question.questionEn && (
                         <div className="text-xs sm:text-sm md:text-base text-dark-500 mb-2 break-words" dangerouslySetInnerHTML={{ __html: question.questionEn }} />
                       )}
@@ -827,7 +842,9 @@ const Questions = () => {
                           answer.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
                         }`}
                       >
-                        <span className="text-dark-600">{answer.text}</span>
+                        <div className="text-dark-600">
+                          <MathRenderer html={answer.text} inline={true} />
+                        </div>
                         {answer.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
                       </div>
                     ))}
@@ -874,6 +891,7 @@ const Questions = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4" onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowForm(false);
+              setIsLoadingForm(false);
             }
           }}>
             <div className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-2xl lg:max-w-4xl w-full max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
@@ -881,6 +899,21 @@ const Questions = () => {
                 <h2 className="text-2xl font-bold mb-4">
                   {editingQuestion ? 'تعديل سؤال / Edit Question' : 'إضافة سؤال جديد / Add Question'}
                 </h2>
+                
+                {/* Loading State */}
+                {isLoadingForm && (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="text-center">
+                      <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary-500 mb-4"></div>
+                      <p className="text-lg font-medium text-gray-600">
+                        {isArabicBrowser() ? 'جاري التحميل...' : 'Loading...'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Form Content - Only show when not loading */}
+                {!isLoadingForm && (
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
@@ -910,211 +943,126 @@ const Questions = () => {
                       >
                         {isArabicBrowser() ? 'تحويل المحدد' : 'Convert Selected'}
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowMathEditor(true)}
-                        className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-1.5 rounded text-xs md:text-sm font-medium transition flex items-center gap-1"
-                        title={isArabicBrowser() ? 'إدراج معادلة رياضية' : 'Insert Math Equation'}
-                      >
-                        <span>∑</span>
-                        <span>{isArabicBrowser() ? 'معادلة رياضية' : 'Math'}</span>
-                      </button>
                     </div>
-                    
-                    {/* Math Symbols Toolbar */}
-                    <div className="mb-2 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <div className="mb-2">
-                        <span className="text-xs md:text-sm text-gray-700 font-semibold">
-                          {isArabicBrowser() ? 'الرموز الرياضية السريعة:' : 'Quick Math Symbols:'}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {quickMathSymbols.map((item, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => insertMathSymbol(item.symbol)}
-                            className="bg-white hover:bg-blue-50 text-gray-700 hover:text-blue-700 px-3 py-1.5 rounded-md text-sm md:text-base font-medium transition border border-gray-300 hover:border-blue-400 min-w-[36px] text-center shadow-sm hover:shadow"
-                            title={`${isArabicBrowser() ? 'إدراج' : 'Insert'} ${item.label}`}
-                          >
-                            {item.label}
-                          </button>
-                        ))}
-                      </div>
-                      {/* Quick Math Templates */}
-                      <div className="mt-3 pt-3 border-t border-gray-300">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            onClick={() => insertMathSymbol('x²')}
-                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
-                            title={isArabicBrowser() ? 'إدراج x²' : 'Insert x²'}
-                          >
-                            x²
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertMathSymbol('x₁')}
-                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
-                            title={isArabicBrowser() ? 'إدراج x₁' : 'Insert x₁'}
-                          >
-                            x₁
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertMathSymbol('½')}
-                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
-                            title={isArabicBrowser() ? 'إدراج كسر' : 'Insert Fraction'}
-                          >
-                            ½
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertMathSymbol('√')}
-                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
-                            title={isArabicBrowser() ? 'إدراج جذر' : 'Insert Square Root'}
-                          >
-                            √
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertMathSymbol('∑')}
-                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
-                            title={isArabicBrowser() ? 'إدراج مجموع' : 'Insert Sum'}
-                          >
-                            ∑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => insertMathSymbol('∫')}
-                            className="bg-green-50 hover:bg-green-100 text-green-700 px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition border border-green-300 hover:border-green-400"
-                            title={isArabicBrowser() ? 'إدراج تكامل' : 'Insert Integral'}
-                          >
-                            ∫
-                          </button>
+                    {/* Editor Info - Current Editor is the Best! */}
+                    <div className="mb-4 p-6 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-4 border-green-400 rounded-2xl shadow-xl">
+                      <div className="flex items-start gap-4">
+                        <span className="text-5xl animate-bounce">✅</span>
+                        <div className="flex-1">
+                          <h3 className="text-2xl font-black text-green-900 mb-3">
+                            {isArabicBrowser() ? '🎊 المحرر الاحترافي جاهز!' : '🎊 Professional Editor Ready!'}
+                          </h3>
+                          <div className="space-y-2 text-green-800">
+                            <div className="flex items-start gap-2 bg-white bg-opacity-70 p-3 rounded-xl">
+                              <span className="text-xl">📐</span>
+                              <div>
+                                <p className="font-bold">
+                                  {isArabicBrowser() 
+                                    ? 'المحرر يحتوي على جميع القوالب الرياضية:' 
+                                    : 'Editor includes all math templates:'}
+                                </p>
+                                <p className="text-sm">
+                                  {isArabicBrowser() 
+                                    ? 'كسور (½)، جذور (√)، أسس (x², x³)، تكاملات (∫)، مجاميع (∑)، وأكثر!' 
+                                    : 'Fractions (½), Roots (√), Powers (x², x³), Integrals (∫), Sums (∑), and more!'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-2 bg-white bg-opacity-70 p-3 rounded-xl">
+                              <span className="text-xl">🔄</span>
+                              <div>
+                                <p className="font-bold text-green-900">
+                                  {isArabicBrowser() 
+                                    ? 'زر RTL/LTR كبير وواضح في أعلى المحرر!' 
+                                    : 'Big RTL/LTR button at the top of the editor!'}
+                                </p>
+                                <p className="text-sm">
+                                  {isArabicBrowser() 
+                                    ? 'اضغط أي زر معادلة (½، √، ∑) ثم ابحث عن الزر في الأعلى' 
+                                    : 'Click any equation button (½, √, ∑) then look for the button at the top'}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-2 bg-white bg-opacity-70 p-3 rounded-xl">
+                              <span className="text-xl">💯</span>
+                              <div>
+                                <p className="font-bold">
+                                  {isArabicBrowser() 
+                                    ? 'مجاني 100% - يعمل بدون إنترنت - سريع وموثوق!' 
+                                    : '100% Free - Works offline - Fast & Reliable!'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="bg-white" style={{ pointerEvents: 'auto', direction: 'rtl' }}>
-                      <ReactQuill
-                        ref={quillRef}
-                        theme="snow"
-                        value={formData.question}
-                        onChange={handleQuillChange}
-                        modules={quillModules}
-                        placeholder="اكتب السؤال هنا... / Write question here..."
-                        className="bg-white"
-                        style={{ height: '200px', marginBottom: '50px', pointerEvents: 'auto' }}
-                        readOnly={false}
-                      />
-                    </div>
+
+                    <p className="text-xs text-gray-500 mb-2">
+                      {isArabicBrowser() 
+                        ? '💡 ملاحظة: استخدم شريط أدوات المعادلات لإدراج المعادلات والرموز الرياضية' 
+                        : '💡 Note: Use the equation toolbar to insert equations and math symbols'}
+                    </p>
+                    
+                    {/* Best Working Editor - No waiting, no loading! */}
+                    <SimpleProfessionalMathEditor
+                      value={formData.question}
+                      onChange={handleQuillChange}
+                      placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
+                    />
                   </div>
 
                   <div>
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      صورة السؤال / Question Image (Optional)
+                      شرح الإجابة الصحيحة / Explanation (يظهر عند الإجابة الخاطئة)
                     </label>
-                    <div className="space-y-2">
-                      <input
-                        ref={imageInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="w-full px-3 py-2 text-sm md:text-base border rounded-lg"
-                      />
-                      {questionImagePreview && (
-                        <div className="relative inline-block w-full max-w-md">
-                          <div className="relative bg-gray-100 rounded-lg p-2 border-2 border-gray-300">
-                            <div className="overflow-auto max-h-96 flex justify-center">
-                              <img
-                                src={questionImagePreview}
-                                alt="Question preview"
-                                className="rounded-lg transition-transform duration-200"
-                                style={{ 
-                                  width: `${imageScale}%`,
-                                  maxWidth: '100%',
-                                  height: 'auto'
-                                }}
-                              />
-                            </div>
-                            {/* Image Controls */}
-                            <div className="mt-2 flex flex-wrap items-center justify-center gap-2 bg-white rounded-lg p-2">
-                              <button
-                                type="button"
-                                onClick={() => handleImageZoom(-10)}
-                                className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm md:text-base font-medium transition"
-                                title="تصغير / Zoom Out"
-                              >
-                                ➖
-                              </button>
-                              <span className="text-xs md:text-sm text-gray-600 font-medium min-w-[60px] text-center">
-                                {imageScale}%
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleImageZoom(10)}
-                                className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-3 py-1 rounded text-sm md:text-base font-medium transition"
-                                title="تكبير / Zoom In"
-                              >
-                                ➕
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleImageReset}
-                                className="bg-blue-200 hover:bg-blue-300 text-blue-700 px-3 py-1 rounded text-sm md:text-base font-medium transition"
-                                title="إعادة تعيين / Reset"
-                              >
-                                🔄
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleImageMaximize(questionImagePreview)}
-                                className="bg-green-200 hover:bg-green-300 text-green-700 px-3 py-1 rounded text-sm md:text-base font-medium transition"
-                                title="تكبير كامل / Maximize"
-                              >
-                                🔍
-                              </button>
-                              <button
-                                type="button"
-                                onClick={handleRemoveImage}
-                                className="bg-red-200 hover:bg-red-300 text-red-700 px-3 py-1 rounded text-sm md:text-base font-medium transition"
-                                title="حذف / Delete"
-                              >
-                                🗑️
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      <p className="text-xs md:text-sm text-gray-500">الحد الأقصى: 5 ميجابايت / Maximum: 5MB</p>
-                    </div>
+                    <p className="text-xs text-gray-500 mb-2">
+                      {isArabicBrowser() 
+                        ? '💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ' 
+                        : '💡 Add an explanation to help students understand the correct answer when they make a mistake'}
+                    </p>
+                    <SimpleProfessionalMathEditor
+                      value={formData.explanation}
+                      onChange={(content) => setFormData({ ...formData, explanation: content })}
+                      placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا...' : 'Write explanation for the correct answer here...'}
+                    />
                   </div>
 
-                  <div>
+                  <div className="mt-6">
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-3">
                       الإجابات / Answers (اختر الإجابة الصحيحة / Select Correct Answer)
                     </label>
+                    <p className="text-xs text-gray-500 mb-3">
+                      {isArabicBrowser() 
+                        ? '💡 يمكنك إضافة معادلات رياضية وصور في الإجابات أيضاً!' 
+                        : '💡 You can add math equations and images in answers too!'}
+                    </p>
                     {formData.answers.map((answer, index) => (
-                      <div key={answer.id} className="mb-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="correctAnswer"
-                            checked={answer.isCorrect}
-                            onChange={() => handleCorrectAnswerChange(index)}
-                            className="w-4 h-4"
-                          />
-                          <input
-                            type="text"
-                            value={answer.text}
-                            onChange={(e) => handleAnswerChange(index, 'text', e.target.value)}
-                            placeholder={isArabicBrowser() ? 'الإجابة' : 'Answer'}
-                            required
-                            disabled={false}
-                            readOnly={false}
-                            className="flex-1 px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-primary-500"
-                            style={{ pointerEvents: 'auto' }}
-                          />
+                      <div key={answer.id} className="mb-4 p-3 border rounded-lg bg-gray-50">
+                        <div className="flex items-start gap-3">
+                          <div className="flex items-center pt-3">
+                            <input
+                              type="radio"
+                              name="correctAnswer"
+                              checked={answer.isCorrect}
+                              onChange={() => handleCorrectAnswerChange(index)}
+                              className="w-5 h-5 cursor-pointer"
+                              title={isArabicBrowser() ? 'اختر كإجابة صحيحة' : 'Select as correct answer'}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-xs font-medium text-gray-600 mb-2">
+                              {isArabicBrowser() ? `الإجابة ${String.fromCharCode(65 + index)}` : `Answer ${String.fromCharCode(65 + index)}`}
+                              {answer.isCorrect && (
+                                <span className="ml-2 text-green-600 font-bold">✓ {isArabicBrowser() ? 'صحيحة' : 'Correct'}</span>
+                              )}
+                            </label>
+                            <SimpleProfessionalMathEditor
+                              value={answer.text}
+                              onChange={(content) => handleAnswerChange(index, 'text', content)}
+                              placeholder={isArabicBrowser() ? `اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...` : `Write answer ${String.fromCharCode(65 + index)} here...`}
+                            />
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1136,6 +1084,7 @@ const Questions = () => {
                     </button>
                   </div>
                 </form>
+                )}
               </div>
             </div>
           </div>

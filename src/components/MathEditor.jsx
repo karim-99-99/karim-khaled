@@ -120,6 +120,11 @@ const MathEditor = ({ onInsert, onClose }) => {
   const mathField = useRef(null);
   const [showPreview, setShowPreview] = useState(false);
   const [latex, setLatex] = useState('');
+  const [isRTL, setIsRTL] = useState(() => {
+    // Load RTL preference from localStorage
+    const saved = localStorage.getItem('mathEditorRTL');
+    return saved ? JSON.parse(saved) : true; // Default to RTL for Arabic
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -178,6 +183,12 @@ const MathEditor = ({ onInsert, onClose }) => {
       onInsert(latexValue);
       if (onClose) onClose();
     }
+  };
+
+  const toggleRTL = () => {
+    const newRTL = !isRTL;
+    setIsRTL(newRTL);
+    localStorage.setItem('mathEditorRTL', JSON.stringify(newRTL));
   };
 
   // Common math symbols with Arabic numerals support
@@ -273,12 +284,42 @@ const MathEditor = ({ onInsert, onClose }) => {
             <h2 className="text-2xl font-bold text-dark-600">
               {isArabicBrowser() ? 'محرر المعادلات الرياضية' : 'Math Equation Editor'}
             </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
-            >
-              ×
-            </button>
+            <div className="flex items-center gap-3">
+              {/* RTL/LTR Toggle Button */}
+              <button
+                onClick={toggleRTL}
+                className={`px-6 py-3 rounded-lg font-bold transition-all duration-200 flex items-center gap-3 ${
+                  isRTL 
+                    ? 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg transform hover:scale-105' 
+                    : 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg transform hover:scale-105'
+                }`}
+                title={isRTL 
+                  ? (isArabicBrowser() ? 'اضغط للتحويل إلى الوضع الإنجليزي' : 'Click to switch to LTR') 
+                  : (isArabicBrowser() ? 'اضغط للتحويل إلى الوضع العربي' : 'Click to switch to RTL')
+                }
+              >
+                <span className="text-2xl">
+                  {isRTL ? '🇸🇦' : '🇬🇧'}
+                </span>
+                <div className="flex flex-col items-start">
+                  <span className="text-xs opacity-80">
+                    {isRTL ? 'عربي' : 'English'}
+                  </span>
+                  <span className="text-lg font-black">
+                    {isRTL ? 'RTL' : 'LTR'}
+                  </span>
+                </div>
+                <span className="text-xl">
+                  {isRTL ? '⬅️' : '➡️'}
+                </span>
+              </button>
+              <button
+                onClick={onClose}
+                className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
           </div>
 
           {/* Math Input Field */}
@@ -294,16 +335,69 @@ const MathEditor = ({ onInsert, onClose }) => {
           </div>
 
           {/* Preview */}
-          <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-            <label className="block text-sm font-medium text-dark-600 mb-2">
-              {isArabicBrowser() ? 'معاينة' : 'Preview'}
-            </label>
-            <div className="text-center py-4">
+          <div className="mb-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg border-2 border-gray-200">
+            <div className="flex justify-between items-center mb-3">
+              <label className="text-sm font-medium text-dark-600">
+                {isArabicBrowser() ? 'معاينة المعادلة' : 'Equation Preview'}
+              </label>
+              <span className={`px-4 py-2 rounded-lg text-sm font-bold shadow-md ${
+                isRTL 
+                  ? 'bg-blue-500 text-white' 
+                  : 'bg-green-500 text-white'
+              }`}>
+                {isRTL ? '🇸🇦 عربي RTL' : '🇬🇧 English LTR'}
+              </span>
+            </div>
+            <div 
+              className={`text-center py-6 px-4 bg-white rounded-lg border border-gray-300 min-h-[100px] flex items-center justify-center ${
+                isRTL ? 'math-rtl-mode' : 'math-ltr-mode'
+              }`}
+            >
               {latex ? (
-                <BlockMath math={latex} />
+                <div className="text-3xl">
+                  <BlockMath math={latex} />
+                </div>
               ) : (
-                <span className="text-gray-400">{isArabicBrowser() ? 'ستظهر المعادلة هنا' : 'Equation preview will appear here'}</span>
+                <div className="text-center">
+                  <span className="text-gray-400 block mb-2">
+                    {isArabicBrowser() ? 'ستظهر المعادلة هنا' : 'Equation preview will appear here'}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    {isArabicBrowser() 
+                      ? `مثال: اكتب 2^3 لترى الفرق بين ${isRTL ? 'RTL' : 'LTR'}`
+                      : `Example: Type 2^3 to see ${isRTL ? 'RTL' : 'LTR'} difference`
+                    }
+                  </span>
+                </div>
               )}
+            </div>
+          </div>
+
+          {/* RTL/LTR Examples */}
+          <div className="mb-4 p-4 bg-yellow-50 border-2 border-yellow-300 rounded-lg">
+            <h3 className="text-sm font-bold text-yellow-800 mb-2">
+              {isArabicBrowser() 
+                ? `💡 أمثلة الفرق بين RTL و LTR:` 
+                : `💡 Examples of RTL vs LTR difference:`
+              }
+            </h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="bg-blue-100 p-3 rounded">
+                <div className="font-bold text-blue-900 mb-1">🇸🇦 RTL (عربي):</div>
+                <div className="space-y-1 text-blue-800">
+                  <div>• <span className="font-mono">2^3</span> → ³٢ (الأس على اليسار)</div>
+                  <div>• <span className="font-mono">x^2</span> → ²x</div>
+                  <div>• الكسور والجذور طبيعية</div>
+                </div>
+              </div>
+              <div className="bg-green-100 p-3 rounded">
+                <div className="font-bold text-green-900 mb-1">🇬🇧 LTR (English):</div>
+                <div className="space-y-1 text-green-800">
+                  <div>• <span className="font-mono">2^3</span> → 2³ (normal)</div>
+                  <div>• <span className="font-mono">x^2</span> → x²</div>
+                  <div>• Everything standard</div>
+                </div>
+              </div>
             </div>
           </div>
 

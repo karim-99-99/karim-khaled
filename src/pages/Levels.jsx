@@ -36,7 +36,13 @@ const Levels = () => {
     navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`);
   };
 
-  const handleQuizClick = (itemId) => {
+  const handleQuizClick = (itemId, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
+    try {
     if (!currentUser) {
       // Redirect to login with return path
       navigate(`/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`);
@@ -45,10 +51,17 @@ const Levels = () => {
     if (isAdmin) {
       // For admin: navigate to questions management page with itemId and return URL
       const returnUrl = `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`;
-      navigate(`/admin/questions?itemId=${itemId}&returnUrl=${encodeURIComponent(returnUrl)}`);
+        const url = `/admin/questions?itemId=${itemId}&returnUrl=${encodeURIComponent(returnUrl)}`;
+        navigate(url);
       return;
     }
     navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`);
+    } catch (error) {
+      console.error('Error navigating to quiz page:', error);
+      alert(isArabicBrowser() 
+        ? 'حدث خطأ أثناء فتح صفحة الاختبار. يرجى المحاولة مرة أخرى.' 
+        : 'An error occurred while opening the quiz page. Please try again.');
+    }
   };
 
   const handleFileClick = (itemId) => {
@@ -193,7 +206,8 @@ const Levels = () => {
                       
                       {item.hasTest && (
                         <button
-                          onClick={() => handleQuizClick(item.id)}
+                          type="button"
+                          onClick={(e) => handleQuizClick(item.id, e)}
                           className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
                         >
                           📝 {isArabicBrowser() ? 'إدارة الاختبار' : 'Manage Quiz'}
@@ -239,7 +253,8 @@ const Levels = () => {
                             {/* Show exam button only if exam exists (hasTest flag is true AND questions exist) */}
                             {hasExam && (
                               <button
-                                onClick={() => handleQuizClick(item.id)}
+                                type="button"
+                                onClick={(e) => handleQuizClick(item.id, e)}
                                 className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
                               >
                                 📝 {isArabicBrowser() ? 'حل الاختبار' : 'Take Quiz'}

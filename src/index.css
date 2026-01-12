@@ -14,6 +14,178 @@
   color: #999;
 }
 
+/* ========================================
+   KaTeX RTL Support for Arabic
+   ======================================== */
+
+/* Force RTL natural for Arabic (no bidi-override, we'll flip superscripts manually) */
+.katex {
+  direction: rtl !important;
+  text-align: right !important;
+  unicode-bidi: embed !important;
+}
+
+
+/* ========================================
+   Superscripts (Powers) RTL Support
+   ======================================== */
+/* For Arabic RTL, superscripts (like 2³) should show as ³2 (power on the LEFT) */
+/* Apply ONLY in RTL mode */
+/* Wrap base + superscript in flex container - ONLY in RTL mode */
+.math-rtl .katex .mord + .msupsub,
+.math-rtl .katex .minner + .msupsub,
+.math-rtl .katex .mop + .msupsub:not(.op-limits .msupsub) {
+  display: inline-flex !important;
+  flex-direction: row-reverse !important;
+  vertical-align: baseline !important;
+}
+
+/* Force the parent to be flex too - ONLY in RTL mode */
+.math-rtl .katex .base:has(> .mord + .msupsub),
+.math-rtl .katex .base:has(> .minner + .msupsub) {
+  display: inline-flex !important;
+  flex-direction: row-reverse !important;
+}
+
+/* RTL mode: Flip ALL superscripts (msup) - power on LEFT */
+.math-rtl .katex .msup,
+.math-rtl .katex .msupsub {
+  display: inline-flex !important;
+  flex-direction: row-reverse !important;
+  flex-wrap: nowrap !important;
+  align-items: baseline !important;
+  direction: ltr !important;
+  vertical-align: baseline !important;
+  justify-content: flex-start !important;
+}
+
+/* RTL mode: Reverse order of base and superscript using CSS order */
+.math-rtl .katex .msup > *:first-child,
+.math-rtl .katex .msupsub > *:first-child {
+  order: 2 !important;
+}
+
+.math-rtl .katex .msup > *:last-child,
+.math-rtl .katex .msupsub > *:last-child {
+  order: 1 !important;
+}
+
+/* Skip operator limits in RTL */
+.math-rtl .katex .mop.op-limits .msup,
+.math-rtl .katex .mop.op-limits .msupsub {
+  flex-direction: row !important;
+}
+
+/* LTR mode: Normal order (2³) - powers stay on right */
+.math-ltr .katex .mord + .msupsub,
+.math-ltr .katex .minner + .msupsub,
+.math-ltr .katex .mop + .msupsub {
+  display: inline !important;
+  flex-direction: initial !important;
+  vertical-align: baseline !important;
+}
+
+.math-ltr .katex .base:has(> .mord + .msupsub),
+.math-ltr .katex .base:has(> .minner + .msupsub) {
+  display: inline !important;
+  flex-direction: initial !important;
+}
+
+/* LTR mode: Normal order for msup */
+.math-ltr .katex .msup,
+.math-ltr .katex .msupsub {
+  display: inline !important;
+  flex-direction: row !important;
+  align-items: initial !important;
+  direction: initial !important;
+  vertical-align: baseline !important;
+}
+
+/* Exception for ∑ and ∫ operators - keep them in normal LTR to avoid flipping */
+.katex .mop.op-limits {
+  direction: ltr !important;
+  unicode-bidi: normal !important;
+  display: inline-block !important;
+  vertical-align: middle !important;
+}
+
+/* All content inside op-limits should stay LTR */
+.katex .mop.op-limits * {
+  direction: ltr !important;
+  unicode-bidi: normal !important;
+}
+
+/* Force RTL natural for react-katex components */
+.katex-display,
+.katex-display > .katex {
+  direction: rtl !important;
+  text-align: right !important;
+  unicode-bidi: embed !important;
+}
+
+span > .katex {
+  direction: rtl !important;
+  text-align: right !important;
+  unicode-bidi: embed !important;
+}
+
+/* ========================================
+   KaTeX Fraction Styling - Enhanced RTL
+   ======================================== */
+
+/* Ensure the fraction structure is correctly styled in RTL */
+.katex .frac {
+  display: inline-block !important;
+  vertical-align: middle !important;
+  text-align: center !important;
+  position: relative !important;
+  margin: 0 2px !important;
+}
+
+.katex .frac > span {
+  display: block !important;
+}
+
+/* Fraction numerator (top number) - centered alignment */
+.katex .frac-num {
+  display: block !important;
+  text-align: center !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+/* Fraction line (horizontal bar) - ensure visibility */
+.katex .frac-line {
+  border-bottom: 0.04em solid currentColor !important;
+  border-top: none !important;
+  display: block !important;
+  width: 100% !important;
+  height: 0 !important;
+  margin: 0.3em 0 !important;
+  padding: 0 !important;
+  position: relative !important;
+  transform: translateY(-0.5em) !important;
+}
+
+
+/* Fraction denominator (bottom number) - centered alignment */
+.katex .frac-den {
+  display: block !important;
+  text-align: center !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+/* Additional adjustments for text alignment and legibility in RTL */
+.katex .frac-num,
+.katex .frac-den {
+  text-align: center;
+}
+
 @keyframes float-rotate {
   0% {
     transform: translateY(0px) rotate(0deg) scale(1);
@@ -204,4 +376,228 @@ button[class*="px-10 py-6"] {
   75% {
     transform: translateY(-15px) translateX(5px);
   }
+}
+
+/* ========================================
+   Math Editor RTL/LTR Mode Toggle
+   ======================================== */
+
+/* RTL Mode based on data-rtl attribute */
+.math-equation[data-rtl="true"] .katex {
+  direction: rtl !important;
+  text-align: right !important;
+  unicode-bidi: embed !important;
+}
+
+/* RTL Mode: Flip superscripts using flexbox */
+.math-equation[data-rtl="true"] .katex .msup,
+.math-equation[data-rtl="true"] .katex .msupsub,
+.math-equation.math-rtl .katex .msup,
+.math-equation.math-rtl .katex .msupsub,
+.math-rtl .katex .msup,
+.math-rtl .katex .msupsub {
+  display: inline-flex !important;
+  flex-direction: row-reverse !important;
+  flex-wrap: nowrap !important;
+  align-items: baseline !important;
+  direction: ltr !important; /* Keep text LTR, just reverse visual order */
+  vertical-align: baseline !important;
+  justify-content: flex-start !important;
+}
+
+/* RTL Mode: Reverse order of base and superscript */
+.math-equation[data-rtl="true"] .katex .msup > *:first-child,
+.math-equation[data-rtl="true"] .katex .msupsub > *:first-child,
+.math-equation.math-rtl .katex .msup > *:first-child,
+.math-equation.math-rtl .katex .msupsub > *:first-child,
+.math-rtl .katex .msup > *:first-child,
+.math-rtl .katex .msupsub > *:first-child {
+  order: 2 !important;
+}
+
+.math-equation[data-rtl="true"] .katex .msup > *:last-child,
+.math-equation[data-rtl="true"] .katex .msupsub > *:last-child,
+.math-equation.math-rtl .katex .msup > *:last-child,
+.math-equation.math-rtl .katex .msupsub > *:last-child,
+.math-rtl .katex .msup > *:last-child,
+.math-rtl .katex .msupsub > *:last-child {
+  order: 1 !important;
+}
+
+/* Skip operator limits in RTL */
+.math-equation[data-rtl="true"] .katex .mop.op-limits .msup,
+.math-equation[data-rtl="true"] .katex .mop.op-limits .msupsub,
+.math-rtl .katex .mop.op-limits .msup,
+.math-rtl .katex .mop.op-limits .msupsub {
+  flex-direction: row !important; /* Keep normal order for limits */
+}
+
+/* LTR Mode based on data-rtl attribute */
+.math-equation[data-rtl="false"] .katex {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+}
+
+/* LTR Mode: Normal display */
+.math-equation[data-rtl="false"] .katex .msup,
+.math-equation[data-rtl="false"] .katex .msupsub {
+  display: inline !important;
+  flex-direction: initial !important;
+}
+
+/* RTL Mode (Arabic): Keep current RTL behavior with flipped superscripts */
+.math-rtl-mode .katex {
+  direction: rtl !important;
+  text-align: right !important;
+  unicode-bidi: embed !important;
+}
+
+.math-rtl-mode .katex-display,
+.math-rtl-mode .katex-display > .katex {
+  direction: rtl !important;
+  text-align: right !important;
+  unicode-bidi: embed !important;
+}
+
+/* LTR Mode (English): Standard LTR display without any flipping */
+.math-ltr-mode .katex {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+}
+
+.math-ltr-mode .katex-display,
+.math-ltr-mode .katex-display > .katex {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+}
+
+/* LTR Mode: Disable all RTL customizations */
+.math-ltr-mode .katex .base {
+  display: inline !important;
+  flex-direction: initial !important;
+}
+
+.math-ltr-mode .katex .mord + .msupsub,
+.math-ltr-mode .katex .minner + .msupsub,
+.math-ltr-mode .katex .mop + .msupsub {
+  display: inline !important;
+  flex-direction: initial !important;
+}
+
+.math-ltr-mode .katex .sqrt {
+  display: inline-flex !important;
+  flex-direction: initial !important;
+  direction: ltr !important;
+}
+
+.math-ltr-mode .katex .sqrt > .root {
+  order: initial !important;
+  margin-left: 0 !important;
+  margin-right: 0.15em !important;
+}
+
+/* ========================================
+   Roots Mirror Effect (√5 → mirrored image)
+   ======================================== */
+/* Mirror/flip roots using CSS transform scaleX(-1) - ONLY in RTL mode */
+/* RTL mode: Mirrored roots */
+.math-rtl .katex .sqrt {
+  transform: scaleX(-1) !important;
+  display: inline-flex !important;
+  flex-wrap: nowrap !important;
+  align-items: baseline !important;
+  direction: ltr !important;
+  white-space: nowrap !important;
+}
+
+/* Flip text/numbers back so they're readable in RTL mode */
+.math-rtl .katex .sqrt .vlist-r,
+/* .math-rtl .katex .sqrt .mord,
+.math-rtl .katex .sqrt .mnum, */
+.math-rtl .katex .sqrt .root,
+.math-rtl .katex .sqrt .vlist-t {
+  transform: scaleX(-1) !important;
+  display: inline-block !important;
+}
+.math-rtl .katex .sqrt .vlist-t,
+.math-rtl .katex .sqrt .mord,
+.math-rtl .katex .sqrt .mnum,
+.math-rtl .katex .sqrt .vlist-r
+{
+
+  transform: scaleX(-1) translateX(-1.5rem) !important;
+  direction: ltr !important;
+}
+
+/* Flip wrapped text nodes in RTL mode */
+.math-rtl .katex .sqrt .root-flipped-text {
+  transform: scaleX(-1)  !important;
+  display: inline-block !important;
+}
+
+/* LTR mode: Normal roots (no mirror) */
+.math-ltr .katex .sqrt {
+  transform: none !important;
+  display: inline-block !important;
+  direction: ltr !important;
+}
+
+/* Normal text/numbers in LTR mode */
+.math-ltr .katex .sqrt .vlist-r,
+.math-ltr .katex .sqrt .mord,
+.math-ltr .katex .sqrt .mnum,
+.math-ltr .katex .sqrt .root,
+.math-ltr .katex .sqrt .vlist-t {
+  transform: none !important;
+  display: inline-block !important;
+}
+
+/* ========================================
+   Image positioning and display
+   ======================================== */
+
+/* Ensure containers support absolute positioning */
+.ql-container,
+.ql-editor {
+  position: relative !important;
+}
+
+/* Images with absolute positioning - maintain position across displays */
+.ql-editor img[style*="position: absolute"],
+.ql-editor img[style*="position:absolute"],
+img[style*="position: absolute"],
+img[style*="position:absolute"],
+img[data-left-percent],
+img[data-top-percent] {
+  position: absolute !important;
+  pointer-events: auto;
+  height: auto !important;
+  z-index: 5 !important; /* Medium layer by default - doesn't block text */
+}
+
+/* Question container - ensure space for images */
+.question-container {
+  position: relative !important;
+  min-height: 200px !important;
+  padding-bottom: 40px !important;
+}
+
+/* Answers container - higher z-index to stay on top */
+.answers-container {
+  position: relative !important;
+  z-index: 20 !important;
+}
+
+.answers-container button {
+  position: relative !important;
+  z-index: 21 !important;
+}
+
+/* Ensure parent containers in question display also support absolute positioning */
+div[style*="position: relative"] img[style*="position: absolute"],
+div[style*="position: relative"] img[data-left-percent] {
+  position: absolute !important;
 }

@@ -16,6 +16,7 @@ import Result from './pages/Result';
 import Video from './pages/Video';
 import FileViewer from './pages/FileViewer';
 import Questions from './pages/admin/Questions';
+import TestMathType from './pages/TestMathType';
 import Videos from './pages/admin/Videos';
 import ChaptersManagement from './pages/admin/ChaptersManagement';
 import LessonsManagement from './pages/admin/LessonsManagement';
@@ -185,6 +186,10 @@ function App() {
                 <Questions />
               </ProtectedRoute>
             } 
+          />
+          <Route 
+            path="/test-mathtype" 
+            element={<TestMathType />} 
           />
           <Route 
             path="/admin/videos" 
