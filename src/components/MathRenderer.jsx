@@ -187,6 +187,39 @@ const MathRenderer = ({ html, inline = false }) => {
                 }
               }
             });
+            
+            // CRITICAL: Handle square roots (√) - Mirror for RTL Arabic
+            const sqrtElements = element.querySelectorAll('.sqrt');
+            sqrtElements.forEach((sqrt) => {
+              // Mirror the entire root symbol
+              sqrt.style.cssText = `
+                transform: scaleX(-1) !important;
+                display: inline-flex !important;
+                flex-wrap: nowrap !important;
+                align-items: baseline !important;
+                direction: ltr !important;
+                white-space: nowrap !important;
+              `;
+              
+              // Flip the content back so it's readable (double flip = normal reading)
+              const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r, .mord, .mnum');
+              contentElements.forEach((content) => {
+                content.style.cssText = `
+                  transform: scaleX(-1) !important;
+                  display: inline-block !important;
+                  direction: ltr !important;
+                `;
+              });
+              
+              // Handle root index (like the 3 in ³√)
+              const rootElements = sqrt.querySelectorAll('.root');
+              rootElements.forEach((root) => {
+                root.style.cssText = `
+                  transform: scaleX(-1) !important;
+                  display: inline-block !important;
+                `;
+              });
+            });
           }
         } catch (e) {
           console.error('KaTeX render error:', e);
