@@ -157,12 +157,15 @@ const MathRenderer = ({ html, inline = false }) => {
                   flex-wrap: nowrap !important;
                   align-items: baseline !important;
                   vertical-align: baseline !important;
+                  margin: 0 0.15em !important;
+                  gap: 0.1em !important;
                 `;
                 
                 // Reverse order of children using CSS order property
                 const children = Array.from(supsub.children);
                 if (children.length >= 2) {
                   children[0].style.order = '2';
+                  children[0].style.marginLeft = '0.1em';
                   children[children.length - 1].style.order = '1';
                 }
               }
@@ -199,15 +202,28 @@ const MathRenderer = ({ html, inline = false }) => {
                 align-items: baseline !important;
                 direction: ltr !important;
                 white-space: nowrap !important;
+                padding: 0 0.2em !important;
               `;
               
               // Flip the content back so it's readable (double flip = normal reading)
-              const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r, .mord, .mnum');
+              const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
               contentElements.forEach((content) => {
                 content.style.cssText = `
-                  transform: scaleX(-1) translateX(-0.3em) !important;
+                  transform: scaleX(-1) !important;
                   display: inline-block !important;
                   direction: ltr !important;
+                  padding: 0 0.1em !important;
+                `;
+              });
+              
+              // Handle mord and mnum separately for better spacing
+              const numberElements = sqrt.querySelectorAll('.mord, .mnum');
+              numberElements.forEach((num) => {
+                num.style.cssText = `
+                  transform: scaleX(-1) !important;
+                  display: inline-block !important;
+                  direction: ltr !important;
+                  margin: 0 0.05em !important;
                 `;
               });
               
