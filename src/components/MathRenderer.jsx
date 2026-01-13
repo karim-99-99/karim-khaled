@@ -205,7 +205,7 @@ const MathRenderer = ({ html, inline = false }) => {
               const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r, .mord, .mnum');
               contentElements.forEach((content) => {
                 content.style.cssText = `
-                  transform: scaleX(-1) !important;
+                  transform: scaleX(-1) translateX(-0.3em) !important;
                   display: inline-block !important;
                   direction: ltr !important;
                 `;
