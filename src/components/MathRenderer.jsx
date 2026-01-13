@@ -209,7 +209,7 @@ const MathRenderer = ({ html, inline = false }) => {
               const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
               contentElements.forEach((content) => {
                 content.style.cssText = `
-                  transform: scaleX(-1) !important;
+                  transform: scaleX(-1) translateX(-0.5em) !important;
                   display: inline-block !important;
                   direction: ltr !important;
                   padding: 0 0.1em !important;
@@ -224,6 +224,47 @@ const MathRenderer = ({ html, inline = false }) => {
                   display: inline-block !important;
                   direction: ltr !important;
                   margin: 0 0.05em !important;
+                `;
+              });
+              
+              // CRITICAL: Handle fractions inside sqrt - ensure correct direction
+              const sqrtFracs = sqrt.querySelectorAll('.frac');
+              sqrtFracs.forEach((frac) => {
+                frac.style.cssText = `
+                  display: inline-block !important;
+                  vertical-align: middle !important;
+                  text-align: center !important;
+                  position: relative !important;
+                  line-height: normal !important;
+                  transform: scaleX(-1) !important;
+                `;
+              });
+              
+              // Ensure fraction numerator (top) is correctly oriented
+              const sqrtFracNums = sqrt.querySelectorAll('.frac-num');
+              sqrtFracNums.forEach((num) => {
+                num.style.cssText = `
+                  display: block !important;
+                  text-align: center !important;
+                  line-height: 1.2 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  width: 100% !important;
+                  transform: scaleX(-1) !important;
+                `;
+              });
+              
+              // Ensure fraction denominator (bottom) is correctly oriented
+              const sqrtFracDens = sqrt.querySelectorAll('.frac-den');
+              sqrtFracDens.forEach((den) => {
+                den.style.cssText = `
+                  display: block !important;
+                  text-align: center !important;
+                  line-height: 1.2 !important;
+                  margin: 0 !important;
+                  padding: 0 !important;
+                  width: 100% !important;
+                  transform: scaleX(-1) !important;
                 `;
               });
               
