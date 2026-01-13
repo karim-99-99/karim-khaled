@@ -209,7 +209,7 @@ const MathRenderer = ({ html, inline = false }) => {
               const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
               contentElements.forEach((content) => {
                 content.style.cssText = `
-                  transform: scaleX(-1) translateX(-0.5em) !important;
+                  transform: scaleX(-1) translateX(-0.8em) !important;
                   display: inline-block !important;
                   direction: ltr !important;
                   padding: 0 0.1em !important;
@@ -227,20 +227,21 @@ const MathRenderer = ({ html, inline = false }) => {
                 `;
               });
               
-              // CRITICAL: Handle fractions inside sqrt - ensure correct direction
+              // CRITICAL: Handle fractions inside sqrt - INVERT (swap numerator and denominator)
               const sqrtFracs = sqrt.querySelectorAll('.frac');
               sqrtFracs.forEach((frac) => {
+                // Don't flip the fraction - let it be inverted by keeping original scaleX
                 frac.style.cssText = `
-                  display: inline-block !important;
+                  display: inline-flex !important;
                   vertical-align: middle !important;
                   text-align: center !important;
                   position: relative !important;
                   line-height: normal !important;
-                  transform: scaleX(-1) !important;
+                  flex-direction: column-reverse !important;
                 `;
               });
               
-              // Ensure fraction numerator (top) is correctly oriented
+              // Ensure fraction numerator (top) - will become bottom due to column-reverse
               const sqrtFracNums = sqrt.querySelectorAll('.frac-num');
               sqrtFracNums.forEach((num) => {
                 num.style.cssText = `
@@ -254,7 +255,7 @@ const MathRenderer = ({ html, inline = false }) => {
                 `;
               });
               
-              // Ensure fraction denominator (bottom) is correctly oriented
+              // Ensure fraction denominator (bottom) - will become top due to column-reverse
               const sqrtFracDens = sqrt.querySelectorAll('.frac-den');
               sqrtFracDens.forEach((den) => {
                 den.style.cssText = `
