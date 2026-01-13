@@ -242,7 +242,6 @@ const MathRenderer = ({ html, inline = false }) => {
                   flex-direction: column-reverse !important;
                   overflow: visible !important;
                   min-width: 1em !important;
-                  transform: scaleX(-1) !important;
                 `;
               });
               
