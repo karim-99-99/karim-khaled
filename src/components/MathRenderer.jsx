@@ -90,6 +90,8 @@ const MathRenderer = ({ html, inline = false }) => {
             
             // RTL natural for Arabic mathematical notation
             element.setAttribute('dir', 'rtl');
+            element.setAttribute('data-rtl', 'true');
+            element.classList.add('math-rtl'); // Add class for CSS rules
             element.style.direction = 'rtl';
             element.style.unicodeBidi = 'embed'; // Natural RTL
             element.style.textAlign = 'right';
@@ -215,7 +217,9 @@ const MathRenderer = ({ html, inline = false }) => {
             const arabicLatex = toArabicNumerals(part.content);
               return (
                 <span 
-                  key={index} 
+                  key={index}
+                  className="math-rtl"
+                  data-rtl="true"
                   style={{ 
                     direction: 'rtl', 
                     unicodeBidi: 'embed',
@@ -242,7 +246,9 @@ const MathRenderer = ({ html, inline = false }) => {
   // Otherwise, render HTML directly (handles .math-equation spans via useEffect)
   return (
     <div 
-      ref={containerRef} 
+      ref={containerRef}
+      className="math-rtl"
+      data-rtl="true"
       style={{ 
         display: inline ? 'inline' : 'block',
         position: 'relative' // Allow absolute positioned images
