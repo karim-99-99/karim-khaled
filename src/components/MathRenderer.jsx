@@ -202,7 +202,7 @@ const MathRenderer = ({ html, inline = false }) => {
                 align-items: baseline !important;
                 direction: ltr !important;
                 white-space: nowrap !important;
-                padding: 0 0.3em !important;
+                padding: 0 0.4em !important;
                 overflow: visible !important;
               `;
               
@@ -242,6 +242,7 @@ const MathRenderer = ({ html, inline = false }) => {
                   flex-direction: column-reverse !important;
                   overflow: visible !important;
                   min-width: 1em !important;
+                  transform: scaleX(-1) !important;
                 `;
               });
               
@@ -257,6 +258,12 @@ const MathRenderer = ({ html, inline = false }) => {
                   width: 100% !important;
                   transform: scaleX(-1) !important;
                 `;
+                
+                // Also flip all numbers inside the numerator
+                const numNumbers = num.querySelectorAll('.mord, .mnum');
+                numNumbers.forEach((n) => {
+                  n.style.transform = 'scaleX(-1) !important';
+                });
               });
               
               // Ensure fraction denominator (bottom) - will become top due to column-reverse
@@ -271,6 +278,12 @@ const MathRenderer = ({ html, inline = false }) => {
                   width: 100% !important;
                   transform: scaleX(-1) !important;
                 `;
+                
+                // Also flip all numbers inside the denominator
+                const denNumbers = den.querySelectorAll('.mord, .mnum');
+                denNumbers.forEach((n) => {
+                  n.style.transform = 'scaleX(-1) !important';
+                });
               });
               
               // Handle root index (like the 3 in ³√)
