@@ -142,23 +142,48 @@ const MathRenderer = ({ html, inline = false }) => {
               el.style.cssText = 'display: block !important; text-align: center !important; line-height: 1.2 !important; margin: 0 !important; padding: 0 !important; width: 100% !important;';
             });
             
-            // CUSTOM: Flip superscripts (powers) to appear on the LEFT for Arabic
+            // CUSTOM: Flip ALL superscripts and subscripts (powers) to appear on the LEFT for Arabic
+            // Target .msup and .msupsub directly for maximum browser compatibility
+            const supsubElements = element.querySelectorAll('.msup, .msupsub');
+            supsubElements.forEach((supsub) => {
+              // Skip if part of operator limits (∑, ∫)
+              const isOperatorLimit = supsub.closest('.mop.op-limits');
+              
+              if (!isOperatorLimit) {
+                // Force flex reverse with inline styles for cross-browser compatibility
+                supsub.style.cssText = `
+                  display: inline-flex !important;
+                  flex-direction: row-reverse !important;
+                  flex-wrap: nowrap !important;
+                  align-items: baseline !important;
+                  vertical-align: baseline !important;
+                `;
+                
+                // Reverse order of children using CSS order property
+                const children = Array.from(supsub.children);
+                if (children.length >= 2) {
+                  children[0].style.order = '2';
+                  children[children.length - 1].style.order = '1';
+                }
+              }
+            });
+            
+            // Also handle .base elements that contain superscripts
             const bases = element.querySelectorAll('.base');
             bases.forEach((base) => {
-              const children = Array.from(base.children);
-              
-              // Check if this base has a superscript/subscript
-              const hasSupsub = children.some(child => child.classList && child.classList.contains('msupsub'));
+              const hasSupsub = base.querySelector('.msup, .msupsub');
               
               if (hasSupsub) {
                 // Check if this is NOT part of op-limits (∑, ∫)
-                const isOperatorLimit = base.closest('.mop.op-limits') || base.querySelector('.mop.op-limits');
+                const isOperatorLimit = base.closest('.mop.op-limits');
                 
                 if (!isOperatorLimit) {
                   // Apply flex styling to reverse order
-                  base.style.display = 'inline-flex';
-                  base.style.flexDirection = 'row-reverse';
-                  base.style.alignItems = 'flex-start';
+                  base.style.cssText = `
+                    display: inline-flex !important;
+                    flex-direction: row-reverse !important;
+                    align-items: flex-start !important;
+                  `;
                 }
               }
             });

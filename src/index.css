@@ -18,8 +18,8 @@
    KaTeX RTL Support for Arabic
    ======================================== */
 
-/* Force RTL natural for Arabic (no bidi-override, we'll flip superscripts manually) */
-.katex {
+/* Force RTL natural for Arabic ONLY when inside math-rtl container */
+.math-rtl .katex {
   direction: rtl !important;
   text-align: right !important;
   unicode-bidi: embed !important;
@@ -40,9 +40,9 @@
   vertical-align: baseline !important;
 }
 
-/* Force the parent to be flex too - ONLY in RTL mode */
-.math-rtl .katex .base:has(> .mord + .msupsub),
-.math-rtl .katex .base:has(> .minner + .msupsub) {
+/* Force the parent .base to be flex too - ONLY in RTL mode */
+/* Note: Using direct descendant selectors for better browser compatibility */
+.math-rtl .katex .base {
   display: inline-flex !important;
   flex-direction: row-reverse !important;
 }
@@ -85,8 +85,7 @@
   vertical-align: baseline !important;
 }
 
-.math-ltr .katex .base:has(> .mord + .msupsub),
-.math-ltr .katex .base:has(> .minner + .msupsub) {
+.math-ltr .katex .base {
   display: inline !important;
   flex-direction: initial !important;
 }
