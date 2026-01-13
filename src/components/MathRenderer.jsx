@@ -202,17 +202,19 @@ const MathRenderer = ({ html, inline = false }) => {
                 align-items: baseline !important;
                 direction: ltr !important;
                 white-space: nowrap !important;
-                padding: 0 0.2em !important;
+                padding: 0 0.3em !important;
+                overflow: visible !important;
               `;
               
               // Flip the content back so it's readable (double flip = normal reading)
               const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
               contentElements.forEach((content) => {
                 content.style.cssText = `
-                  transform: scaleX(-1) translateX(-0.8em) !important;
+                  transform: scaleX(-1) translateX(-0.3em) !important;
                   display: inline-block !important;
                   direction: ltr !important;
-                  padding: 0 0.1em !important;
+                  padding: 0 0.15em !important;
+                  overflow: visible !important;
                 `;
               });
               
@@ -230,7 +232,7 @@ const MathRenderer = ({ html, inline = false }) => {
               // CRITICAL: Handle fractions inside sqrt - INVERT (swap numerator and denominator)
               const sqrtFracs = sqrt.querySelectorAll('.frac');
               sqrtFracs.forEach((frac) => {
-                // Don't flip the fraction - let it be inverted by keeping original scaleX
+                // Reverse the fraction order and ensure visibility
                 frac.style.cssText = `
                   display: inline-flex !important;
                   vertical-align: middle !important;
@@ -238,6 +240,8 @@ const MathRenderer = ({ html, inline = false }) => {
                   position: relative !important;
                   line-height: normal !important;
                   flex-direction: column-reverse !important;
+                  overflow: visible !important;
+                  min-width: 1em !important;
                 `;
               });
               
