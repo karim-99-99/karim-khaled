@@ -448,6 +448,27 @@ const MathRenderer = ({ html, inline = false }) => {
           if (!s.closest('.mop.op-limits') && !s.closest('.sqrt')) {
             s.style.display = 'inline-flex';
             s.style.flexDirection = 'row-reverse';
+            s.style.flexWrap = 'nowrap';
+            s.style.alignItems = 'baseline';
+            
+            // Use CSS order to reverse children
+            const children = Array.from(s.children);
+            if (children.length >= 2) {
+              children[0].style.order = '2';
+              children[0].style.marginLeft = '0.1em';
+              children[children.length - 1].style.order = '1';
+            }
+          }
+        });
+        
+        // Also handle .base elements that contain superscripts
+        const bases = element.querySelectorAll('.base');
+        bases.forEach((base) => {
+          const hasSupsub = base.querySelector('.msup, .msupsub');
+          if (hasSupsub && !base.closest('.mop.op-limits') && !base.closest('.sqrt')) {
+            base.style.display = 'inline-flex';
+            base.style.flexDirection = 'row-reverse';
+            base.style.alignItems = 'flex-start';
           }
         });
 
