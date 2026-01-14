@@ -258,10 +258,10 @@ const MathRenderer = ({ html, inline = false }) => {
                   transform: scaleX(-1) !important;
                 `;
                 
-                // Keep numbers inside numerator NOT flipped (normal direction)
+                // Also flip all numbers inside the numerator
                 const numNumbers = num.querySelectorAll('.mord, .mnum');
                 numNumbers.forEach((n) => {
-                  n.style.transform = 'none !important';
+                  n.style.transform = 'scaleX(-1) !important';
                 });
               });
               
@@ -278,10 +278,10 @@ const MathRenderer = ({ html, inline = false }) => {
                   transform: scaleX(-1) !important;
                 `;
                 
-                // Keep numbers inside denominator NOT flipped (normal direction)
+                // Also flip all numbers inside the denominator
                 const denNumbers = den.querySelectorAll('.mord, .mnum');
                 denNumbers.forEach((n) => {
-                  n.style.transform = 'none !important';
+                  n.style.transform = 'scaleX(-1) !important';
                 });
               });
               
