@@ -516,7 +516,7 @@ const MathRenderer = ({ html, inline = false }) => {
             c.style.direction = 'ltr'; // keep numbers readable
             c.style.overflow = 'visible';
             // تحريك الأرقام داخل الجذر إلى اليمين قليلاً
-            c.style.paddingLeft = '0.3em';
+            c.style.paddingLeft = '0.45em';
           });
 
           const sqrtFracs = sqrt.querySelectorAll('.frac');
@@ -530,6 +530,8 @@ const MathRenderer = ({ html, inline = false }) => {
             r.style.transform = 'scaleX(-1)';
             r.style.position = 'relative';
             r.style.zIndex = '4';
+            // تحريك الأس (index) إلى اليسار قليلاً
+            r.style.left = '0.9em';
           });
 
           // Mobile: make the radical symbol taller so content stays inside
