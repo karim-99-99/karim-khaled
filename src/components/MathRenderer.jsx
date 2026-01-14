@@ -505,12 +505,14 @@ const MathRenderer = ({ html, inline = false }) => {
           // Find all superscripts inside sqrt
           const sqrtSupsubs = sqrt.querySelectorAll('.msup, .msupsub');
           sqrtSupsubs.forEach(s => {
-            // Force flex reverse with inline styles
-            s.style.display = 'inline-flex';
-            s.style.flexDirection = 'row-reverse';
-            s.style.flexWrap = 'nowrap';
-            s.style.alignItems = 'baseline';
-            s.style.verticalAlign = 'baseline';
+            // Force flex reverse with !important
+            s.style.cssText = `
+              display: inline-flex !important;
+              flex-direction: row-reverse !important;
+              flex-wrap: nowrap !important;
+              align-items: baseline !important;
+              vertical-align: baseline !important;
+            `;
             
             // Use CSS order to reverse children
             const children = Array.from(s.children);
@@ -528,9 +530,11 @@ const MathRenderer = ({ html, inline = false }) => {
           sqrtBases.forEach((base) => {
             const hasSupsub = base.querySelector('.msup, .msupsub');
             if (hasSupsub) {
-              base.style.display = 'inline-flex';
-              base.style.flexDirection = 'row-reverse';
-              base.style.alignItems = 'flex-start';
+              base.style.cssText = `
+                display: inline-flex !important;
+                flex-direction: row-reverse !important;
+                align-items: flex-start !important;
+              `;
             }
           });
         });
