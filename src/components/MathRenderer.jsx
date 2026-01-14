@@ -444,7 +444,8 @@ const MathRenderer = ({ html, inline = false }) => {
            =============================== */
         const supsubs = element.querySelectorAll('.msup, .msupsub');
         supsubs.forEach(s => {
-          if (!s.closest('.mop.op-limits')) {
+          // Skip if part of operator limits (∑, ∫) or inside sqrt
+          if (!s.closest('.mop.op-limits') && !s.closest('.sqrt')) {
             s.style.display = 'inline-flex';
             s.style.flexDirection = 'row-reverse';
           }
@@ -480,9 +481,34 @@ const MathRenderer = ({ html, inline = false }) => {
              =============================== */
           const sqrtSupsubs = sqrt.querySelectorAll('.msup, .msupsub');
           sqrtSupsubs.forEach(s => {
-            s.style.display = 'inline-flex';
-            s.style.flexDirection = 'row-reverse';
-            s.style.alignItems = 'baseline';
+            s.style.cssText = `
+              display: inline-flex !important;
+              flex-direction: row-reverse !important;
+              flex-wrap: nowrap !important;
+              align-items: baseline !important;
+              vertical-align: baseline !important;
+            `;
+            
+            // Reverse order of children
+            const children = Array.from(s.children);
+            if (children.length >= 2) {
+              children[0].style.order = '2';
+              children[0].style.marginLeft = '0.1em';
+              children[children.length - 1].style.order = '1';
+            }
+          });
+          
+          // Also handle .base elements that contain superscripts inside sqrt
+          const sqrtBases = sqrt.querySelectorAll('.base');
+          sqrtBases.forEach((base) => {
+            const hasSupsub = base.querySelector('.msup, .msupsub');
+            if (hasSupsub) {
+              base.style.cssText = `
+                display: inline-flex !important;
+                flex-direction: row-reverse !important;
+                align-items: flex-start !important;
+              `;
+            }
           });
         });
 
