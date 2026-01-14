@@ -541,29 +541,33 @@ const MathRenderer = ({ html, inline = false }) => {
             window.matchMedia('(max-width: 640px)').matches;
 
           if (isMobile) {
-            // زيادة حجم الجذر وإضافة padding حوله في الموبايل
-            sqrt.style.setProperty('padding', '0.3em', 'important');
-            // زيادة margin في الموبايل لمنع التداخل مع النص المجاور
-            sqrt.style.setProperty('margin-left', '0.4em', 'important');
-            sqrt.style.setProperty('margin-right', '0.4em', 'important');
-            sqrt.style.setProperty('margin-top', '0.15em', 'important');
-            sqrt.style.setProperty('margin-bottom', '0.15em', 'important');
+            // منع الجذر من الخروج خارج الشاشة
+            sqrt.style.setProperty('max-width', '100%', 'important');
+            sqrt.style.setProperty('overflow', 'hidden', 'important');
+            sqrt.style.setProperty('padding', '0.2em', 'important');
+            // تقليل margin في الموبايل
+            sqrt.style.setProperty('margin-left', '0.2em', 'important');
+            sqrt.style.setProperty('margin-right', '0.2em', 'important');
+            sqrt.style.setProperty('margin-top', '0.1em', 'important');
+            sqrt.style.setProperty('margin-bottom', '0.1em', 'important');
 
             // IMPORTANT: do NOT use transform:scaleY here.
             // Transforms don't affect line-box metrics, so text can overlap the radical on mobile.
             // Instead, increase the actual height of the radical holder + svg so layout accounts for it.
             const radicalHolders = sqrt.querySelectorAll('.hide-tail');
             radicalHolders.forEach((h) => {
-              h.style.setProperty('overflow', 'visible', 'important');
-              h.style.setProperty('height', '1.6em', 'important');
-              h.style.setProperty('min-height', '1.6em', 'important');
+              h.style.setProperty('overflow', 'hidden', 'important');
+              h.style.setProperty('height', '1.4em', 'important');
+              h.style.setProperty('min-height', '1.4em', 'important');
+              h.style.setProperty('max-height', '1.4em', 'important');
             });
 
             const radicalSvgs = sqrt.querySelectorAll('.hide-tail svg');
             radicalSvgs.forEach((svg) => {
               svg.style.setProperty('transform', 'none', 'important');
-              svg.style.setProperty('height', '1.6em', 'important');
+              svg.style.setProperty('height', '1.4em', 'important');
               svg.style.setProperty('width', 'auto', 'important');
+              svg.style.setProperty('max-width', '100%', 'important');
             });
 
             // If radicand is a single simple number, it may sit too high on mobile.
