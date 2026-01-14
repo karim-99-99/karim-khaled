@@ -502,40 +502,41 @@ const MathRenderer = ({ html, inline = false }) => {
            Powers inside sqrt → LEFT (after sqrt transform)
            =============================== */
         sqrtElements.forEach((sqrt) => {
-          // Find all superscripts inside sqrt
-          const sqrtSupsubs = sqrt.querySelectorAll('.msup, .msupsub');
-          sqrtSupsubs.forEach(s => {
-            // Force flex reverse with !important
-            s.style.cssText = `
-              display: inline-flex !important;
-              flex-direction: row-reverse !important;
-              flex-wrap: nowrap !important;
-              align-items: baseline !important;
-              vertical-align: baseline !important;
-            `;
-            
-            // Use CSS order to reverse children
-            const children = Array.from(s.children);
-            if (children.length >= 2) {
-              // Base (first child) should appear second (on right after reverse)
-              children[0].style.order = '2';
-              children[0].style.marginLeft = '0.1em';
-              // Superscript (last child) should appear first (on left after reverse)
-              children[children.length - 1].style.order = '1';
-            }
-          });
-          
-          // Handle .base elements that contain superscripts inside sqrt
-          const sqrtBases = sqrt.querySelectorAll('.base');
-          sqrtBases.forEach((base) => {
-            const hasSupsub = base.querySelector('.msup, .msupsub');
-            if (hasSupsub) {
-              base.style.cssText = `
+          // Find all superscripts inside sqrt content elements
+          const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
+          contentElements.forEach(c => {
+            const sqrtSupsubs = c.querySelectorAll('.msup, .msupsub');
+            sqrtSupsubs.forEach(s => {
+              // Force flex reverse with !important
+              s.style.cssText = `
                 display: inline-flex !important;
                 flex-direction: row-reverse !important;
-                align-items: flex-start !important;
+                flex-wrap: nowrap !important;
+                align-items: baseline !important;
+                vertical-align: baseline !important;
               `;
-            }
+              
+              // Use CSS order to reverse children
+              const children = Array.from(s.children);
+              if (children.length >= 2) {
+                children[0].style.order = '2';
+                children[0].style.marginLeft = '0.1em';
+                children[children.length - 1].style.order = '1';
+              }
+            });
+            
+            // Handle .base elements inside content
+            const sqrtBases = c.querySelectorAll('.base');
+            sqrtBases.forEach((base) => {
+              const hasSupsub = base.querySelector('.msup, .msupsub');
+              if (hasSupsub) {
+                base.style.cssText = `
+                  display: inline-flex !important;
+                  flex-direction: row-reverse !important;
+                  align-items: flex-start !important;
+                `;
+              }
+            });
           });
         });
 
