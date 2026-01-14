@@ -517,6 +517,9 @@ const MathRenderer = memo(({ html }) => {
             c.style.overflow = 'visible';
             // تحريك الأرقام داخل الجذر إلى اليمين قليلاً
             c.style.paddingLeft = '0.45em';
+            // التأكد من أن المحتوى لا يخرج عن حدود الجذر
+            c.style.position = 'relative';
+            c.style.maxWidth = 'none'; // السماح بالتوسع الطبيعي
           });
 
           const sqrtFracs = sqrt.querySelectorAll('.frac');
@@ -541,10 +544,9 @@ const MathRenderer = memo(({ html }) => {
             window.matchMedia('(max-width: 640px)').matches;
 
           if (isMobile) {
-            // منع الجذر من الخروج خارج الشاشة
-            sqrt.style.setProperty('max-width', '100%', 'important');
-            sqrt.style.setProperty('overflow', 'hidden', 'important');
+            // منع الجذر من الخروج خارج الشاشة - لكن لا نخفي overflow لنحافظ على الخط الأفقي
             sqrt.style.setProperty('padding', '0.2em', 'important');
+            sqrt.style.setProperty('overflow', 'visible', 'important'); // مهم: visible للحفاظ على الخط الأفقي
             // تقليل margin في الموبايل
             sqrt.style.setProperty('margin-left', '0.2em', 'important');
             sqrt.style.setProperty('margin-right', '0.2em', 'important');
@@ -556,7 +558,7 @@ const MathRenderer = memo(({ html }) => {
             // Instead, increase the actual height of the radical holder + svg so layout accounts for it.
             const radicalHolders = sqrt.querySelectorAll('.hide-tail');
             radicalHolders.forEach((h) => {
-              h.style.setProperty('overflow', 'hidden', 'important');
+              h.style.setProperty('overflow', 'visible', 'important'); // visible للحفاظ على SVG كامل
               h.style.setProperty('height', '1.4em', 'important');
               h.style.setProperty('min-height', '1.4em', 'important');
               h.style.setProperty('max-height', '1.4em', 'important');
@@ -567,7 +569,20 @@ const MathRenderer = memo(({ html }) => {
               svg.style.setProperty('transform', 'none', 'important');
               svg.style.setProperty('height', '1.4em', 'important');
               svg.style.setProperty('width', 'auto', 'important');
-              svg.style.setProperty('max-width', '100%', 'important');
+              // إزالة max-width لتجنب قطع الخط الأفقي
+              svg.style.setProperty('overflow', 'visible', 'important');
+            });
+
+            // Ensure fractions inside root stay properly positioned and don't overflow
+            const sqrtFracsMobile = sqrt.querySelectorAll('.frac');
+            sqrtFracsMobile.forEach((frac) => {
+              frac.style.setProperty('display', 'inline-flex', 'important');
+              frac.style.setProperty('flex-direction', 'column-reverse', 'important');
+              frac.style.setProperty('vertical-align', 'middle', 'important');
+              frac.style.setProperty('position', 'relative', 'important');
+              frac.style.setProperty('overflow', 'visible', 'important');
+              // التأكد من أن الكسور لا تخرج عن حدود الجذر
+              frac.style.setProperty('max-width', 'calc(100% - 0.5em)', 'important');
             });
 
             // If radicand is a single simple number, it may sit too high on mobile.
