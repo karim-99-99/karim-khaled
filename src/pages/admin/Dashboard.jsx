@@ -37,6 +37,13 @@ const Dashboard = () => {
             <span>{isArabicBrowser() ? 'إدارة المستخدمين' : 'User Management'}</span>
           </button>
           <button
+            onClick={() => navigate('/admin/questions')}
+            className="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl flex items-center gap-2"
+          >
+            <span>📝</span>
+            <span>{isArabicBrowser() ? 'إدارة الاختبار' : 'Test Management'}</span>
+          </button>
+          <button
             onClick={() => navigate('/admin/chapters')}
             className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition shadow-lg hover:shadow-xl flex items-center gap-2"
           >

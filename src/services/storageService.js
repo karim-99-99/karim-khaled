@@ -750,6 +750,8 @@ export const updateQuestion = (questionId, questionData) => {
       questions[index] = {
         ...questions[index],
         ...questionData,
+        itemId: questionData.levelId || questionData.itemId || questions[index].itemId,
+        levelId: questionData.levelId || questions[index].levelId,
         updatedAt: new Date().toISOString(),
       };
       localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(questions));

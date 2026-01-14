@@ -420,6 +420,63 @@ const MathRenderer = ({ html, inline = false }) => {
           displayMode: false
         });
 
+        // Make math box not get covered/clipped on mobile
+        element.style.display = 'inline-block';
+        element.style.verticalAlign = 'middle';
+        element.style.overflow = 'visible';
+        element.style.position = 'relative';
+        element.style.zIndex = '2';
+        element.style.lineHeight = '1.4';
+        element.style.padding = '0.12em 0.08em';
+
+        const katexRoot = element.querySelector('.katex');
+        if (katexRoot) {
+          katexRoot.style.display = 'inline-block';
+          katexRoot.style.overflow = 'visible';
+          katexRoot.style.position = 'relative';
+          katexRoot.style.zIndex = '2';
+          katexRoot.style.lineHeight = '1.2';
+        }
+
+        // Force KaTeX superscripts to be on the LEFT (always)
+        // KaTeX HTML usually renders as: <span class="mord">BASE</span><span class="msupsub">SUP</span>
+        // So we swap msupsub to be before its base sibling.
+        const forceSuperscriptsLeft = (root) => {
+          const supsubs = root.querySelectorAll('.msupsub');
+          supsubs.forEach((msupsub) => {
+            if (msupsub.closest('.mop.op-limits')) return;
+            if (msupsub.dataset.supLeftApplied === '1') return;
+            msupsub.dataset.supLeftApplied = '1';
+
+            const parent = msupsub.parentElement;
+            const baseEl = msupsub.previousElementSibling;
+            if (!parent || !baseEl) return;
+
+            // Move msupsub before base => exponent appears on the left
+            parent.insertBefore(msupsub, baseEl);
+
+            // IMPORTANT: parent is in RTL context, so force LTR just for this tiny run
+            // so the first node (msupsub) is actually on the LEFT visually.
+            parent.style.setProperty('direction', 'ltr', 'important');
+            parent.style.setProperty('unicode-bidi', 'isolate', 'important');
+            parent.style.setProperty('white-space', 'nowrap', 'important');
+
+            // Make the exponent closer to the base
+            msupsub.style.setProperty('margin-right', '0.02em', 'important');
+            msupsub.style.setProperty('margin-left', '0', 'important');
+          });
+        };
+
+        // Raise fraction bar slightly (the line between numerator/denominator)
+        const raiseFractionBar = (root) => {
+          const lines = root.querySelectorAll('.frac-line');
+          lines.forEach((line) => {
+            line.style.setProperty('position', 'relative', 'important');
+            // negative => move up a bit
+            line.style.setProperty('top', '-0.12em', 'important');
+          });
+        };
+
         /* ===============================
            Arabic numerals (0–9 → ٠–٩)
            =============================== */
@@ -440,50 +497,26 @@ const MathRenderer = ({ html, inline = false }) => {
         element.style.unicodeBidi = 'embed';
 
         /* ===============================
-           Powers on the LEFT (GLOBAL)
-           =============================== */
-        const supsubs = element.querySelectorAll('.msup, .msupsub');
-        supsubs.forEach(s => {
-          // Skip if part of operator limits (∑, ∫) or inside sqrt
-          if (!s.closest('.mop.op-limits') && !s.closest('.sqrt')) {
-            s.style.display = 'inline-flex';
-            s.style.flexDirection = 'row-reverse';
-            s.style.flexWrap = 'nowrap';
-            s.style.alignItems = 'baseline';
-            
-            // Use CSS order to reverse children
-            const children = Array.from(s.children);
-            if (children.length >= 2) {
-              children[0].style.order = '2';
-              children[0].style.marginLeft = '0.1em';
-              children[children.length - 1].style.order = '1';
-            }
-          }
-        });
-        
-        // Also handle .base elements that contain superscripts
-        const bases = element.querySelectorAll('.base');
-        bases.forEach((base) => {
-          const hasSupsub = base.querySelector('.msup, .msupsub');
-          if (hasSupsub && !base.closest('.mop.op-limits') && !base.closest('.sqrt')) {
-            base.style.display = 'inline-flex';
-            base.style.flexDirection = 'row-reverse';
-            base.style.alignItems = 'flex-start';
-          }
-        });
-
-        /* ===============================
            SQRT HANDLING (mirror root only)
            =============================== */
         const sqrtElements = element.querySelectorAll('.sqrt');
         sqrtElements.forEach((sqrt) => {
           sqrt.style.transform = 'scaleX(-1)';
-          sqrt.style.display = 'inline-flex';
+          // inline-flex can shrink/clip sqrt height on some mobile layouts
+          sqrt.style.display = 'inline-block';
+          sqrt.style.overflow = 'visible';
+          sqrt.style.position = 'relative';
+          sqrt.style.zIndex = '3';
+          sqrt.style.paddingTop = '0.12em';
+          sqrt.style.paddingBottom = '0.12em';
 
           const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
           contentElements.forEach(c => {
             c.style.transform = 'scaleX(-1)';
             c.style.direction = 'ltr'; // keep numbers readable
+            c.style.overflow = 'visible';
+            // تحريك الأرقام داخل الجذر إلى اليمين قليلاً
+            c.style.paddingLeft = '0.3em';
           });
 
           const sqrtFracs = sqrt.querySelectorAll('.frac');
@@ -495,50 +528,68 @@ const MathRenderer = ({ html, inline = false }) => {
           const rootIndex = sqrt.querySelectorAll('.root');
           rootIndex.forEach(r => {
             r.style.transform = 'scaleX(-1)';
+            r.style.position = 'relative';
+            r.style.zIndex = '4';
           });
+
+          // Mobile: make the radical symbol taller so content stays inside
+          const isMobile =
+            typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(max-width: 640px)').matches;
+
+          if (isMobile) {
+            // زيادة حجم الجذر وإضافة padding حوله في الموبايل
+            sqrt.style.setProperty('padding', '0.3em', 'important');
+            // زيادة margin في الموبايل لمنع التداخل مع النص المجاور
+            sqrt.style.setProperty('margin-left', '0.4em', 'important');
+            sqrt.style.setProperty('margin-right', '0.4em', 'important');
+            sqrt.style.setProperty('margin-top', '0.15em', 'important');
+            sqrt.style.setProperty('margin-bottom', '0.15em', 'important');
+
+            // IMPORTANT: do NOT use transform:scaleY here.
+            // Transforms don't affect line-box metrics, so text can overlap the radical on mobile.
+            // Instead, increase the actual height of the radical holder + svg so layout accounts for it.
+            const radicalHolders = sqrt.querySelectorAll('.hide-tail');
+            radicalHolders.forEach((h) => {
+              h.style.setProperty('overflow', 'visible', 'important');
+              h.style.setProperty('height', '1.6em', 'important');
+              h.style.setProperty('min-height', '1.6em', 'important');
+            });
+
+            const radicalSvgs = sqrt.querySelectorAll('.hide-tail svg');
+            radicalSvgs.forEach((svg) => {
+              svg.style.setProperty('transform', 'none', 'important');
+              svg.style.setProperty('height', '1.6em', 'important');
+              svg.style.setProperty('width', 'auto', 'important');
+            });
+
+            // If radicand is a single simple number, it may sit too high on mobile.
+            // Nudge it down slightly, but keep complex expressions unchanged.
+            const radicandBoxes = sqrt.querySelectorAll('.mord[style*="padding-left"]');
+            radicandBoxes.forEach((box) => {
+              const text = (box.textContent || '').trim();
+              const isSimpleNumber = /^[0-9٠-٩]+$/.test(text);
+              const hasComplex =
+                !!box.querySelector('.frac, .msupsub, .sqrt, .mop, .mbin, .mrel, .mopen, .mclose');
+
+              if (isSimpleNumber && !hasComplex) {
+                box.style.setProperty('transform', 'translateY(0.14em)', 'important');
+              }
+            });
+
+            // Mobile: give extra breathing room so adjacent text doesn't overlap
+            element.style.lineHeight = '1.6';
+            element.style.paddingTop = '0.18em';
+            element.style.paddingBottom = '0.18em';
+            element.style.paddingLeft = '0.3em';
+            element.style.paddingRight = '0.3em';
+          }
         });
 
-        /* ===============================
-           Powers inside sqrt → LEFT (after sqrt transform)
-           =============================== */
-        sqrtElements.forEach((sqrt) => {
-          // Find all superscripts inside sqrt content elements
-          const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
-          contentElements.forEach(c => {
-            const sqrtSupsubs = c.querySelectorAll('.msup, .msupsub');
-            sqrtSupsubs.forEach(s => {
-              // Force flex reverse with !important
-              s.style.cssText = `
-                display: inline-flex !important;
-                flex-direction: row-reverse !important;
-                flex-wrap: nowrap !important;
-                align-items: baseline !important;
-                vertical-align: baseline !important;
-              `;
-              
-              // Use CSS order to reverse children
-              const children = Array.from(s.children);
-              if (children.length >= 2) {
-                children[0].style.order = '2';
-                children[0].style.marginLeft = '0.1em';
-                children[children.length - 1].style.order = '1';
-              }
-            });
-            
-            // Handle .base elements inside content
-            const sqrtBases = c.querySelectorAll('.base');
-            sqrtBases.forEach((base) => {
-              const hasSupsub = base.querySelector('.msup, .msupsub');
-              if (hasSupsub) {
-                base.style.cssText = `
-                  display: inline-flex !important;
-                  flex-direction: row-reverse !important;
-                  align-items: flex-start !important;
-                `;
-              }
-            });
-          });
-        });
+        // Apply after sqrt transforms as well
+        forceSuperscriptsLeft(element);
+        raiseFractionBar(element);
 
       } catch (e) {
         console.error(e);

@@ -119,6 +119,16 @@ const Header = () => {
                           {isArabicBrowser() ? 'لوحة التحكم' : 'Dashboard'}
                         </Link>
                         <Link
+                          to="/admin/questions"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          {isArabicBrowser() ? 'إدارة الاختبار' : 'Test Management'}
+                        </Link>
+                        <Link
                           to="/admin/users"
                           className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
                           onClick={() => {
@@ -204,6 +214,16 @@ const Header = () => {
                             }}
                           >
                             لوحة التحكم
+                          </Link>
+                          <Link
+                            to="/admin/questions"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            إدارة الاختبار
                           </Link>
                           <Link
                             to="/admin/users"

@@ -638,6 +638,7 @@ const Questions = () => {
 
     setQuestions(getQuestionsByLevel(selectedLevel));
     setShowForm(false);
+    setEditingQuestion(null);
     setQuestionImage(null);
     setQuestionImagePreview(null);
     setFormData({
@@ -793,7 +794,18 @@ const Questions = () => {
             </div>
 
             <div className="space-y-4">
-              {questions.map((question, index) => (
+              {questions.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p className="text-lg mb-4">{isArabicBrowser() ? 'لا توجد أسئلة لهذا المستوى' : 'No questions for this level'}</p>
+                  <button
+                    onClick={handleAddNew}
+                    className="bg-primary-500 text-white px-6 py-2 rounded-lg hover:bg-primary-600 transition font-medium"
+                  >
+                    + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add New Question'}
+                  </button>
+                </div>
+              ) : (
+                questions.map((question, index) => (
                 <div key={question.id} className="border rounded-lg p-3 sm:p-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
                     <div className="flex-1 w-full sm:w-auto">
@@ -850,7 +862,8 @@ const Questions = () => {
                     ))}
                   </div>
                 </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         )}
