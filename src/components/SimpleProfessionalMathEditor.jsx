@@ -308,28 +308,22 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
 
   // Insert or update math equation as Quill Embed (Math Blot)
   const insertMath = () => {
-    console.log('insertMath called'); // Debug
-    
     // Get the current value from MathLive field
     let currentMathValue = '';
     if (mathfieldRef.current) {
       const mf = mathfieldRef.current.querySelector('math-field');
-      console.log('MathField element:', mf); // Debug
       if (mf) {
         currentMathValue = mf.value || mf.getValue?.() || '';
-        console.log('Current math value:', currentMathValue); // Debug
       }
     }
     
     // If no value from field, try state
     if (!currentMathValue && mathValue) {
       currentMathValue = mathValue;
-      console.log('Using state value:', currentMathValue); // Debug
     }
     
     // Check if we have a valid value
     if (!currentMathValue || !currentMathValue.trim()) {
-      console.log('No valid value'); // Debug
       alert(isArabicBrowser() 
         ? 'الرجاء كتابة معادلة رياضية قبل الإدراج' 
         : 'Please enter a math equation before inserting');
@@ -337,12 +331,9 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     }
     
     if (!quillRef.current) {
-      console.log('No quill ref'); // Debug
       setShowMathModal(false);
       return;
     }
-    
-    console.log('Proceeding with insertion:', currentMathValue); // Debug
     
     // Update state with final value
     setMathValue(currentMathValue);

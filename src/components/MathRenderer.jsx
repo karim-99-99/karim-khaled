@@ -395,10 +395,10 @@
 
 
 import 'katex/dist/katex.min.css';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, memo } from 'react';
 import katex from 'katex';
 
-const MathRenderer = ({ html, inline = false }) => {
+const MathRenderer = memo(({ html }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -604,6 +604,8 @@ const MathRenderer = ({ html, inline = false }) => {
   }, [html]);
 
   return <div ref={containerRef} />;
-};
+});
+
+MathRenderer.displayName = 'MathRenderer';
 
 export default MathRenderer;

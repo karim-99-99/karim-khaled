@@ -9,6 +9,23 @@ const STORAGE_KEYS = {
   PROGRESS: 'progress',
 };
 
+// Simple memory cache to reduce localStorage reads
+const memoryCache = {
+  data: {},
+  get(key) {
+    return this.data[key];
+  },
+  set(key, value) {
+    this.data[key] = value;
+  },
+  invalidate(key) {
+    delete this.data[key];
+  },
+  clear() {
+    this.data = {};
+  }
+};
+
 // Get current logged in user
 export const getCurrentUser = () => {
   try {
@@ -439,8 +456,17 @@ export const initializeDefaultData = () => {
 // Placeholder exports for other functions - these need to be implemented
 export const getSections = () => {
   try {
+    // Check cache first
+    const cached = memoryCache.get(STORAGE_KEYS.SECTIONS);
+    if (cached) return cached;
+    
+    // Load from localStorage
     const sectionsJson = localStorage.getItem(STORAGE_KEYS.SECTIONS);
-    return sectionsJson ? JSON.parse(sectionsJson) : [];
+    const sections = sectionsJson ? JSON.parse(sectionsJson) : [];
+    
+    // Cache the result
+    memoryCache.set(STORAGE_KEYS.SECTIONS, sections);
+    return sections;
   } catch (error) {
     console.error('Error getting sections:', error);
     return [];
@@ -716,8 +742,17 @@ export const getLevelsByChapter = (chapterId) => {
 // Get all questions
 export const getQuestions = () => {
   try {
+    // Check cache first
+    const cached = memoryCache.get(STORAGE_KEYS.QUESTIONS);
+    if (cached) return cached;
+    
+    // Load from localStorage
     const questionsJson = localStorage.getItem(STORAGE_KEYS.QUESTIONS);
-    return questionsJson ? JSON.parse(questionsJson) : [];
+    const questions = questionsJson ? JSON.parse(questionsJson) : [];
+    
+    // Cache the result
+    memoryCache.set(STORAGE_KEYS.QUESTIONS, questions);
+    return questions;
   } catch (error) {
     console.error('Error getting questions:', error);
     return [];
@@ -736,6 +771,8 @@ export const addQuestion = (questionData) => {
     };
     questions.push(newQuestion);
     localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(questions));
+    // Invalidate cache
+    memoryCache.invalidate(STORAGE_KEYS.QUESTIONS);
   } catch (error) {
     console.error('Error adding question:', error);
   }
@@ -755,6 +792,8 @@ export const updateQuestion = (questionId, questionData) => {
         updatedAt: new Date().toISOString(),
       };
       localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(questions));
+      // Invalidate cache
+      memoryCache.invalidate(STORAGE_KEYS.QUESTIONS);
     }
   } catch (error) {
     console.error('Error updating question:', error);
@@ -767,6 +806,8 @@ export const deleteQuestion = (questionId) => {
     const questions = getQuestions();
     const filtered = questions.filter(q => q.id !== questionId);
     localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(filtered));
+    // Invalidate cache
+    memoryCache.invalidate(STORAGE_KEYS.QUESTIONS);
   } catch (error) {
     console.error('Error deleting question:', error);
   }

@@ -1,28 +1,45 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { initializeDefaultData } from './services/storageService';
+import ProtectedRoute from './components/ProtectedRoute';
+import AppErrorBoundary from './components/AppErrorBoundary';
+
+// Eager load only critical pages
 import SinglePage from './pages/SinglePage';
-import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Dashboard from './pages/admin/Dashboard';
-import AdminUsers from './pages/admin/AdminUsers';
-import Subjects from './pages/Subjects';
-import Categories from './pages/Categories';
-import Chapters from './pages/Chapters';
-import Levels from './pages/Levels';
-import Quiz from './pages/Quiz';
-import Result from './pages/Result';
-import Video from './pages/Video';
-import FileViewer from './pages/FileViewer';
-import Questions from './pages/admin/Questions';
-import TestMathType from './pages/TestMathType';
-import Videos from './pages/admin/Videos';
-import ChaptersManagement from './pages/admin/ChaptersManagement';
-import LessonsManagement from './pages/admin/LessonsManagement';
-import ClassroomsManagement from './pages/admin/ClassroomsManagement';
-import FilesManagement from './pages/admin/FilesManagement';
-import ProtectedRoute from './components/ProtectedRoute';
+
+// Lazy load all other pages for better performance
+const Home = lazy(() => import('./pages/Home'));
+const Subjects = lazy(() => import('./pages/Subjects'));
+const Categories = lazy(() => import('./pages/Categories'));
+const Chapters = lazy(() => import('./pages/Chapters'));
+const Levels = lazy(() => import('./pages/Levels'));
+const Quiz = lazy(() => import('./pages/Quiz'));
+const Result = lazy(() => import('./pages/Result'));
+const Video = lazy(() => import('./pages/Video'));
+const FileViewer = lazy(() => import('./pages/FileViewer'));
+const TestMathType = lazy(() => import('./pages/TestMathType'));
+
+// Lazy load admin pages
+const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
+const Questions = lazy(() => import('./pages/admin/Questions'));
+const Videos = lazy(() => import('./pages/admin/Videos'));
+const ChaptersManagement = lazy(() => import('./pages/admin/ChaptersManagement'));
+const LessonsManagement = lazy(() => import('./pages/admin/LessonsManagement'));
+const ClassroomsManagement = lazy(() => import('./pages/admin/ClassroomsManagement'));
+const FilesManagement = lazy(() => import('./pages/admin/FilesManagement'));
+
+// Loading component
+const LoadingFallback = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-500 mx-auto mb-4"></div>
+      <p className="text-dark-600 font-medium">جاري التحميل...</p>
+    </div>
+  </div>
+);
 
 function App() {
   useEffect(() => {
@@ -31,14 +48,16 @@ function App() {
   }, []);
 
   return (
-    <BrowserRouter
-      future={{
-        v7_startTransition: true,
-        v7_relativeSplatPath: true,
-      }}
-    >
-      <div className="App" dir="rtl">
-        <Routes>
+    <AppErrorBoundary>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
+        <div className="App" dir="rtl">
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
           {/* Public routes */}
           <Route path="/" element={<SinglePage />} />
           <Route path="/login" element={<Login />} />
@@ -242,9 +261,11 @@ function App() {
           
           {/* Default redirect */}
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
+            </Routes>
+          </Suspense>
+        </div>
+      </BrowserRouter>
+    </AppErrorBoundary>
   );
 }
 

@@ -78,6 +78,24 @@ export default defineConfig({
     commonjsOptions: {
       include: [/mathquill/, /node_modules/],
     },
+    // Enable code splitting and optimize chunks
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'math-vendor': ['katex', 'react-katex', 'mathlive'],
+          'editor-vendor': ['react-quill', 'quill'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
   },
   preview: {
     proxy: {},

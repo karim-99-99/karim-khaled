@@ -13,7 +13,7 @@ const Header = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
-    console.log('Logo image imported:', logoimage);
+    // Logo loaded
   }, []);
 
   const handleLogout = () => {
@@ -35,12 +35,7 @@ const Header = () => {
               className="h-12 w-12 object-contain flex-shrink-0"
               style={{ display: 'block', minWidth: '48px', minHeight: '48px' }}
               onError={(e) => {
-                console.error('Logo image failed to load. Path:', logoimage);
-                console.error('Error:', e);
                 e.target.style.display = 'none';
-              }}
-              onLoad={() => {
-                console.log('Logo image loaded successfully:', logoimage);
               }}
             />
             {/* <span className="text-2xl font-bold text-primary-500">بدايتي</span> */}
