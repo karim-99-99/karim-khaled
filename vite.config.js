@@ -49,6 +49,7 @@ export default defineConfig({
   ],
   resolve: {
     dedupe: ['react', 'react-dom'],
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.json', '.mjs'],
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],
@@ -86,9 +87,17 @@ export default defineConfig({
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) {
             return 'react-vendor';
           }
-          // Math libraries
-          if (id.includes('node_modules/katex') || id.includes('node_modules/react-katex') || id.includes('node_modules/mathlive')) {
-            return 'math-vendor';
+          // Split KaTeX separately (it's very large)
+          if (id.includes('node_modules/katex')) {
+            return 'katex-vendor';
+          }
+          // MathLive separately
+          if (id.includes('node_modules/mathlive')) {
+            return 'mathlive-vendor';
+          }
+          // React-KaTeX
+          if (id.includes('node_modules/react-katex')) {
+            return 'react-katex-vendor';
           }
           // Editor libraries
           if (id.includes('node_modules/react-quill') || id.includes('node_modules/quill')) {
@@ -101,7 +110,7 @@ export default defineConfig({
         },
       },
     },
-    chunkSizeWarningLimit: 1000,
+    chunkSizeWarningLimit: 2000, // Increased for math libraries
     // Use esbuild minification (default, faster than terser)
     minify: 'esbuild',
   },

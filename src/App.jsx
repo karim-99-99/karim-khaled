@@ -1,35 +1,35 @@
 import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { initializeDefaultData } from './services/storageService';
-import ProtectedRoute from './components/ProtectedRoute';
-import AppErrorBoundary from './components/AppErrorBoundary';
+import { initializeDefaultData } from './services/storageService.js';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import AppErrorBoundary from './components/AppErrorBoundary.jsx';
 
 // Eager load only critical pages
-import SinglePage from './pages/SinglePage';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import SinglePage from './pages/SinglePage.jsx';
+import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
 
 // Lazy load all other pages for better performance
-const Home = lazy(() => import('./pages/Home'));
-const Subjects = lazy(() => import('./pages/Subjects'));
-const Categories = lazy(() => import('./pages/Categories'));
-const Chapters = lazy(() => import('./pages/Chapters'));
-const Levels = lazy(() => import('./pages/Levels'));
-const Quiz = lazy(() => import('./pages/Quiz'));
-const Result = lazy(() => import('./pages/Result'));
-const Video = lazy(() => import('./pages/Video'));
-const FileViewer = lazy(() => import('./pages/FileViewer'));
-const TestMathType = lazy(() => import('./pages/TestMathType'));
+const Home = lazy(() => import('./pages/Home.jsx'));
+const Subjects = lazy(() => import('./pages/Subjects.jsx'));
+const Categories = lazy(() => import('./pages/Categories.jsx'));
+const Chapters = lazy(() => import('./pages/Chapters.jsx'));
+const Levels = lazy(() => import('./pages/Levels.jsx'));
+const Quiz = lazy(() => import('./pages/Quiz.jsx'));
+const Result = lazy(() => import('./pages/Result.jsx'));
+const Video = lazy(() => import('./pages/Video.jsx'));
+const FileViewer = lazy(() => import('./pages/FileViewer.jsx'));
+const TestMathType = lazy(() => import('./pages/TestMathType.jsx'));
 
 // Lazy load admin pages
-const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
-const AdminUsers = lazy(() => import('./pages/admin/AdminUsers'));
-const Questions = lazy(() => import('./pages/admin/Questions'));
-const Videos = lazy(() => import('./pages/admin/Videos'));
-const ChaptersManagement = lazy(() => import('./pages/admin/ChaptersManagement'));
-const LessonsManagement = lazy(() => import('./pages/admin/LessonsManagement'));
-const ClassroomsManagement = lazy(() => import('./pages/admin/ClassroomsManagement'));
-const FilesManagement = lazy(() => import('./pages/admin/FilesManagement'));
+const Dashboard = lazy(() => import('./pages/admin/Dashboard.jsx'));
+const AdminUsers = lazy(() => import('./pages/admin/AdminUsers.jsx'));
+const Questions = lazy(() => import('./pages/admin/Questions.jsx'));
+const Videos = lazy(() => import('./pages/admin/Videos.jsx'));
+const ChaptersManagement = lazy(() => import('./pages/admin/ChaptersManagement.jsx'));
+const LessonsManagement = lazy(() => import('./pages/admin/LessonsManagement.jsx'));
+const ClassroomsManagement = lazy(() => import('./pages/admin/ClassroomsManagement.jsx'));
+const FilesManagement = lazy(() => import('./pages/admin/FilesManagement.jsx'));
 
 // Loading component
 const LoadingFallback = () => (
