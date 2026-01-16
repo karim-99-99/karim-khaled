@@ -557,138 +557,98 @@ const MathRenderer = memo(({ html }) => {
             window.matchMedia('(max-width: 640px)').matches;
 
           if (isMobile) {
-            // منع الجذر من الخروج خارج الشاشة + ضمان ظهوره
-            sqrt.style.setProperty('padding', '0.1em', 'important');
+            // ضمان ظهور الجذر أولاً
+            sqrt.style.setProperty('display', 'inline-flex', 'important');
+            sqrt.style.setProperty('align-items', 'flex-start', 'important');
             sqrt.style.setProperty('overflow', 'visible', 'important');
             sqrt.style.setProperty('max-width', '100%', 'important');
-            sqrt.style.setProperty('box-sizing', 'border-box', 'important');
-            sqrt.style.setProperty('display', 'inline-flex', 'important');
-            sqrt.style.setProperty('align-items', 'center', 'important');
-            sqrt.style.setProperty('visibility', 'visible', 'important'); // ضمان الظهور
-            sqrt.style.setProperty('opacity', '1', 'important'); // ضمان الظهور
+            sqrt.style.setProperty('visibility', 'visible', 'important');
+            sqrt.style.setProperty('opacity', '1', 'important');
             sqrt.style.setProperty('position', 'relative', 'important');
-            sqrt.style.setProperty('z-index', '5', 'important');
-            // تقليل margin في الموبايل
-            sqrt.style.setProperty('margin-left', '0.15em', 'important');
-            sqrt.style.setProperty('margin-right', '0.15em', 'important');
-            sqrt.style.setProperty('margin-top', '0.1em', 'important');
-            sqrt.style.setProperty('margin-bottom', '0.1em', 'important');
+            sqrt.style.setProperty('padding', '0.1em', 'important');
+            sqrt.style.setProperty('margin', '0.1em 0.15em', 'important');
 
-            // إصلاح ظهور الجذر في الموبايل - استخدام selectors متعددة للتأكد
-            // KaTeX يستخدم بنية مختلفة للجذر، يجب البحث في جميع العناصر
-            const radicalHolders = sqrt.querySelectorAll('.hide-tail, .sqrt > span, .vlist');
-            radicalHolders.forEach((h) => {
-              h.style.setProperty('overflow', 'visible', 'important');
-              // ارتفاع محدد لضمان ظهور الجذر بشكل صحيح
-              h.style.setProperty('height', '1.8em', 'important'); // أطول في الارتفاع
-              h.style.setProperty('min-height', '1.5em', 'important');
-              h.style.setProperty('max-height', '2.5em', 'important');
-              h.style.setProperty('flex-shrink', '0', 'important');
-              h.style.setProperty('display', 'inline-block', 'important');
-              h.style.setProperty('visibility', 'visible', 'important');
-              h.style.setProperty('opacity', '1', 'important');
-              // عرض تلقائي لكن محدود
-              h.style.setProperty('width', 'auto', 'important');
-              h.style.setProperty('max-width', '100%', 'important');
-            });
-
-            // البحث عن جميع SVGs داخل الجذر - لا نعتمد على selector واحد فقط
+            // البحث عن SVGs الخاصة بالجذر
             const allSvgs = sqrt.querySelectorAll('svg');
-            const radicalSvgs = Array.from(allSvgs).filter(svg => {
-              // نتحقق من أن هذا SVG هو جزء من رمز الجذر
-              const parent = svg.parentElement;
-              return parent && (
-                parent.classList.contains('hide-tail') ||
-                parent.classList.contains('vlist') ||
-                svg.getAttribute('viewBox') || // أي SVG له viewBox
-                svg.querySelector('path') // أي SVG يحتوي على paths
-              );
-            });
-
-            radicalSvgs.forEach((svg) => {
-              // التأكد من ظهور SVG
+            allSvgs.forEach((svg) => {
+              // ضمان ظهور SVG
               svg.style.setProperty('display', 'block', 'important');
               svg.style.setProperty('visibility', 'visible', 'important');
               svg.style.setProperty('opacity', '1', 'important');
               svg.style.setProperty('position', 'relative', 'important');
               svg.style.setProperty('z-index', '10', 'important');
               
-              // الحفاظ على viewBox الأصلي مع aspect ratio صحيح
+              // الحفاظ على viewBox الأصلي
               const viewBox = svg.getAttribute('viewBox');
               if (viewBox) {
-                // نستخدم meet للحفاظ على نسبة العرض/الارتفاع
                 svg.setAttribute('preserveAspectRatio', 'xMinYMid meet');
               }
               
-              // إزالة أي transform قد يخفي أو يشوه الجذر
-              const currentTransform = svg.style.transform || svg.getAttribute('transform');
-              if (currentTransform && (currentTransform.includes('scale(0)') || currentTransform.includes('scaleY(0)'))) {
-                svg.style.setProperty('transform', 'none', 'important');
-              }
-              
-              // ضبط الارتفاع أولاً (أطول لاحتواء الكسور)
-              svg.style.setProperty('height', '1.8em', 'important'); // زيادة الارتفاع قليلاً
+              // ضبط الارتفاع (أطول لاحتواء الكسور)
+              svg.style.setProperty('height', '1.8em', 'important');
               svg.style.setProperty('min-height', '1.5em', 'important');
               svg.style.setProperty('max-height', '2.5em', 'important');
               
-              // العرض يجب أن يكون تلقائي ولكن محدود - لا نجعله ممتداً بلا حدود
-              // نستخدم width: auto مع max-width محدد بناءً على المحتوى
+              // عرض تلقائي لكن سنحدده لاحقاً بناءً على المحتوى
               svg.style.setProperty('width', 'auto', 'important');
-              svg.style.setProperty('min-width', '0.6em', 'important');
-              
-              // نقيد العرض بشكل ذكي - لا نجعله `none` لأنه سيسبب التمدد
-              // سنحدده بعد قياس المحتوى
-              svg.style.setProperty('max-width', '100%', 'important'); // حد مؤقت
+              svg.style.setProperty('min-width', '0.5em', 'important');
               svg.style.setProperty('overflow', 'visible', 'important');
               
-              // بعد رسم العناصر، نحدد العرض بناءً على المحتوى الفعلي
-              // نستخدم setTimeout لإعطاء الوقت للعناصر للرسم أولاً
+              // ضمان ظهور paths
+              const paths = svg.querySelectorAll('path');
+              paths.forEach(path => {
+                if (!path.getAttribute('fill') || path.getAttribute('fill') === 'none') {
+                  path.setAttribute('fill', 'currentColor');
+                }
+                path.style.setProperty('opacity', '1', 'important');
+                path.style.setProperty('visibility', 'visible', 'important');
+              });
+              
+              // بعد رسم العناصر، نحدد العرض بناءً على المحتوى
               setTimeout(() => {
                 const contentElement = sqrt.querySelector('.vlist-t, .vlist-r');
                 if (contentElement) {
                   const contentRect = contentElement.getBoundingClientRect();
                   const svgRect = svg.getBoundingClientRect();
                   
-                  // نحسب عرض مناسب بناءً على المحتوى
-                  if (contentRect.width > 0 && svgRect.width > 0) {
-                    // إذا كان SVG أوسع بكثير من المحتوى
-                    if (svgRect.width > contentRect.width * 1.5) {
-                      // نحد العرض إلى المحتوى + 30% كحد أقصى
-                      const targetWidth = Math.min(contentRect.width * 1.3, 2.2);
-                      // نستخدم width مباشرة بدلاً من max-width لفرض العرض
-                      svg.style.setProperty('width', `${targetWidth}px`, 'important');
-                      svg.style.setProperty('max-width', `${targetWidth}px`, 'important');
-                    }
+                  if (contentRect.width > 0) {
+                    // نحسب عرض مناسب: المحتوى + 25% كحد أقصى، أو 2em كحد مطلق
+                    const idealWidth = Math.min(contentRect.width * 1.25, 2);
+                    const finalWidth = Math.max(idealWidth, 0.8); // لا أقل من 0.8em
+                    
+                    // نطبق العرض على SVG
+                    svg.style.setProperty('width', `${finalWidth}em`, 'important');
+                    svg.style.setProperty('max-width', `${finalWidth}em`, 'important');
                   }
-                } else {
-                  // إذا لم يكن هناك محتوى واضح، نستخدم عرض ثابت صغير
-                  svg.style.setProperty('width', '1em', 'important');
-                  svg.style.setProperty('max-width', '1.5em', 'important');
                 }
-              }, 50); // تأخير بسيط للتأكد من أن العناصر رُسمت
-              
-              // التأكد من أن paths داخل SVG مرئية
-              const paths = svg.querySelectorAll('path');
-              paths.forEach(path => {
-                path.style.setProperty('fill', 'currentColor', 'important');
-                path.style.setProperty('stroke', 'none', 'important');
-                path.style.setProperty('opacity', '1', 'important');
-                path.style.setProperty('visibility', 'visible', 'important');
-              });
+              }, 100);
+            });
+
+            // ضمان ظهور المحتوى داخل الجذر
+            const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
+            contentElements.forEach(c => {
+              c.style.setProperty('display', 'inline-block', 'important');
+              c.style.setProperty('visibility', 'visible', 'important');
+              c.style.setProperty('opacity', '1', 'important');
+              c.style.setProperty('position', 'relative', 'important');
+              c.style.setProperty('z-index', '2', 'important');
+              c.style.setProperty('max-width', '100%', 'important');
+              c.style.setProperty('overflow', 'visible', 'important');
             });
             
-            // إذا لم نجد أي SVGs، نبحث عن العناصر الأخرى التي تمثل الجذر
-            if (radicalSvgs.length === 0) {
-              // محاولة إيجاد العناصر الأخرى
-              const radicalElements = sqrt.querySelectorAll('.vlist-t > span, .vlist-r > span, span[style*="sqrt"]');
-              radicalElements.forEach((el) => {
-                el.style.setProperty('display', 'inline-block', 'important');
-                el.style.setProperty('visibility', 'visible', 'important');
-                el.style.setProperty('opacity', '1', 'important');
-              });
-            }
+            // ضمان ظهور العناصر الحاملة للجذر
+            const holders = sqrt.querySelectorAll('.hide-tail');
+            holders.forEach(h => {
+              h.style.setProperty('display', 'inline-block', 'important');
+              h.style.setProperty('visibility', 'visible', 'important');
+              h.style.setProperty('opacity', '1', 'important');
+              h.style.setProperty('height', 'auto', 'important');
+              h.style.setProperty('min-height', '1.5em', 'important');
+              h.style.setProperty('max-height', '2.5em', 'important');
+              h.style.setProperty('overflow', 'visible', 'important');
+            });
 
-            // Ensure fractions inside root stay properly positioned and don't overflow
+            // Ensure fractions inside root stay properly positioned
             const sqrtFracsMobile = sqrt.querySelectorAll('.frac');
             sqrtFracsMobile.forEach((frac) => {
               frac.style.setProperty('display', 'inline-flex', 'important');
@@ -696,30 +656,8 @@ const MathRenderer = memo(({ html }) => {
               frac.style.setProperty('vertical-align', 'middle', 'important');
               frac.style.setProperty('position', 'relative', 'important');
               frac.style.setProperty('overflow', 'visible', 'important');
-              // منع الكسور من اختراق الجذر - تقليل العرض
-              frac.style.setProperty('max-width', 'calc(100% - 1em)', 'important');
-              frac.style.setProperty('word-wrap', 'break-word', 'important');
-              // التأكد من أن الكسر يبقى داخل الجذر
-              frac.style.setProperty('flex-shrink', '1', 'important');
-            });
-            
-            // تحسين محتوى الجذر نفسه - جعله يتكيف مع الحجم ومنع الخروج
-            const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
-            contentElements.forEach(c => {
-              // ضمان ظهور المحتوى
-              c.style.setProperty('display', 'inline-block', 'important');
-              c.style.setProperty('visibility', 'visible', 'important');
-              c.style.setProperty('opacity', '1', 'important');
-              c.style.setProperty('position', 'relative', 'important');
-              c.style.setProperty('z-index', '2', 'important');
-              // منع المحتوى من الخروج، لكن السماح بالعرض الطبيعي
-              c.style.setProperty('max-width', '100%', 'important');
-              c.style.setProperty('overflow', 'visible', 'important');
-              c.style.setProperty('word-wrap', 'break-word', 'important');
-              c.style.setProperty('flex-shrink', '1', 'important');
-              // جعل المحتوى يحدد عرض الجذر
-              c.style.setProperty('width', 'auto', 'important');
-              c.style.setProperty('min-width', '0', 'important');
+              frac.style.setProperty('max-width', '100%', 'important');
+              frac.style.setProperty('visibility', 'visible', 'important');
             });
 
             // If radicand is a single simple number, it may sit too high on mobile.
