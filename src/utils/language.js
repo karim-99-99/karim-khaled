@@ -6,5 +6,3 @@ export const isArabicBrowser = () => {
 export const getDisplayText = (arabicText, englishText = '') => {
   return arabicText; // Always return Arabic text
 };
-
-// ee
