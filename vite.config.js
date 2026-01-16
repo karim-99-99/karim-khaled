@@ -81,10 +81,23 @@ export default defineConfig({
     // Enable code splitting and optimize chunks
     rollupOptions: {
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'math-vendor': ['katex', 'react-katex', 'mathlive'],
-          'editor-vendor': ['react-quill', 'quill'],
+        manualChunks(id) {
+          // React and React DOM
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) {
+            return 'react-vendor';
+          }
+          // Math libraries
+          if (id.includes('node_modules/katex') || id.includes('node_modules/react-katex') || id.includes('node_modules/mathlive')) {
+            return 'math-vendor';
+          }
+          // Editor libraries
+          if (id.includes('node_modules/react-quill') || id.includes('node_modules/quill')) {
+            return 'editor-vendor';
+          }
+          // Other node_modules
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
         },
       },
     },
