@@ -541,32 +541,34 @@ const MathRenderer = memo(({ html }) => {
             window.matchMedia('(max-width: 640px)').matches;
 
           if (isMobile) {
-            // منع الجذر من الخروج خارج الشاشة - لكن لا نخفي overflow لنحافظ على الخط الأفقي
-            sqrt.style.setProperty('padding', '0.2em', 'important');
-            sqrt.style.setProperty('overflow', 'visible', 'important'); // مهم: visible للحفاظ على الخط الأفقي
+            // منع الجذر من الخروج خارج الشاشة
+            sqrt.style.setProperty('padding', '0.1em', 'important');
+            sqrt.style.setProperty('overflow', 'visible', 'important');
+            sqrt.style.setProperty('max-width', '100%', 'important');
+            sqrt.style.setProperty('box-sizing', 'border-box', 'important');
             // تقليل margin في الموبايل
-            sqrt.style.setProperty('margin-left', '0.2em', 'important');
-            sqrt.style.setProperty('margin-right', '0.2em', 'important');
-            sqrt.style.setProperty('margin-top', '0.1em', 'important');
-            sqrt.style.setProperty('margin-bottom', '0.1em', 'important');
+            sqrt.style.setProperty('margin-left', '0.15em', 'important');
+            sqrt.style.setProperty('margin-right', '0.15em', 'important');
+            sqrt.style.setProperty('margin-top', '0.05em', 'important');
+            sqrt.style.setProperty('margin-bottom', '0.05em', 'important');
 
-            // IMPORTANT: do NOT use transform:scaleY here.
-            // Transforms don't affect line-box metrics, so text can overlap the radical on mobile.
-            // Instead, increase the actual height of the radical holder + svg so layout accounts for it.
+            // تقليل ارتفاع الجذر لمنع خروجه عن الشاشة
             const radicalHolders = sqrt.querySelectorAll('.hide-tail');
             radicalHolders.forEach((h) => {
-              h.style.setProperty('overflow', 'visible', 'important'); // visible للحفاظ على SVG كامل
-              h.style.setProperty('height', '1.4em', 'important');
-              h.style.setProperty('min-height', '1.4em', 'important');
-              h.style.setProperty('max-height', '1.4em', 'important');
+              h.style.setProperty('overflow', 'visible', 'important');
+              h.style.setProperty('height', '1.2em', 'important');
+              h.style.setProperty('min-height', '1.2em', 'important');
+              h.style.setProperty('max-height', '1.2em', 'important');
+              h.style.setProperty('max-width', '100%', 'important');
             });
 
             const radicalSvgs = sqrt.querySelectorAll('.hide-tail svg');
             radicalSvgs.forEach((svg) => {
               svg.style.setProperty('transform', 'none', 'important');
-              svg.style.setProperty('height', '1.4em', 'important');
+              svg.style.setProperty('height', '1.2em', 'important');
+              svg.style.setProperty('max-height', '1.2em', 'important');
               svg.style.setProperty('width', 'auto', 'important');
-              // إزالة max-width لتجنب قطع الخط الأفقي
+              svg.style.setProperty('max-width', '100%', 'important');
               svg.style.setProperty('overflow', 'visible', 'important');
             });
 
@@ -597,11 +599,15 @@ const MathRenderer = memo(({ html }) => {
             });
 
             // Mobile: give extra breathing room so adjacent text doesn't overlap
-            element.style.lineHeight = '1.6';
-            element.style.paddingTop = '0.18em';
-            element.style.paddingBottom = '0.18em';
-            element.style.paddingLeft = '0.3em';
-            element.style.paddingRight = '0.3em';
+            element.style.lineHeight = '1.5';
+            element.style.paddingTop = '0.15em';
+            element.style.paddingBottom = '0.15em';
+            element.style.paddingLeft = '0.2em';
+            element.style.paddingRight = '0.2em';
+            element.style.setProperty('max-width', '100%', 'important');
+            element.style.setProperty('box-sizing', 'border-box', 'important');
+            element.style.setProperty('word-wrap', 'break-word', 'important');
+            element.style.setProperty('overflow-wrap', 'break-word', 'important');
           }
         });
 

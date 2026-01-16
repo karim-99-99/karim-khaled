@@ -204,18 +204,29 @@ const Questions = () => {
 
   // Helper function to find item's parent information
   const findItemParents = (itemId) => {
-    const sections = getSections();
-    for (const section of sections) {
-      for (const subject of section.subjects) {
-        for (const category of (subject.categories || [])) {
-          for (const chapter of (category.chapters || [])) {
-            const item = (chapter.items || []).find(i => i.id === itemId);
-            if (item) {
-              return { subject, category, chapter };
+    try {
+      const sections = getSections();
+      if (!sections || sections.length === 0) {
+        return null;
+      }
+      for (const section of sections) {
+        if (!section || !section.subjects) continue;
+        for (const subject of section.subjects) {
+          if (!subject || !subject.categories) continue;
+          for (const category of (subject.categories || [])) {
+            if (!category || !category.chapters) continue;
+            for (const chapter of (category.chapters || [])) {
+              if (!chapter || !chapter.items) continue;
+              const item = (chapter.items || []).find(i => i.id === itemId);
+              if (item) {
+                return { subject, category, chapter };
+              }
             }
           }
         }
       }
+    } catch (error) {
+      console.error('Error finding item parents:', error);
     }
     return null;
   };
@@ -390,23 +401,41 @@ const Questions = () => {
   };
 
   useEffect(() => {
-    setSubjects(getSubjects());
-    
-    // If itemId is in URL, auto-select the appropriate dropdowns
-    if (itemIdFromUrl) {
-      const parents = findItemParents(itemIdFromUrl);
-      if (parents) {
-        setSelectedSubject(parents.subject.id);
-        setSelectedCategory(parents.category.id);
-        setSelectedChapter(parents.chapter.id);
-        setSelectedLevel(itemIdFromUrl);
+    try {
+      const allSubjects = getSubjects();
+      if (allSubjects && allSubjects.length > 0) {
+        setSubjects(allSubjects);
       }
+      
+      // If itemId is in URL, auto-select the appropriate dropdowns
+      if (itemIdFromUrl) {
+        const parents = findItemParents(itemIdFromUrl);
+        if (parents) {
+          setSelectedSubject(parents.subject.id);
+          setSelectedCategory(parents.category.id);
+          setSelectedChapter(parents.chapter.id);
+          setSelectedLevel(itemIdFromUrl);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading initial data:', error);
+      // Ensure subjects is at least an empty array to prevent crashes
+      setSubjects([]);
     }
   }, [itemIdFromUrl]);
 
   useEffect(() => {
-    if (selectedLevel) {
-      setQuestions(getQuestionsByLevel(selectedLevel));
+    try {
+      if (selectedLevel) {
+        const levelQuestions = getQuestionsByLevel(selectedLevel);
+        setQuestions(levelQuestions || []);
+      } else {
+        // If no level selected, show empty array
+        setQuestions([]);
+      }
+    } catch (error) {
+      console.error('Error loading questions:', error);
+      setQuestions([]);
     }
   }, [selectedLevel]);
 
@@ -666,8 +695,8 @@ const Questions = () => {
     }
   };
 
-  const selectedSubjectObj = subjects.find(s => s.id === selectedSubject);
-  const levels = selectedChapter ? getLevelsByChapter(selectedChapter) : [];
+  const selectedSubjectObj = subjects && subjects.length > 0 ? subjects.find(s => s.id === selectedSubject) : null;
+  const levels = selectedChapter ? (getLevelsByChapter(selectedChapter) || []) : [];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -703,11 +732,15 @@ const Questions = () => {
                 className="w-full px-4 py-2 border rounded-lg"
               >
                 <option value="">اختر المادة / Select Subject</option>
-                {subjects.map(subject => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name}
-                  </option>
-                ))}
+                {subjects && subjects.length > 0 ? (
+                  subjects.map(subject => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>لا توجد مواد / No subjects available</option>
+                )}
               </select>
             </div>
 
@@ -771,7 +804,15 @@ const Questions = () => {
         </div>
 
         {/* Questions List */}
-        {selectedLevel && (
+        {!selectedLevel ? (
+          <div className="bg-white rounded-lg shadow p-6 text-center">
+            <p className="text-lg text-gray-500 mb-4">
+              {isArabicBrowser() 
+                ? 'يرجى اختيار المادة، التصنيف، الفصل، والمستوى لعرض الأسئلة' 
+                : 'Please select Subject, Category, Chapter, and Level to view questions'}
+            </p>
+          </div>
+        ) : (
           <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
                 <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-dark-600">

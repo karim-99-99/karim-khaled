@@ -715,11 +715,18 @@ export const updateItemName = (itemId, newName) => {
 export const getSubjects = () => {
   try {
     const sections = getSections();
+    if (!sections || sections.length === 0) {
+      return [];
+    }
     const allSubjects = [];
     sections.forEach(section => {
-      section.subjects.forEach(subject => {
-        allSubjects.push(subject);
-      });
+      if (section && section.subjects && Array.isArray(section.subjects)) {
+        section.subjects.forEach(subject => {
+          if (subject) {
+            allSubjects.push(subject);
+          }
+        });
+      }
     });
     return allSubjects;
   } catch (error) {
