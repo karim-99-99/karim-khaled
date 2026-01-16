@@ -557,26 +557,21 @@ const MathRenderer = memo(({ html }) => {
             window.matchMedia('(max-width: 640px)').matches;
 
           if (isMobile) {
-            // ضمان ظهور الجذر أولاً
-            sqrt.style.setProperty('display', 'inline-flex', 'important');
-            sqrt.style.setProperty('align-items', 'flex-start', 'important');
-            sqrt.style.setProperty('overflow', 'visible', 'important');
-            sqrt.style.setProperty('max-width', '100%', 'important');
+            // ضمان ظهور الجذر - تبسيط كامل
+            sqrt.style.setProperty('display', 'inline-block', 'important');
             sqrt.style.setProperty('visibility', 'visible', 'important');
             sqrt.style.setProperty('opacity', '1', 'important');
-            sqrt.style.setProperty('position', 'relative', 'important');
-            sqrt.style.setProperty('padding', '0.1em', 'important');
-            sqrt.style.setProperty('margin', '0.1em 0.15em', 'important');
+            sqrt.style.setProperty('overflow', 'visible', 'important');
+            sqrt.style.setProperty('color', '#000000', 'important'); // لون أسود
 
-            // البحث عن SVGs الخاصة بالجذر
+            // البحث عن جميع SVGs داخل الجذر
             const allSvgs = sqrt.querySelectorAll('svg');
             allSvgs.forEach((svg) => {
               // ضمان ظهور SVG
               svg.style.setProperty('display', 'block', 'important');
               svg.style.setProperty('visibility', 'visible', 'important');
               svg.style.setProperty('opacity', '1', 'important');
-              svg.style.setProperty('position', 'relative', 'important');
-              svg.style.setProperty('z-index', '10', 'important');
+              svg.style.setProperty('color', '#000000', 'important'); // لون أسود
               
               // الحفاظ على viewBox الأصلي
               const viewBox = svg.getAttribute('viewBox');
@@ -584,80 +579,46 @@ const MathRenderer = memo(({ html }) => {
                 svg.setAttribute('preserveAspectRatio', 'xMinYMid meet');
               }
               
-              // ضبط الارتفاع (أطول لاحتواء الكسور)
+              // ضبط الأبعاد بشكل طبيعي
               svg.style.setProperty('height', '1.8em', 'important');
-              svg.style.setProperty('min-height', '1.5em', 'important');
-              svg.style.setProperty('max-height', '2.5em', 'important');
-              
-              // عرض تلقائي لكن سنحدده لاحقاً بناءً على المحتوى
               svg.style.setProperty('width', 'auto', 'important');
-              svg.style.setProperty('min-width', '0.5em', 'important');
               svg.style.setProperty('overflow', 'visible', 'important');
               
-              // ضمان ظهور paths
+              // ضمان ظهور جميع paths باللون الأسود
               const paths = svg.querySelectorAll('path');
               paths.forEach(path => {
-                if (!path.getAttribute('fill') || path.getAttribute('fill') === 'none') {
-                  path.setAttribute('fill', 'currentColor');
-                }
+                path.setAttribute('fill', '#000000'); // لون أسود مباشر
+                path.style.setProperty('fill', '#000000', 'important');
                 path.style.setProperty('opacity', '1', 'important');
                 path.style.setProperty('visibility', 'visible', 'important');
               });
               
-              // بعد رسم العناصر، نحدد العرض بناءً على المحتوى
-              setTimeout(() => {
-                const contentElement = sqrt.querySelector('.vlist-t, .vlist-r');
-                if (contentElement) {
-                  const contentRect = contentElement.getBoundingClientRect();
-                  const svgRect = svg.getBoundingClientRect();
-                  
-                  if (contentRect.width > 0) {
-                    // نحسب عرض مناسب: المحتوى + 25% كحد أقصى، أو 2em كحد مطلق
-                    const idealWidth = Math.min(contentRect.width * 1.25, 2);
-                    const finalWidth = Math.max(idealWidth, 0.8); // لا أقل من 0.8em
-                    
-                    // نطبق العرض على SVG
-                    svg.style.setProperty('width', `${finalWidth}em`, 'important');
-                    svg.style.setProperty('max-width', `${finalWidth}em`, 'important');
+              // ضمان ظهور جميع elements الأخرى
+              const allElements = svg.querySelectorAll('*');
+              allElements.forEach(el => {
+                if (el.tagName === 'path' || el.tagName === 'line' || el.tagName === 'rect') {
+                  if (!el.getAttribute('fill') || el.getAttribute('fill') === 'none' || el.getAttribute('fill') === 'transparent') {
+                    el.setAttribute('fill', '#000000');
                   }
+                  if (!el.getAttribute('stroke') || el.getAttribute('stroke') === 'none') {
+                    el.setAttribute('stroke', '#000000');
+                  }
+                  el.style.setProperty('fill', '#000000', 'important');
+                  el.style.setProperty('stroke', '#000000', 'important');
+                  el.style.setProperty('opacity', '1', 'important');
+                  el.style.setProperty('visibility', 'visible', 'important');
                 }
-              }, 100);
+              });
             });
 
-            // ضمان ظهور المحتوى داخل الجذر
-            const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
-            contentElements.forEach(c => {
-              c.style.setProperty('display', 'inline-block', 'important');
-              c.style.setProperty('visibility', 'visible', 'important');
-              c.style.setProperty('opacity', '1', 'important');
-              c.style.setProperty('position', 'relative', 'important');
-              c.style.setProperty('z-index', '2', 'important');
-              c.style.setProperty('max-width', '100%', 'important');
-              c.style.setProperty('overflow', 'visible', 'important');
-            });
-            
             // ضمان ظهور العناصر الحاملة للجذر
-            const holders = sqrt.querySelectorAll('.hide-tail');
+            const holders = sqrt.querySelectorAll('.hide-tail, span');
             holders.forEach(h => {
               h.style.setProperty('display', 'inline-block', 'important');
               h.style.setProperty('visibility', 'visible', 'important');
               h.style.setProperty('opacity', '1', 'important');
-              h.style.setProperty('height', 'auto', 'important');
-              h.style.setProperty('min-height', '1.5em', 'important');
-              h.style.setProperty('max-height', '2.5em', 'important');
               h.style.setProperty('overflow', 'visible', 'important');
-            });
-
-            // Ensure fractions inside root stay properly positioned
-            const sqrtFracsMobile = sqrt.querySelectorAll('.frac');
-            sqrtFracsMobile.forEach((frac) => {
-              frac.style.setProperty('display', 'inline-flex', 'important');
-              frac.style.setProperty('flex-direction', 'column-reverse', 'important');
-              frac.style.setProperty('vertical-align', 'middle', 'important');
-              frac.style.setProperty('position', 'relative', 'important');
-              frac.style.setProperty('overflow', 'visible', 'important');
-              frac.style.setProperty('max-width', '100%', 'important');
-              frac.style.setProperty('visibility', 'visible', 'important');
+              h.style.setProperty('color', '#000000', 'important');
             });
 
             // If radicand is a single simple number, it may sit too high on mobile.
