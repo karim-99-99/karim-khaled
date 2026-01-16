@@ -565,7 +565,7 @@ const MathRenderer = memo(({ html }) => {
             sqrt.style.setProperty('margin-top', '0.1em', 'important');
             sqrt.style.setProperty('margin-bottom', '0.1em', 'important');
 
-            // زيادة الارتفاع واحتواء المحتوى، لكن تقليل العرض
+            // زيادة الارتفاع واحتواء المحتوى، مع تقليل العرض بشكل ذكي
             const radicalHolders = sqrt.querySelectorAll('.hide-tail');
             radicalHolders.forEach((h) => {
               h.style.setProperty('overflow', 'visible', 'important');
@@ -574,47 +574,55 @@ const MathRenderer = memo(({ html }) => {
               h.style.setProperty('max-height', '2.5em', 'important'); // يسمح بالتوسع إذا لزم
               h.style.setProperty('flex-shrink', '0', 'important');
               h.style.setProperty('align-self', 'flex-start', 'important');
-              // تقليل عرض الـ holder
-              h.style.setProperty('max-width', 'fit-content', 'important');
+              // جعل الـ holder يحدد عرضه حسب المحتوى
+              h.style.setProperty('width', 'auto', 'important');
+              h.style.setProperty('display', 'inline-block', 'important');
+              h.style.setProperty('visibility', 'visible', 'important'); // للتأكد من الظهور
             });
 
             const radicalSvgs = sqrt.querySelectorAll('.hide-tail svg');
             radicalSvgs.forEach((svg) => {
+              // الحفاظ على viewBox الأصلي - لا نعدله لضمان ظهور الجذر
+              const viewBox = svg.getAttribute('viewBox');
+              if (viewBox) {
+                svg.setAttribute('preserveAspectRatio', 'xMinYMid meet');
+              }
+              
               svg.style.setProperty('transform', 'none', 'important');
               svg.style.setProperty('height', '1.6em', 'important'); // أطول في الارتفاع لاحتواء الكسور
               svg.style.setProperty('max-height', '2.5em', 'important');
+              svg.style.setProperty('min-height', '1em', 'important'); // حد أدنى للارتفاع
               
-              // تقليل عرض SVG - جعله يتكيف مع المحتوى فقط
+              // نستخدم طريقة بسيطة لتقليل العرض: clip-path على الخط الأفقي فقط
+              // لكن أولاً نضمن ظهور الجذر كاملاً
+              // نضمن ظهور الجذر أولاً - عرض كافٍ
               svg.style.setProperty('width', 'auto', 'important');
-              svg.style.setProperty('min-width', '0.3em', 'important'); // حد أدنى صغير جداً
-              svg.style.setProperty('max-width', 'fit-content', 'important');
+              svg.style.setProperty('min-width', '0.8em', 'important'); // حد أدنى أكبر لضمان الظهور
+              svg.style.setProperty('max-width', 'none', 'important'); // لا نحد العرض في البداية
               svg.style.setProperty('overflow', 'visible', 'important');
+              svg.style.setProperty('display', 'block', 'important');
+              svg.style.setProperty('visibility', 'visible', 'important');
+              svg.style.setProperty('opacity', '1', 'important');
               
-              // تعديل viewBox لتقليل عرض الخط الأفقي بشكل كبير
-              const viewBox = svg.getAttribute('viewBox');
-              if (viewBox) {
-                try {
-                  const viewBoxValues = viewBox.split(/\s+/).filter(v => v);
-                  if (viewBoxValues.length >= 4) {
-                    const currentWidth = parseFloat(viewBoxValues[2]);
-                    // تقليل عرض viewBox بشكل كبير - فقط ما نحتاجه للجذر
-                    // نحسب عرض الجذر بناءً على المحتوى الفعلي
-                    const contentWidth = sqrt.querySelector('.vlist-t, .vlist-r');
-                    if (contentWidth) {
-                      // جعل عرض SVG قريب من عرض المحتوى + هامش صغير
-                      const estimatedContentWidth = Math.max(0.5, Math.min(currentWidth * 0.5, 1.2));
-                      svg.setAttribute('viewBox', `${viewBoxValues[0]} ${viewBoxValues[1]} ${estimatedContentWidth} ${viewBoxValues[3]}`);
-                    } else {
-                      // إذا لم يكن هناك محتوى، استخدم عرض أصغر
-                      const newWidth = Math.min(currentWidth * 0.5, 1.0);
-                      svg.setAttribute('viewBox', `${viewBoxValues[0]} ${viewBoxValues[1]} ${newWidth} ${viewBoxValues[3]}`);
-                    }
-                    svg.setAttribute('preserveAspectRatio', 'xMinYMid slice'); // slice بدلاً من meet لتقليل العرض
+              // بعد التأكد من ظهور الجذر، نقوم بتقليل العرض إذا لزم
+              // نستخدم requestAnimationFrame لضمان قياس دقيق
+              requestAnimationFrame(() => {
+                const contentElement = sqrt.querySelector('.vlist-t, .vlist-r');
+                if (contentElement) {
+                  const contentRect = contentElement.getBoundingClientRect();
+                  const svgRect = svg.getBoundingClientRect();
+                  
+                  // إذا كان SVG أوسع بكثير من المحتوى (أكثر من 200%)
+                  if (svgRect.width > contentRect.width * 2 && contentRect.width > 0) {
+                    // نقيد العرض لكن نترك هامش مناسب
+                    const targetWidth = Math.max(contentRect.width * 1.2, 1.2); // 120% من المحتوى كحد أدنى 1.2em
+                    svg.style.setProperty('max-width', `${targetWidth}px`, 'important');
+                  } else {
+                    // إذا كان العرض مناسباً، نتركه
+                    svg.style.setProperty('max-width', '100%', 'important');
                   }
-                } catch (e) {
-                  // إذا فشل التحليل، تجاهل
                 }
-              }
+              });
             });
 
             // Ensure fractions inside root stay properly positioned and don't overflow
