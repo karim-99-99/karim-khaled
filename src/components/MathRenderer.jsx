@@ -509,6 +509,17 @@ const MathRenderer = memo(({ html }) => {
           sqrt.style.zIndex = '3';
           sqrt.style.paddingTop = '0.12em';
           sqrt.style.paddingBottom = '0.12em';
+          
+          // على الموبايل: جعل الجذر يتكيف مع المحتوى
+          const isMobileCheck = typeof window !== 'undefined' &&
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(max-width: 640px)').matches;
+          
+          if (isMobileCheck) {
+            sqrt.style.setProperty('display', 'inline-flex', 'important');
+            sqrt.style.setProperty('align-items', 'flex-start', 'important');
+            sqrt.style.setProperty('flex-wrap', 'nowrap', 'important');
+          }
 
           const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
           contentElements.forEach(c => {
@@ -546,30 +557,64 @@ const MathRenderer = memo(({ html }) => {
             sqrt.style.setProperty('overflow', 'visible', 'important');
             sqrt.style.setProperty('max-width', '100%', 'important');
             sqrt.style.setProperty('box-sizing', 'border-box', 'important');
+            sqrt.style.setProperty('display', 'inline-flex', 'important');
+            sqrt.style.setProperty('align-items', 'center', 'important');
             // تقليل margin في الموبايل
             sqrt.style.setProperty('margin-left', '0.15em', 'important');
             sqrt.style.setProperty('margin-right', '0.15em', 'important');
-            sqrt.style.setProperty('margin-top', '0.05em', 'important');
-            sqrt.style.setProperty('margin-bottom', '0.05em', 'important');
+            sqrt.style.setProperty('margin-top', '0.1em', 'important');
+            sqrt.style.setProperty('margin-bottom', '0.1em', 'important');
 
-            // تقليل ارتفاع الجذر لمنع خروجه عن الشاشة
+            // زيادة الارتفاع واحتواء المحتوى، لكن تقليل العرض
             const radicalHolders = sqrt.querySelectorAll('.hide-tail');
             radicalHolders.forEach((h) => {
               h.style.setProperty('overflow', 'visible', 'important');
-              h.style.setProperty('height', '1.2em', 'important');
-              h.style.setProperty('min-height', '1.2em', 'important');
-              h.style.setProperty('max-height', '1.2em', 'important');
-              h.style.setProperty('max-width', '100%', 'important');
+              h.style.setProperty('height', '1.6em', 'important'); // أطول في الارتفاع لاحتواء الكسور
+              h.style.setProperty('min-height', '1.6em', 'important');
+              h.style.setProperty('max-height', '2.5em', 'important'); // يسمح بالتوسع إذا لزم
+              h.style.setProperty('flex-shrink', '0', 'important');
+              h.style.setProperty('align-self', 'flex-start', 'important');
+              // تقليل عرض الـ holder
+              h.style.setProperty('max-width', 'fit-content', 'important');
             });
 
             const radicalSvgs = sqrt.querySelectorAll('.hide-tail svg');
             radicalSvgs.forEach((svg) => {
               svg.style.setProperty('transform', 'none', 'important');
-              svg.style.setProperty('height', '1.2em', 'important');
-              svg.style.setProperty('max-height', '1.2em', 'important');
+              svg.style.setProperty('height', '1.6em', 'important'); // أطول في الارتفاع لاحتواء الكسور
+              svg.style.setProperty('max-height', '2.5em', 'important');
+              
+              // تقليل عرض SVG - جعله يتكيف مع المحتوى فقط
               svg.style.setProperty('width', 'auto', 'important');
-              svg.style.setProperty('max-width', '100%', 'important');
+              svg.style.setProperty('min-width', '0.3em', 'important'); // حد أدنى صغير جداً
+              svg.style.setProperty('max-width', 'fit-content', 'important');
               svg.style.setProperty('overflow', 'visible', 'important');
+              
+              // تعديل viewBox لتقليل عرض الخط الأفقي بشكل كبير
+              const viewBox = svg.getAttribute('viewBox');
+              if (viewBox) {
+                try {
+                  const viewBoxValues = viewBox.split(/\s+/).filter(v => v);
+                  if (viewBoxValues.length >= 4) {
+                    const currentWidth = parseFloat(viewBoxValues[2]);
+                    // تقليل عرض viewBox بشكل كبير - فقط ما نحتاجه للجذر
+                    // نحسب عرض الجذر بناءً على المحتوى الفعلي
+                    const contentWidth = sqrt.querySelector('.vlist-t, .vlist-r');
+                    if (contentWidth) {
+                      // جعل عرض SVG قريب من عرض المحتوى + هامش صغير
+                      const estimatedContentWidth = Math.max(0.5, Math.min(currentWidth * 0.5, 1.2));
+                      svg.setAttribute('viewBox', `${viewBoxValues[0]} ${viewBoxValues[1]} ${estimatedContentWidth} ${viewBoxValues[3]}`);
+                    } else {
+                      // إذا لم يكن هناك محتوى، استخدم عرض أصغر
+                      const newWidth = Math.min(currentWidth * 0.5, 1.0);
+                      svg.setAttribute('viewBox', `${viewBoxValues[0]} ${viewBoxValues[1]} ${newWidth} ${viewBoxValues[3]}`);
+                    }
+                    svg.setAttribute('preserveAspectRatio', 'xMinYMid slice'); // slice بدلاً من meet لتقليل العرض
+                  }
+                } catch (e) {
+                  // إذا فشل التحليل، تجاهل
+                }
+              }
             });
 
             // Ensure fractions inside root stay properly positioned and don't overflow
@@ -580,8 +625,23 @@ const MathRenderer = memo(({ html }) => {
               frac.style.setProperty('vertical-align', 'middle', 'important');
               frac.style.setProperty('position', 'relative', 'important');
               frac.style.setProperty('overflow', 'visible', 'important');
-              // التأكد من أن الكسور لا تخرج عن حدود الجذر
-              frac.style.setProperty('max-width', 'calc(100% - 0.5em)', 'important');
+              // منع الكسور من اختراق الجذر - تقليل العرض
+              frac.style.setProperty('max-width', 'calc(100% - 1em)', 'important');
+              frac.style.setProperty('word-wrap', 'break-word', 'important');
+              // التأكد من أن الكسر يبقى داخل الجذر
+              frac.style.setProperty('flex-shrink', '1', 'important');
+            });
+            
+            // تحسين محتوى الجذر نفسه - جعله يتكيف مع الحجم ومنع الخروج
+            const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
+            contentElements.forEach(c => {
+              // منع المحتوى من الخروج، لكن السماح بالعرض الطبيعي
+              c.style.setProperty('max-width', '100%', 'important');
+              c.style.setProperty('overflow', 'visible', 'important');
+              c.style.setProperty('word-wrap', 'break-word', 'important');
+              c.style.setProperty('flex-shrink', '1', 'important');
+              // جعل المحتوى يحدد عرض الجذر
+              c.style.setProperty('width', 'auto', 'important');
             });
 
             // If radicand is a single simple number, it may sit too high on mobile.
