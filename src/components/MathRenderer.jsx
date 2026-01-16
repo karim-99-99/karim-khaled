@@ -579,14 +579,17 @@ const MathRenderer = memo(({ html }) => {
             const radicalHolders = sqrt.querySelectorAll('.hide-tail, .sqrt > span, .vlist');
             radicalHolders.forEach((h) => {
               h.style.setProperty('overflow', 'visible', 'important');
-              h.style.setProperty('height', 'auto', 'important'); // ارتفاع تلقائي
-              h.style.setProperty('min-height', '1.6em', 'important'); // حد أدنى للارتفاع
+              // ارتفاع محدد لضمان ظهور الجذر بشكل صحيح
+              h.style.setProperty('height', '1.8em', 'important'); // أطول في الارتفاع
+              h.style.setProperty('min-height', '1.5em', 'important');
               h.style.setProperty('max-height', '2.5em', 'important');
               h.style.setProperty('flex-shrink', '0', 'important');
               h.style.setProperty('display', 'inline-block', 'important');
               h.style.setProperty('visibility', 'visible', 'important');
               h.style.setProperty('opacity', '1', 'important');
+              // عرض تلقائي لكن محدود
               h.style.setProperty('width', 'auto', 'important');
+              h.style.setProperty('max-width', '100%', 'important');
             });
 
             // البحث عن جميع SVGs داخل الجذر - لا نعتمد على selector واحد فقط
@@ -608,35 +611,61 @@ const MathRenderer = memo(({ html }) => {
               svg.style.setProperty('visibility', 'visible', 'important');
               svg.style.setProperty('opacity', '1', 'important');
               svg.style.setProperty('position', 'relative', 'important');
-              svg.style.setProperty('z-index', '10', 'important'); // z-index عالي لضمان الظهور
+              svg.style.setProperty('z-index', '10', 'important');
               
-              // الحفاظ على viewBox الأصلي
+              // الحفاظ على viewBox الأصلي مع aspect ratio صحيح
               const viewBox = svg.getAttribute('viewBox');
               if (viewBox) {
+                // نستخدم meet للحفاظ على نسبة العرض/الارتفاع
                 svg.setAttribute('preserveAspectRatio', 'xMinYMid meet');
               }
               
-              // إزالة أي transform قد يخفي الجذر
+              // إزالة أي transform قد يخفي أو يشوه الجذر
               const currentTransform = svg.style.transform || svg.getAttribute('transform');
-              if (currentTransform && currentTransform.includes('scale(0)') || currentTransform.includes('scaleY(0)')) {
+              if (currentTransform && (currentTransform.includes('scale(0)') || currentTransform.includes('scaleY(0)'))) {
                 svg.style.setProperty('transform', 'none', 'important');
               }
               
-              // ضبط الارتفاع والعرض
-              svg.style.setProperty('height', '1.6em', 'important');
-              svg.style.setProperty('min-height', '1em', 'important');
+              // ضبط الارتفاع أولاً (أطول لاحتواء الكسور)
+              svg.style.setProperty('height', '1.8em', 'important'); // زيادة الارتفاع قليلاً
+              svg.style.setProperty('min-height', '1.5em', 'important');
               svg.style.setProperty('max-height', '2.5em', 'important');
+              
+              // العرض يجب أن يكون تلقائي ولكن محدود - لا نجعله ممتداً بلا حدود
+              // نستخدم width: auto مع max-width محدد بناءً على المحتوى
               svg.style.setProperty('width', 'auto', 'important');
-              svg.style.setProperty('min-width', '0.5em', 'important');
-              svg.style.setProperty('max-width', 'none', 'important');
+              svg.style.setProperty('min-width', '0.6em', 'important');
+              
+              // نقيد العرض بشكل ذكي - لا نجعله `none` لأنه سيسبب التمدد
+              // سنحدده بعد قياس المحتوى
+              svg.style.setProperty('max-width', '100%', 'important'); // حد مؤقت
               svg.style.setProperty('overflow', 'visible', 'important');
               
-              // التأكد من أن SVG مرئي وقابل للقياس
-              const rect = svg.getBoundingClientRect();
-              if (rect.width === 0 || rect.height === 0) {
-                svg.style.setProperty('width', '1em', 'important');
-                svg.style.setProperty('height', '1.6em', 'important');
-              }
+              // بعد رسم العناصر، نحدد العرض بناءً على المحتوى الفعلي
+              // نستخدم setTimeout لإعطاء الوقت للعناصر للرسم أولاً
+              setTimeout(() => {
+                const contentElement = sqrt.querySelector('.vlist-t, .vlist-r');
+                if (contentElement) {
+                  const contentRect = contentElement.getBoundingClientRect();
+                  const svgRect = svg.getBoundingClientRect();
+                  
+                  // نحسب عرض مناسب بناءً على المحتوى
+                  if (contentRect.width > 0 && svgRect.width > 0) {
+                    // إذا كان SVG أوسع بكثير من المحتوى
+                    if (svgRect.width > contentRect.width * 1.5) {
+                      // نحد العرض إلى المحتوى + 30% كحد أقصى
+                      const targetWidth = Math.min(contentRect.width * 1.3, 2.2);
+                      // نستخدم width مباشرة بدلاً من max-width لفرض العرض
+                      svg.style.setProperty('width', `${targetWidth}px`, 'important');
+                      svg.style.setProperty('max-width', `${targetWidth}px`, 'important');
+                    }
+                  }
+                } else {
+                  // إذا لم يكن هناك محتوى واضح، نستخدم عرض ثابت صغير
+                  svg.style.setProperty('width', '1em', 'important');
+                  svg.style.setProperty('max-width', '1.5em', 'important');
+                }
+              }, 50); // تأخير بسيط للتأكد من أن العناصر رُسمت
               
               // التأكد من أن paths داخل SVG مرئية
               const paths = svg.querySelectorAll('path');
@@ -677,6 +706,12 @@ const MathRenderer = memo(({ html }) => {
             // تحسين محتوى الجذر نفسه - جعله يتكيف مع الحجم ومنع الخروج
             const contentElements = sqrt.querySelectorAll('.vlist-t, .vlist-r');
             contentElements.forEach(c => {
+              // ضمان ظهور المحتوى
+              c.style.setProperty('display', 'inline-block', 'important');
+              c.style.setProperty('visibility', 'visible', 'important');
+              c.style.setProperty('opacity', '1', 'important');
+              c.style.setProperty('position', 'relative', 'important');
+              c.style.setProperty('z-index', '2', 'important');
               // منع المحتوى من الخروج، لكن السماح بالعرض الطبيعي
               c.style.setProperty('max-width', '100%', 'important');
               c.style.setProperty('overflow', 'visible', 'important');
@@ -684,6 +719,7 @@ const MathRenderer = memo(({ html }) => {
               c.style.setProperty('flex-shrink', '1', 'important');
               // جعل المحتوى يحدد عرض الجذر
               c.style.setProperty('width', 'auto', 'important');
+              c.style.setProperty('min-width', '0', 'important');
             });
 
             // If radicand is a single simple number, it may sit too high on mobile.
