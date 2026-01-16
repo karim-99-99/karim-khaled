@@ -517,9 +517,6 @@ const MathRenderer = memo(({ html }) => {
             c.style.overflow = 'visible';
             // تحريك الأرقام داخل الجذر إلى اليمين قليلاً
             c.style.paddingLeft = '0.45em';
-            // التأكد من أن المحتوى لا يخرج عن حدود الجذر
-            c.style.position = 'relative';
-            c.style.maxWidth = 'none'; // السماح بالتوسع الطبيعي
           });
 
           const sqrtFracs = sqrt.querySelectorAll('.frac');
