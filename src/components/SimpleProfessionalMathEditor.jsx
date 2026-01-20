@@ -52,6 +52,19 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
   // Ensure modules are registered
   useEffect(() => {
     registerQuillModules();
+    
+    // MathBlot will auto-register when imported, but ensure it happens after Quill is ready
+    // Import mathBlot dynamically to trigger registration
+    import('../components/mathBlot').then((mathBlotModule) => {
+      if (mathBlotModule && mathBlotModule.registerMathBlot) {
+        // Try to register if not already registered
+        setTimeout(() => {
+          mathBlotModule.registerMathBlot();
+        }, 100);
+      }
+    }).catch(() => {
+      // Registration will happen automatically
+    });
   }, []);
 
   // Load MathLive dynamically

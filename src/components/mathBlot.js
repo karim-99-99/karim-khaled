@@ -6,9 +6,14 @@ import 'katex/dist/katex.min.css';
 // Wait for Quill to be fully initialized before importing Embed
 const getEmbed = () => {
   if (typeof Quill === 'undefined' || !Quill.import) {
-    throw new Error('Quill is not ready');
+    return null;
   }
-  return Quill.import('blots/embed');
+  try {
+    return Quill.import('blots/embed');
+  } catch (e) {
+    console.warn('Failed to import Embed from Quill:', e);
+    return null;
+  }
 };
 
 // Convert Western numerals to Arabic in rendered output
@@ -27,6 +32,11 @@ const createMathBlotClass = () => {
   
   try {
     EmbedClass = getEmbed();
+    
+    if (!EmbedClass) {
+      // Quill is not ready yet, return null
+      return null;
+    }
     
     MathBlot = class MathBlot extends EmbedClass {
       static blotName = 'math';
@@ -458,7 +468,7 @@ const createMathBlotClass = () => {
   }
 };
 
-// Register MathBlot when Quill is ready
+// Register MathBlot when Quill is ready - deferred to avoid initialization issues
 let isRegistered = false;
 
 const registerMathBlot = () => {
@@ -466,39 +476,83 @@ const registerMathBlot = () => {
   
   try {
     if (typeof Quill === 'undefined' || !Quill.import || !Quill.register) {
-      return;
+      return false;
     }
     
-    const MathBlotClass = createMathBlotClass();
+    const MathBlotClass = getMathBlot();
     if (!MathBlotClass) {
-      return;
+      return false;
     }
     
-    if (!Quill.imports['formats/math'] && !Quill.imports['blots/math']) {
-      Quill.register(MathBlotClass);
+    // Check if already registered
+    const existingFormat = Quill.import('formats/math', true);
+    const existingBlot = Quill.import('blots/math', true);
+    if (existingFormat || existingBlot) {
       isRegistered = true;
+      return true;
     }
+    
+    Quill.register(MathBlotClass);
+    isRegistered = true;
+    return true;
   } catch (e) {
     console.warn('Failed to register MathBlot:', e);
+    return false;
   }
 };
 
-// Try to register immediately if Quill is ready
-if (typeof Quill !== 'undefined' && Quill.import && Quill.register) {
-  registerMathBlot();
-} else if (typeof window !== 'undefined') {
-  // Wait for Quill to be ready
-  const checkAndRegister = () => {
-    if (typeof Quill !== 'undefined' && Quill.import && Quill.register) {
-      registerMathBlot();
-    } else {
-      setTimeout(checkAndRegister, 10);
-    }
-  };
-  // Start checking after a short delay
-  setTimeout(checkAndRegister, 0);
-}
+// Don't register immediately - wait for component to mount
+// Registration will happen when component uses Quill
 
-// Export function to get MathBlot class - ensures Quill is ready
-export default createMathBlotClass();
-export { createMathBlotClass };
+// Export function to get MathBlot class - lazy getter that ensures Quill is ready
+const getMathBlot = () => {
+  if (!MathBlot) {
+    MathBlot = createMathBlotClass();
+  }
+  return MathBlot;
+};
+
+// Auto-register when module is imported, but only if Quill is ready
+const autoRegister = () => {
+  if (typeof Quill !== 'undefined' && Quill.import && Quill.register) {
+    // Wait a bit to ensure Quill is fully initialized
+    setTimeout(() => {
+      try {
+        const MathBlotClass = getMathBlot();
+        if (MathBlotClass && !Quill.imports['formats/math'] && !Quill.imports['blots/math']) {
+          Quill.register(MathBlotClass);
+          isRegistered = true;
+        }
+      } catch (e) {
+        // Will retry later
+      }
+    }, 0);
+  } else if (typeof window !== 'undefined') {
+    // Wait for Quill to be ready
+    const checkAndRegister = () => {
+      if (typeof Quill !== 'undefined' && Quill.import && Quill.register) {
+        setTimeout(() => {
+          try {
+            const MathBlotClass = getMathBlot();
+            if (MathBlotClass && !Quill.imports['formats/math'] && !Quill.imports['blots/math']) {
+              Quill.register(MathBlotClass);
+              isRegistered = true;
+            }
+          } catch (e) {
+            // Will retry later
+          }
+        }, 0);
+      } else {
+        setTimeout(checkAndRegister, 50);
+      }
+    };
+    // Start checking after a short delay
+    setTimeout(checkAndRegister, 100);
+  }
+};
+
+// Try to auto-register (will only work if Quill is ready)
+autoRegister();
+
+export default getMathBlot;
+export { createMathBlotClass, registerMathBlot };
