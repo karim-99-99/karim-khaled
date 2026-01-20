@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getQuestions, getQuestionsByLevel, addQuestion, updateQuestion, deleteQuestion, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory, getItemById, getChapterById, getCategoryById, getSections } from '../../services/storageService';
 import ReactQuill from 'react-quill';
@@ -14,7 +14,9 @@ import WYSIWYGEquationEditor from '../../components/WYSIWYGEquationEditor';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import katex from 'katex';
-import SimpleProfessionalMathEditor from '../../components/SimpleProfessionalMathEditor';
+
+// Lazy load SimpleProfessionalMathEditor to avoid initialization issues
+const SimpleProfessionalMathEditor = lazy(() => import('../../components/SimpleProfessionalMathEditor'));
 
 const Questions = () => {
   const navigate = useNavigate();
@@ -952,11 +954,17 @@ const Questions = () => {
                     </p>
                     
                     {/* Best Working Editor - No waiting, no loading! */}
-                    <SimpleProfessionalMathEditor
-                      value={formData.question}
-                      onChange={handleQuillChange}
-                      placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
-                    />
+                    <Suspense fallback={
+                      <div className="border rounded-lg p-4 text-center text-gray-500">
+                        {isArabicBrowser() ? 'جاري تحميل المحرر...' : 'Loading editor...'}
+                      </div>
+                    }>
+                      <SimpleProfessionalMathEditor
+                        value={formData.question}
+                        onChange={handleQuillChange}
+                        placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
+                      />
+                    </Suspense>
                   </div>
 
                   <div>

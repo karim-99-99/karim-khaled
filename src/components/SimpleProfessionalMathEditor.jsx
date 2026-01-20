@@ -5,7 +5,7 @@ import { isArabicBrowser } from '../utils/language';
 import 'katex/dist/katex.min.css';
 // Don't import mathBlot at module level - import it dynamically to avoid initialization issues
 
-// Register Quill modules before component definition to ensure they're ready
+// Register Quill modules - don't call this at module level!
 let modulesRegistered = false;
 
 const registerQuillModules = async () => {
@@ -30,8 +30,7 @@ const registerQuillModules = async () => {
   }
 };
 
-// Start registration immediately
-registerQuillModules();
+// DON'T call registerQuillModules here - it will be called in useEffect
 
 // Math Blot handles all rendering - no need for manual rendering
 
