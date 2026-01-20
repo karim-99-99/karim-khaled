@@ -99,12 +99,9 @@ export default defineConfig({
           if (id.includes('node_modules/react-katex')) {
             return 'react-katex-vendor';
           }
-          // Editor libraries - split react-quill and quill separately to avoid circular dependency
-          if (id.includes('node_modules/react-quill')) {
-            return 'react-quill-vendor';
-          }
-          if (id.includes('node_modules/quill')) {
-            return 'quill-vendor';
+          // Editor libraries - keep together to avoid multiple Quill instances
+          if (id.includes('node_modules/react-quill') || id.includes('node_modules/quill')) {
+            return 'editor-vendor';
           }
           // Other node_modules
           if (id.includes('node_modules')) {

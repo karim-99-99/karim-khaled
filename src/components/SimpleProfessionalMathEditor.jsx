@@ -1,14 +1,37 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactQuill from 'react-quill';
-import Quill from 'quill';
+import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { isArabicBrowser } from '../utils/language';
 import 'katex/dist/katex.min.css';
 import '../components/mathBlot'; // Register Math Blot
 
-// Import Quill modules for image handling
-import BlotFormatter from 'quill-blot-formatter';
-import ImageDrop from 'quill-image-drop-and-paste';
+// Register Quill modules before component definition to ensure they're ready
+let modulesRegistered = false;
+
+const registerQuillModules = async () => {
+  if (modulesRegistered || typeof Quill === 'undefined') return;
+  
+  try {
+    const BlotFormatterModule = await import('quill-blot-formatter');
+    const ImageDropModule = await import('quill-image-drop-and-paste');
+    
+    const BlotFormatter = BlotFormatterModule.default || BlotFormatterModule;
+    const ImageDrop = ImageDropModule.default || ImageDropModule;
+    
+    if (BlotFormatter && !Quill.imports?.['modules/blotFormatter']) {
+      Quill.register('modules/blotFormatter', BlotFormatter);
+    }
+    if (ImageDrop && !Quill.imports?.['modules/imageDrop']) {
+      Quill.register('modules/imageDrop', ImageDrop);
+    }
+    modulesRegistered = true;
+  } catch (e) {
+    console.warn('Failed to register Quill modules:', e);
+  }
+};
+
+// Start registration immediately
+registerQuillModules();
 
 // Math Blot handles all rendering - no need for manual rendering
 
@@ -25,20 +48,9 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     return saved ? JSON.parse(saved) : true; // Default to RTL for Arabic
   });
 
-  // Register Quill modules once on mount
+  // Ensure modules are registered
   useEffect(() => {
-    if (typeof Quill === 'undefined') return;
-    
-    try {
-      if (BlotFormatter) {
-        Quill.register('modules/blotFormatter', BlotFormatter);
-      }
-      if (ImageDrop) {
-        Quill.register('modules/imageDrop', ImageDrop);
-      }
-    } catch (e) {
-      console.warn('Failed to register Quill modules:', e);
-    }
+    registerQuillModules();
   }, []);
 
   // Load MathLive dynamically

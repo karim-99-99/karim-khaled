@@ -1,4 +1,5 @@
-import Quill from 'quill';
+// Import Quill from react-quill to ensure same instance is used
+import { Quill } from 'react-quill';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
