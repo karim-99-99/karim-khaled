@@ -5,6 +5,10 @@ import { isArabicBrowser } from '../utils/language';
 import 'katex/dist/katex.min.css';
 // Import mathBlot - it will register itself when Quill is ready
 import '../components/mathBlot';
+import { setQuillInstance } from '../components/mathBlot';
+
+// Set Quill instance for mathBlot to use
+setQuillInstance(Quill);
 
 // Register Quill modules before component definition to ensure they're ready
 let modulesRegistered = false;
@@ -49,22 +53,30 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     return saved ? JSON.parse(saved) : true; // Default to RTL for Arabic
   });
 
-  // Ensure modules are registered
+  // Ensure modules and MathBlot are registered
   useEffect(() => {
     registerQuillModules();
     
-    // MathBlot will auto-register when imported, but ensure it happens after Quill is ready
-    // Import mathBlot dynamically to trigger registration
-    import('../components/mathBlot').then((mathBlotModule) => {
-      if (mathBlotModule && mathBlotModule.registerMathBlot) {
-        // Try to register if not already registered
-        setTimeout(() => {
-          mathBlotModule.registerMathBlot();
-        }, 100);
-      }
-    }).catch(() => {
-      // Registration will happen automatically
-    });
+    // Register MathBlot after Quill modules are registered
+    const registerMathBlotDelayed = () => {
+      import('../components/mathBlot').then((mathBlotModule) => {
+        if (mathBlotModule && mathBlotModule.registerMathBlot) {
+          // Try to register if not already registered
+          const success = mathBlotModule.registerMathBlot();
+          if (!success) {
+            // Retry after a delay if first attempt failed
+            setTimeout(() => {
+              mathBlotModule.registerMathBlot();
+            }, 200);
+          }
+        }
+      }).catch((e) => {
+        console.warn('Failed to load mathBlot module:', e);
+      });
+    };
+    
+    // Wait for Quill to be ready
+    setTimeout(registerMathBlotDelayed, 100);
   }, []);
 
   // Load MathLive dynamically

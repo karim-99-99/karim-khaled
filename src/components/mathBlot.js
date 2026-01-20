@@ -1,11 +1,41 @@
-// Import Quill from react-quill to ensure same instance is used
-import { Quill } from 'react-quill';
+// Don't import Quill directly to avoid initialization issues
+// We'll get it from react-quill when needed
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 
+// Get Quill instance lazily to avoid initialization issues
+let QuillInstance = null;
+
+const getQuill = () => {
+  if (QuillInstance) return QuillInstance;
+  
+  try {
+    // Try to get Quill from react-quill via dynamic import
+    // But we can't use dynamic import here in module scope, so we'll cache it
+    if (typeof window !== 'undefined' && window.Quill) {
+      QuillInstance = window.Quill;
+      return QuillInstance;
+    }
+    
+    // Try to get from module if available (will be set when imported)
+    // This is a fallback - we expect Quill to be available via react-quill import in components
+    return null;
+  } catch (e) {
+    return null;
+  }
+};
+
+// Set Quill instance when available (called from components)
+export const setQuillInstance = (quill) => {
+  if (quill && !QuillInstance) {
+    QuillInstance = quill;
+  }
+};
+
 // Wait for Quill to be fully initialized before importing Embed
 const getEmbed = () => {
-  if (typeof Quill === 'undefined' || !Quill.import) {
+  const Quill = getQuill();
+  if (!Quill || typeof Quill.import !== 'function') {
     return null;
   }
   try {
@@ -472,10 +502,11 @@ const createMathBlotClass = () => {
 let isRegistered = false;
 
 const registerMathBlot = () => {
-  if (isRegistered) return;
+  if (isRegistered) return true;
   
   try {
-    if (typeof Quill === 'undefined' || !Quill.import || !Quill.register) {
+    const Quill = getQuill();
+    if (!Quill || typeof Quill.import !== 'function' || typeof Quill.register !== 'function') {
       return false;
     }
     
@@ -485,11 +516,15 @@ const registerMathBlot = () => {
     }
     
     // Check if already registered
-    const existingFormat = Quill.import('formats/math', true);
-    const existingBlot = Quill.import('blots/math', true);
-    if (existingFormat || existingBlot) {
-      isRegistered = true;
-      return true;
+    try {
+      const existingFormat = Quill.import('formats/math', true);
+      const existingBlot = Quill.import('blots/math', true);
+      if (existingFormat || existingBlot) {
+        isRegistered = true;
+        return true;
+      }
+    } catch (e) {
+      // Not registered yet, continue
     }
     
     Quill.register(MathBlotClass);
@@ -514,12 +549,13 @@ const getMathBlot = () => {
 
 // Auto-register when module is imported, but only if Quill is ready
 const autoRegister = () => {
-  if (typeof Quill !== 'undefined' && Quill.import && Quill.register) {
+  const Quill = getQuill();
+  if (Quill && typeof Quill.import === 'function' && typeof Quill.register === 'function') {
     // Wait a bit to ensure Quill is fully initialized
     setTimeout(() => {
       try {
         const MathBlotClass = getMathBlot();
-        if (MathBlotClass && !Quill.imports['formats/math'] && !Quill.imports['blots/math']) {
+        if (MathBlotClass && !Quill.imports?.['formats/math'] && !Quill.imports?.['blots/math']) {
           Quill.register(MathBlotClass);
           isRegistered = true;
         }
@@ -530,11 +566,12 @@ const autoRegister = () => {
   } else if (typeof window !== 'undefined') {
     // Wait for Quill to be ready
     const checkAndRegister = () => {
-      if (typeof Quill !== 'undefined' && Quill.import && Quill.register) {
+      const Quill = getQuill();
+      if (Quill && typeof Quill.import === 'function' && typeof Quill.register === 'function') {
         setTimeout(() => {
           try {
             const MathBlotClass = getMathBlot();
-            if (MathBlotClass && !Quill.imports['formats/math'] && !Quill.imports['blots/math']) {
+            if (MathBlotClass && !Quill.imports?.['formats/math'] && !Quill.imports?.['blots/math']) {
               Quill.register(MathBlotClass);
               isRegistered = true;
             }
@@ -551,8 +588,8 @@ const autoRegister = () => {
   }
 };
 
-// Try to auto-register (will only work if Quill is ready)
-autoRegister();
+// Don't auto-register immediately - wait for component to trigger it
+// This avoids initialization issues
 
 export default getMathBlot;
 export { createMathBlotClass, registerMathBlot };
