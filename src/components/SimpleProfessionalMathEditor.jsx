@@ -3,12 +3,14 @@ import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { isArabicBrowser } from '../utils/language';
 import 'katex/dist/katex.min.css';
-// Import mathBlot - it will register itself when Quill is ready
-import '../components/mathBlot';
+// Import mathBlot - we'll register it manually after Quill is ready
 import { setQuillInstance } from '../components/mathBlot';
 
-// Set Quill instance for mathBlot to use
-setQuillInstance(Quill);
+// Set Quill instance for mathBlot to use - do this immediately
+// This must happen before any Quill operations
+if (typeof Quill !== 'undefined') {
+  setQuillInstance(Quill);
+}
 
 // Register Quill modules before component definition to ensure they're ready
 let modulesRegistered = false;
@@ -55,10 +57,24 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
 
   // Ensure modules and MathBlot are registered
   useEffect(() => {
+    // Ensure Quill instance is set
+    if (typeof Quill !== 'undefined') {
+      setQuillInstance(Quill);
+    }
+    
+    // Register Quill modules first
     registerQuillModules();
     
     // Register MathBlot after Quill modules are registered
     const registerMathBlotDelayed = () => {
+      // Ensure Quill instance is available
+      if (typeof Quill === 'undefined') {
+        setTimeout(registerMathBlotDelayed, 50);
+        return;
+      }
+      
+      setQuillInstance(Quill);
+      
       import('../components/mathBlot').then((mathBlotModule) => {
         if (mathBlotModule && mathBlotModule.registerMathBlot) {
           // Try to register if not already registered
@@ -76,7 +92,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     };
     
     // Wait for Quill to be ready
-    setTimeout(registerMathBlotDelayed, 100);
+    setTimeout(registerMathBlotDelayed, 150);
   }, []);
 
   // Load MathLive dynamically
