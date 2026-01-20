@@ -6,13 +6,9 @@ import { isArabicBrowser } from '../utils/language';
 import 'katex/dist/katex.min.css';
 import '../components/mathBlot'; // Register Math Blot
 
-// Import and register Quill modules for image handling
+// Import Quill modules for image handling
 import BlotFormatter from 'quill-blot-formatter';
 import ImageDrop from 'quill-image-drop-and-paste';
-
-// Register modules
-Quill.register('modules/blotFormatter', BlotFormatter);
-Quill.register('modules/imageDrop', ImageDrop);
 
 // Math Blot handles all rendering - no need for manual rendering
 
@@ -28,6 +24,22 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     const saved = localStorage.getItem('mathEditorRTL');
     return saved ? JSON.parse(saved) : true; // Default to RTL for Arabic
   });
+
+  // Register Quill modules once on mount
+  useEffect(() => {
+    if (typeof Quill === 'undefined') return;
+    
+    try {
+      if (BlotFormatter) {
+        Quill.register('modules/blotFormatter', BlotFormatter);
+      }
+      if (ImageDrop) {
+        Quill.register('modules/imageDrop', ImageDrop);
+      }
+    } catch (e) {
+      console.warn('Failed to register Quill modules:', e);
+    }
+  }, []);
 
   // Load MathLive dynamically
   useEffect(() => {

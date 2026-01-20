@@ -389,11 +389,6 @@
 //   );
 // };
 
-// export default MathRenderer;import { InlineMath, BlockMath } from 'react-katex'; 
-
-
-
-
 import 'katex/dist/katex.min.css';
 import { useEffect, useRef, memo } from 'react';
 import katex from 'katex';
