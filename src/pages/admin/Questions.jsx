@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getQuestions, getQuestionsByLevel, addQuestion, updateQuestion, deleteQuestion, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory, getItemById, getChapterById, getCategoryById, getSections } from '../../services/storageService';
-import ReactQuill from 'react-quill';
+import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+
+// Get ReactQuill from namespace (react-quill v2.0.0)
+const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
 import MathEditor from '../../components/MathEditor';
@@ -954,9 +957,13 @@ const Questions = () => {
                     </p>
                     
                     {/* Best Working Editor - No waiting, no loading! */}
+                    {/* Wrap in try-catch using error boundary concept */}
                     <Suspense fallback={
-                      <div className="border rounded-lg p-4 text-center text-gray-500">
-                        {isArabicBrowser() ? 'جاري تحميل المحرر...' : 'Loading editor...'}
+                      <div className="border rounded-lg p-8 text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4"></div>
+                        <p className="text-gray-500">
+                          {isArabicBrowser() ? 'جاري تحميل المحرر...' : 'Loading editor...'}
+                        </p>
                       </div>
                     }>
                       <SimpleProfessionalMathEditor

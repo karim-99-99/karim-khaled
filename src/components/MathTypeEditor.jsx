@@ -1,7 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import ReactQuill from 'react-quill';
+import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { isArabicBrowser } from '../utils/language';
+
+// Get ReactQuill from namespace (react-quill v2.0.0)
+const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
 
 const MathTypeEditor = ({ value, onChange, placeholder }) => {
   const quillRef = useRef(null);

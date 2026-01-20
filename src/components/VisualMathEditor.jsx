@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactQuill from 'react-quill';
+import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { isArabicBrowser } from '../utils/language';
 import katex from 'katex';
+
+// Get ReactQuill from namespace (react-quill v2.0.0)
+const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
 import 'katex/dist/katex.min.css';
 import { convertLatexToMarkup } from 'mathlive';
 

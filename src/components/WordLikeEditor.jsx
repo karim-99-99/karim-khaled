@@ -1,10 +1,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
-import ReactQuill, { Quill } from 'react-quill';
+import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import katex from 'katex';
 import { isArabicBrowser } from '../utils/language';
+
+// Get ReactQuill and Quill from namespace (react-quill v2.0.0)
+const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
+const Quill = ReactQuill.Quill;
 
 // Custom Image Blot for draggable/resizable images
 // We'll handle images post-insertion instead of overriding the format

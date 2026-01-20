@@ -69,6 +69,8 @@ export default defineConfig({
       'ckeditor5',
       'quill',
       'react-quill',
+      'quill-blot-formatter',
+      'quill-image-drop-and-paste',
     ],
   },
   server: {

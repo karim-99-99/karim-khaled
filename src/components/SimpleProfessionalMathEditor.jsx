@@ -1,9 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
-import ReactQuill, { Quill } from 'react-quill';
+import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { isArabicBrowser } from '../utils/language';
 import 'katex/dist/katex.min.css';
 // Don't import mathBlot at module level - import it dynamically to avoid initialization issues
+
+// Get ReactQuill and Quill from namespace (react-quill v2.0.0)
+const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
+const Quill = ReactQuill.Quill;
 
 // Register Quill modules - don't call this at module level!
 let modulesRegistered = false;
@@ -49,49 +53,57 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
 
   // Ensure modules and MathBlot are registered
   useEffect(() => {
-    // Register Quill modules first
-    registerQuillModules();
+    let mounted = true;
     
-    // Register MathBlot after Quill is ready
-    const registerMathBlotDelayed = async () => {
-      // Wait a bit to ensure Quill is fully loaded
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
-      // Ensure Quill instance is available
-      if (typeof Quill === 'undefined' || !Quill.import || !Quill.register) {
-        // Retry if Quill is not ready
-        setTimeout(registerMathBlotDelayed, 100);
-        return;
-      }
-      
+    const initializeEditor = async () => {
       try {
-        // Dynamically import mathBlot to avoid initialization issues
+        // Register Quill modules first
+        await registerQuillModules();
+        
+        // Wait for modules to be ready
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+        // Ensure Quill instance is available
+        if (typeof Quill === 'undefined' || !Quill.import || !Quill.register) {
+          if (mounted) {
+            setTimeout(initializeEditor, 100);
+          }
+          return;
+        }
+        
+        // Import and register MathBlot
         const mathBlotModule = await import('../components/mathBlot');
         
-        // Set Quill instance first
+        if (!mounted) return;
+        
+        // Set Quill instance
         if (mathBlotModule && mathBlotModule.setQuillInstance) {
           mathBlotModule.setQuillInstance(Quill);
         }
         
-        // Then register MathBlot
+        // Register MathBlot
         if (mathBlotModule && mathBlotModule.registerMathBlot) {
           const success = mathBlotModule.registerMathBlot();
-          if (!success) {
-            // Retry after a delay if first attempt failed
-            setTimeout(async () => {
-              await mathBlotModule.registerMathBlot();
-            }, 300);
+          if (!success && mounted) {
+            setTimeout(() => {
+              if (mounted) mathBlotModule.registerMathBlot();
+            }, 200);
           }
         }
       } catch (e) {
-        console.warn('Failed to load mathBlot module:', e);
-        // Retry after delay
-        setTimeout(registerMathBlotDelayed, 500);
+        console.error('Failed to initialize editor:', e);
+        if (mounted) {
+          setTimeout(initializeEditor, 500);
+        }
       }
     };
     
-    // Start registration
-    registerMathBlotDelayed();
+    const timeout = setTimeout(initializeEditor, 100);
+    
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+    };
   }, []);
 
   // Load MathLive dynamically

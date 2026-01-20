@@ -1,9 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import ReactQuill, { Quill } from 'react-quill';
+import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { isArabicBrowser } from '../utils/language';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
+
+// Get ReactQuill and Quill from namespace (react-quill v2.0.0)
+const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
+const Quill = ReactQuill.Quill;
 
 // Convert Western numerals to Arabic numerals
 const toArabicNumerals = (str) => {
