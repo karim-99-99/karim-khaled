@@ -53,8 +53,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],
-    // Exclude ALL CKEditor packages to prevent duplication
-    // CKEditor 5 should not be pre-bundled by Vite to avoid module duplication
+    // Exclude packages that have initialization issues
     exclude: [
       'mathquill',
       '@wiris/mathtype-ckeditor5',
@@ -68,6 +67,8 @@ export default defineConfig({
       '@ckeditor/ckeditor5-image',
       '@ckeditor/ckeditor5-undo',
       'ckeditor5',
+      'quill',
+      'react-quill',
     ],
   },
   server: {
@@ -78,11 +79,31 @@ export default defineConfig({
   build: {
     commonjsOptions: {
       include: [/mathquill/, /node_modules/],
+      transformMixedEsModules: true, // Handle mixed CommonJS/ESM modules
     },
     // Enable code splitting and optimize chunks
     rollupOptions: {
       output: {
         manualChunks(id) {
+          // CRITICAL: Process Quill FIRST to avoid circular dependencies
+          // Quill core dependencies must be in same chunk
+          if (id.includes('node_modules/parchment') || 
+              id.includes('node_modules/quill-delta') ||
+              id.includes('node_modules/eventemitter3') ||
+              id.includes('node_modules/fast-diff') ||
+              id.includes('node_modules/lodash.clonedeep') ||
+              id.includes('node_modules/lodash.isequal')) {
+            return 'quill-vendor';
+          }
+          // Quill and react-quill together
+          if (id.includes('node_modules/quill') || id.includes('node_modules/react-quill')) {
+            return 'quill-vendor';
+          }
+          // Quill modules separately to allow lazy loading
+          if (id.includes('node_modules/quill-blot-formatter') || 
+              id.includes('node_modules/quill-image-drop')) {
+            return 'quill-modules';
+          }
           // React and React DOM
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) {
             return 'react-vendor';
@@ -98,10 +119,6 @@ export default defineConfig({
           // React-KaTeX
           if (id.includes('node_modules/react-katex')) {
             return 'react-katex-vendor';
-          }
-          // Editor libraries - keep together to avoid multiple Quill instances
-          if (id.includes('node_modules/react-quill') || id.includes('node_modules/quill')) {
-            return 'editor-vendor';
           }
           // Other node_modules
           if (id.includes('node_modules')) {
