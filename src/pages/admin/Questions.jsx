@@ -509,54 +509,6 @@ const Questions = () => {
     }
   };
 
-  // Load sample questions (620 and 621)
-  const handleLoadSampleQuestions = () => {
-    const sampleQuestions = [
-      {
-        question: '<p>(620) = <span class="math-equation" contenteditable="false" data-latex="\\left(\\frac{1}{2} \\times \\frac{4}{3}\\right) \\div \\frac{9}{8}" style="display:inline-block;vertical-align:middle;padding:4px 8px;margin:0 4px;"></span></p>',
-        questionEn: '(620) = $$\\left(\\frac{1}{2} \\times \\frac{4}{3}\\right) \\div \\frac{9}{8}$$',
-        answers: [
-          { id: 'a', text: '$$\\frac{1}{3}$$', textEn: '$$\\frac{1}{3}$$', isCorrect: false },
-          { id: 'b', text: '$$\\frac{1}{4}$$', textEn: '$$\\frac{1}{4}$$', isCorrect: false },
-          { id: 'c', text: '$$\\frac{27}{8}$$', textEn: '$$\\frac{27}{8}$$', isCorrect: false },
-          { id: 'd', text: '$$\\frac{27}{16}$$', textEn: '$$\\frac{27}{16}$$', isCorrect: true },
-        ],
-      },
-      {
-        question: '<p>(621) مستطيل محيطه <span class="math-equation" contenteditable="false" data-latex="45\\frac{1}{3}" style="display:inline-block;vertical-align:middle;padding:4px 8px;margin:0 4px;"></span>، وعرضه <span class="math-equation" contenteditable="false" data-latex="10\\frac{3}{4}" style="display:inline-block;vertical-align:middle;padding:4px 8px;margin:0 4px;"></span>، فما طوله؟</p>',
-        questionEn: '(621) A rectangle whose perimeter is $$45\\frac{1}{3}$$, and its width is $$10\\frac{3}{4}$$, what is its length?',
-        answers: [
-          { id: 'a', text: '$$11\\frac{5}{12}$$', textEn: '$$11\\frac{5}{12}$$', isCorrect: false },
-          { id: 'b', text: '$$11\\frac{3}{4}$$', textEn: '$$11\\frac{3}{4}$$', isCorrect: false },
-          { id: 'c', text: '$$11\\frac{11}{12}$$', textEn: '$$11\\frac{11}{12}$$', isCorrect: false },
-          { id: 'd', text: '$$11\\frac{7}{12}$$', textEn: '$$11\\frac{7}{12}$$', isCorrect: true },
-        ],
-      },
-    ];
-
-    // Add each sample question
-    sampleQuestions.forEach((sampleQ, index) => {
-      const newQuestion = {
-        id: `sample_${Date.now()}_${index}`,
-        itemId: selectedLevel || itemIdFromUrl || 'default',
-        levelId: selectedLevel || itemIdFromUrl || 'default',
-        question: sampleQ.question,
-        questionEn: sampleQ.questionEn || sampleQ.question,
-        image: null,
-        answers: sampleQ.answers,
-      };
-      
-      addQuestion(newQuestion);
-    });
-
-    // Reload questions
-    const currentLevel = selectedLevel || itemIdFromUrl;
-    if (currentLevel) {
-      setQuestions(getQuestionsByLevel(currentLevel));
-    }
-    
-    alert(isArabicBrowser() ? 'تم تحميل الأسئلة النموذجية بنجاح!' : 'Sample questions loaded successfully!');
-  };
 
   const handleAddNew = () => {
     setEditingQuestion(null);
@@ -825,12 +777,6 @@ const Questions = () => {
               >
                 + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add Question'}
               </button>
-                <button
-                  onClick={handleLoadSampleQuestions}
-                  className="bg-green-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm sm:text-base w-full sm:w-auto"
-                >
-                  📝 {isArabicBrowser() ? 'تحميل أسئلة نموذجية' : 'Load Sample Questions'}
-                </button>
               </div>
             </div>
 
@@ -997,59 +943,6 @@ const Questions = () => {
                       >
                         {isArabicBrowser() ? 'تحويل المحدد' : 'Convert Selected'}
                       </button>
-                    </div>
-                    {/* Editor Info - Current Editor is the Best! */}
-                    <div className="mb-4 p-6 bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 border-4 border-green-400 rounded-2xl shadow-xl">
-                      <div className="flex items-start gap-4">
-                        <span className="text-5xl animate-bounce">✅</span>
-                        <div className="flex-1">
-                          <h3 className="text-2xl font-black text-green-900 mb-3">
-                            {isArabicBrowser() ? '🎊 المحرر الاحترافي جاهز!' : '🎊 Professional Editor Ready!'}
-                          </h3>
-                          <div className="space-y-2 text-green-800">
-                            <div className="flex items-start gap-2 bg-white bg-opacity-70 p-3 rounded-xl">
-                              <span className="text-xl">📐</span>
-                              <div>
-                                <p className="font-bold">
-                                  {isArabicBrowser() 
-                                    ? 'المحرر يحتوي على جميع القوالب الرياضية:' 
-                                    : 'Editor includes all math templates:'}
-                                </p>
-                                <p className="text-sm">
-                                  {isArabicBrowser() 
-                                    ? 'كسور (½)، جذور (√)، أسس (x², x³)، تكاملات (∫)، مجاميع (∑)، وأكثر!' 
-                                    : 'Fractions (½), Roots (√), Powers (x², x³), Integrals (∫), Sums (∑), and more!'}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-2 bg-white bg-opacity-70 p-3 rounded-xl">
-                              <span className="text-xl">🔄</span>
-                              <div>
-                                <p className="font-bold text-green-900">
-                                  {isArabicBrowser() 
-                                    ? 'زر RTL/LTR كبير وواضح في أعلى المحرر!' 
-                                    : 'Big RTL/LTR button at the top of the editor!'}
-                                </p>
-                                <p className="text-sm">
-                                  {isArabicBrowser() 
-                                    ? 'اضغط أي زر معادلة (½، √، ∑) ثم ابحث عن الزر في الأعلى' 
-                                    : 'Click any equation button (½, √, ∑) then look for the button at the top'}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex items-start gap-2 bg-white bg-opacity-70 p-3 rounded-xl">
-                              <span className="text-xl">💯</span>
-                              <div>
-                                <p className="font-bold">
-                                  {isArabicBrowser() 
-                                    ? 'مجاني 100% - يعمل بدون إنترنت - سريع وموثوق!' 
-                                    : '100% Free - Works offline - Fast & Reliable!'}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
                     </div>
 
                     <p className="text-xs text-gray-500 mb-2">

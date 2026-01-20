@@ -6,6 +6,14 @@ import { isArabicBrowser } from '../utils/language';
 import 'katex/dist/katex.min.css';
 import '../components/mathBlot'; // Register Math Blot
 
+// Import and register Quill modules for image handling
+import BlotFormatter from 'quill-blot-formatter';
+import ImageDrop from 'quill-image-drop-and-paste';
+
+// Register modules
+Quill.register('modules/blotFormatter', BlotFormatter);
+Quill.register('modules/imageDrop', ImageDrop);
+
 // Math Blot handles all rendering - no need for manual rendering
 
 const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
@@ -66,7 +74,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     { icon: '∞', latex: '\\infty', label: isArabicBrowser() ? 'لا نهاية' : 'Infinity' },
   ];
 
-  // Quill toolbar (without custom image handler for now)
+  // Quill toolbar with image support
   const modules = {
     toolbar: [
       [{ 'header': [1, 2, 3, false] }],
@@ -78,6 +86,10 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
       ['link', 'image'],
       ['clean']
     ],
+    // Enable image formatter for resize and alignment
+    blotFormatter: {},
+    // Enable drag & drop images
+    imageDrop: true,
   };
 
   const formats = [
@@ -116,15 +128,9 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
             const imageUrl = e.target.result;
             const range = editor.getSelection(true);
             
-            // Insert image
+            // Insert image - blotFormatter will handle resize and alignment
             editor.insertEmbed(range.index, 'image', imageUrl);
             editor.setSelection(range.index + 1);
-            
-            // Make image draggable and resizable
-            setTimeout(() => {
-              const images = editor.root.querySelectorAll('img:not(.draggable-resizable)');
-              images.forEach(img => makeImageDraggableResizable(img, editor.root));
-            }, 100);
             
             // Update onChange
             if (onChange) {
@@ -136,175 +142,6 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
       };
     });
   }, [onChange]);
-  
-  // Make images draggable and resizable - inline display
-  const makeImageDraggableResizable = (img, editorRoot) => {
-    if (img.classList.contains('draggable-resizable')) return;
-    
-    img.classList.add('draggable-resizable');
-    
-    // Style the image - inline display (not absolute)
-    img.style.position = 'relative';
-    img.style.display = 'inline-block';
-    img.style.verticalAlign = 'middle';
-    img.style.cursor = 'pointer';
-    img.style.margin = '0 10px';
-    img.style.maxWidth = '300px';
-    img.style.height = 'auto';
-    img.draggable = false;
-    
-    // Check if image has saved width
-    const savedWidth = img.getAttribute('data-width');
-    
-    if (savedWidth) {
-      img.style.width = savedWidth;
-      img.style.maxWidth = savedWidth;
-    } else if (!img.style.width || img.style.width === 'auto') {
-      img.style.width = '200px';
-      img.setAttribute('data-width', '200px');
-    }
-    
-    // Mouse wheel to resize
-    img.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      const currentWidth = img.offsetWidth;
-      const delta = e.deltaY > 0 ? -10 : 10; // Scroll down = smaller, scroll up = bigger
-      const newWidth = Math.max(50, Math.min(500, currentWidth + delta));
-      img.style.width = newWidth + 'px';
-      img.style.maxWidth = newWidth + 'px';
-      img.setAttribute('data-width', newWidth + 'px');
-    });
-    
-    // Double-click to toggle size
-    let sizeIndex = 0;
-    const sizes = ['150px', '200px', '250px', '300px', '350px'];
-    
-    img.addEventListener('dblclick', () => {
-      sizeIndex = (sizeIndex + 1) % sizes.length;
-      img.style.width = sizes[sizeIndex];
-      img.style.maxWidth = sizes[sizeIndex];
-      img.setAttribute('data-width', sizes[sizeIndex]);
-    });
-    
-    img.title = 'Scroll wheel to resize, double-click to cycle sizes';
-  };
-  
-  // Make images resizable and draggable (simplified version)
-  const makeImageResizableAndDraggable = (img) => {
-    img.classList.add('resizable-draggable');
-    img.style.cursor = 'move';
-    img.style.maxWidth = '100%';
-    img.style.height = 'auto';
-    img.draggable = false; // Prevent default drag behavior
-    
-    let isDragging = false;
-    let startX, startY, imgLeft, imgTop;
-    
-    // Make image position absolute for dragging
-    img.style.position = 'relative';
-    img.style.display = 'inline-block';
-    
-    // Mouse down - start dragging
-    img.addEventListener('mousedown', (e) => {
-      if (e.shiftKey) { // Hold Shift to drag
-        isDragging = true;
-        startX = e.clientX;
-        startY = e.clientY;
-        
-        const rect = img.getBoundingClientRect();
-        imgLeft = rect.left;
-        imgTop = rect.top;
-        
-        img.style.cursor = 'grabbing';
-        e.preventDefault();
-      }
-    });
-    
-    // Mouse move - drag image
-    document.addEventListener('mousemove', (e) => {
-      if (isDragging) {
-        const deltaX = e.clientX - startX;
-        const deltaY = e.clientY - startY;
-        
-        img.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-        e.preventDefault();
-      }
-    });
-    
-    // Mouse up - stop dragging
-    document.addEventListener('mouseup', () => {
-      if (isDragging) {
-        isDragging = false;
-        img.style.cursor = 'move';
-      }
-    });
-    
-    // Resize on double click
-    img.addEventListener('dblclick', () => {
-      const currentWidth = img.style.width || img.naturalWidth;
-      const sizes = ['25%', '50%', '75%', '100%'];
-      const currentIndex = sizes.findIndex(size => currentWidth.toString().includes(size.replace('%', '')));
-      const nextIndex = (currentIndex + 1) % sizes.length;
-      img.style.width = sizes[nextIndex];
-      img.style.height = 'auto';
-    });
-    
-    // Add resize handles
-    const resizeHandle = document.createElement('div');
-    resizeHandle.className = 'image-resize-handle';
-    resizeHandle.style.cssText = `
-      position: absolute;
-      bottom: 0;
-      right: 0;
-      width: 10px;
-      height: 10px;
-      background: blue;
-      cursor: nwse-resize;
-      display: none;
-    `;
-    
-    const wrapper = document.createElement('span');
-    wrapper.style.position = 'relative';
-    wrapper.style.display = 'inline-block';
-    img.parentNode.insertBefore(wrapper, img);
-    wrapper.appendChild(img);
-    wrapper.appendChild(resizeHandle);
-    
-    // Show resize handle on hover
-    wrapper.addEventListener('mouseenter', () => {
-      resizeHandle.style.display = 'block';
-    });
-    wrapper.addEventListener('mouseleave', () => {
-      resizeHandle.style.display = 'none';
-    });
-    
-    // Resize functionality
-    let isResizing = false;
-    let startWidth, startHeight, startMouseX, startMouseY;
-    
-    resizeHandle.addEventListener('mousedown', (e) => {
-      isResizing = true;
-      startWidth = img.offsetWidth;
-      startHeight = img.offsetHeight;
-      startMouseX = e.clientX;
-      startMouseY = e.clientY;
-      e.preventDefault();
-      e.stopPropagation();
-    });
-    
-    document.addEventListener('mousemove', (e) => {
-      if (isResizing) {
-        const width = startWidth + (e.clientX - startMouseX);
-        img.style.width = width + 'px';
-        img.style.height = 'auto';
-        e.preventDefault();
-      }
-    });
-    
-    document.addEventListener('mouseup', () => {
-      isResizing = false;
-    });
-  };
 
   // Insert or update math equation as Quill Embed (Math Blot)
   const insertMath = () => {
@@ -405,15 +242,6 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     }
   };
 
-  // Initialize existing images as draggable/resizable
-  useEffect(() => {
-    if (!quillRef.current) return;
-    
-    const editor = quillRef.current.getEditor();
-    const images = editor.root.querySelectorAll('img:not(.draggable-resizable)');
-    images.forEach(img => makeImageDraggableResizable(img, editor.root));
-  }, [value]);
-  
   // Handle click on math equation (Word-like: double-click to edit)
   useEffect(() => {
     if (!quillRef.current) return;
@@ -718,6 +546,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     }
   };
 
+
   return (
     <div className="simple-professional-math-editor">
       {/* Math Button and RTL/LTR Toggle */}
@@ -734,6 +563,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           <span className="text-2xl">𝑓(𝑥)</span>
           <span>{isArabicBrowser() ? 'إضافة معادلة رياضية' : 'Add Math Equation'}</span>
         </button>
+        
         
         {/* RTL/LTR Toggle Button - Always Visible */}
         <button
@@ -762,14 +592,6 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
             }
           </span>
         </button>
-        
-        <div className="flex-1 text-sm text-gray-600 flex items-center px-3 bg-blue-50 rounded-lg border border-blue-200 min-w-[200px]">
-          <span className="text-blue-700">
-            💡 {isArabicBrowser() 
-              ? 'جميع المعادلات ستظهر بأرقام عربية (٠،١،٢،٣،٤،٥،٦،٧،٨،٩)' 
-              : 'All equations display with Arabic numerals (٠،١،٢،٣،٤،٥،٦،٧،٨،٩)'}
-          </span>
-        </div>
       </div>
 
       <ReactQuill
@@ -932,12 +754,14 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
       <style>{`
         .simple-professional-math-editor .ql-container {
           font-family: inherit;
+          position: relative !important;
         }
         
         .simple-professional-math-editor .ql-editor {
-          min-height: 300px;
+          min-height: 400px;
           font-size: 17px;
           line-height: 1.8;
+          position: relative !important;
         }
         
         /* Math equations styling - RTL for Arabic layout */
