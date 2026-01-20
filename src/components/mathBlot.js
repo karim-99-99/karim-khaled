@@ -538,3 +538,4 @@ const getMathBlot = () => {
 
 export default getMathBlot;
 export { createMathBlotClass, registerMathBlot };
+// setQuillInstance is already exported at the top of the file
