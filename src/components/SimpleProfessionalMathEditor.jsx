@@ -3,7 +3,8 @@ import ReactQuill, { Quill } from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { isArabicBrowser } from '../utils/language';
 import 'katex/dist/katex.min.css';
-import '../components/mathBlot'; // Register Math Blot
+// Import mathBlot - it will register itself when Quill is ready
+import '../components/mathBlot';
 
 // Register Quill modules before component definition to ensure they're ready
 let modulesRegistered = false;
