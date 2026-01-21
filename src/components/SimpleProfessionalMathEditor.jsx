@@ -79,27 +79,31 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
         // Wait for modules to be ready
         await new Promise(resolve => setTimeout(resolve, 150));
         
-        // Import and register MathBlot
-        const mathBlotModule = await import('../components/mathBlot');
-        
-        if (!mounted) return;
-        
-        // Set Quill instance
-        if (mathBlotModule && mathBlotModule.setQuillInstance) {
-          mathBlotModule.setQuillInstance(Quill);
-        }
-        
-        // Register MathBlot
-        if (mathBlotModule && mathBlotModule.registerMathBlot) {
-          const success = mathBlotModule.registerMathBlot();
-          if (!success && mounted) {
-            setTimeout(() => {
-              if (mounted) mathBlotModule.registerMathBlot();
-            }, 200);
+        // Import and register MathBlot - but don't fail if it doesn't work
+        try {
+          const mathBlotModule = await import('../components/mathBlot');
+          
+          if (!mounted) return;
+          
+          // Set Quill instance
+          if (mathBlotModule && mathBlotModule.setQuillInstance) {
+            mathBlotModule.setQuillInstance(Quill);
           }
+          
+          // Try to register MathBlot
+          if (mathBlotModule && mathBlotModule.registerMathBlot) {
+            const success = mathBlotModule.registerMathBlot();
+            if (!success) {
+              console.warn('MathBlot registration failed - math equations will not be available');
+              // Continue anyway - editor will work without math support
+            }
+          }
+        } catch (mathError) {
+          console.error('Failed to load MathBlot module:', mathError);
+          // Continue anyway - editor will work without math equations
         }
         
-        // Mark editor as ready
+        // Mark editor as ready regardless of MathBlot status
         if (mounted) {
           setIsEditorReady(true);
         }

@@ -514,18 +514,25 @@ const createMathBlotClass = () => {
 
 // Register MathBlot when Quill is ready - deferred to avoid initialization issues
 let isRegistered = false;
+let registrationAttempted = false;
 
 const registerMathBlot = () => {
   if (isRegistered) return true;
+  if (registrationAttempted) return false; // Don't retry if already failed
+  
+  registrationAttempted = true;
   
   try {
     const Quill = getQuill();
     if (!Quill || typeof Quill.import !== 'function' || typeof Quill.register !== 'function') {
+      console.warn('Quill not ready for MathBlot registration');
       return false;
     }
     
     const MathBlotClass = getMathBlot();
     if (!MathBlotClass) {
+      console.warn('MathBlot class could not be created - math equations will be disabled');
+      // Don't throw error, just disable math support
       return false;
     }
     
@@ -543,9 +550,11 @@ const registerMathBlot = () => {
     
     Quill.register(MathBlotClass);
     isRegistered = true;
+    console.log('MathBlot registered successfully');
     return true;
   } catch (e) {
-    console.warn('Failed to register MathBlot:', e);
+    console.error('Failed to register MathBlot - math equations will be disabled:', e);
+    // Don't throw, just disable math support gracefully
     return false;
   }
 };
