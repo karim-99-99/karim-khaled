@@ -1,13 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getCategoryById, getCurrentUser, updateChapterName, addChapterToCategory, deleteChapterFromCategory } from '../services/storageService';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { isBackendOn, getCategoryById as getCategoryByIdApi, addChapter, updateChapter, deleteChapter } from '../services/backendApi';
 
 const Chapters = () => {
   const { sectionId, subjectId, categoryId } = useParams();
   const navigate = useNavigate();
-  const category = getCategoryById(categoryId);
+  const [category, setCategory] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
   const [editingChapter, setEditingChapter] = useState(null);
@@ -15,19 +18,28 @@ const Chapters = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newChapterName, setNewChapterName] = useState('');
 
-  if (!category) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-2xl text-gray-600">التصنيف غير موجود</p>
-      </div>
-    );
-  }
+  const useBackend = !!import.meta.env.VITE_API_URL;
+
+  useEffect(() => {
+    let c = false;
+    async function load() {
+      try {
+        if (useBackend) {
+          const cat = await getCategoryByIdApi(categoryId);
+          if (!c) setCategory(cat || null);
+        } else {
+          if (!c) setCategory(getCategoryById(categoryId) || null);
+        }
+      } finally {
+        if (!c) setLoading(false);
+      }
+    }
+    load();
+    return () => { c = true; };
+  }, [categoryId, useBackend]);
 
   const handleChapterClick = (chapterId, e) => {
-    // Prevent navigation if clicking edit button
-    if (e?.target?.closest('.edit-btn')) {
-      return;
-    }
+    if (e?.target?.closest('.edit-btn')) return;
     navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
   };
 
@@ -37,13 +49,23 @@ const Chapters = () => {
     setEditName(chapter.name);
   };
 
-  const handleSaveEdit = (chapterId, e) => {
+  const handleSaveEdit = async (chapterId, e) => {
     e.stopPropagation();
-    if (editName.trim()) {
-      updateChapterName(chapterId, editName.trim());
+    if (!editName.trim()) return;
+    setBusy(true);
+    try {
+      if (useBackend) {
+        await updateChapter(chapterId, { name: editName.trim() });
+        const cat = await getCategoryByIdApi(categoryId);
+        setCategory(cat || null);
+      } else {
+        updateChapterName(chapterId, editName.trim());
+        setCategory(getCategoryById(categoryId) || null);
+      }
       setEditingChapter(null);
       setEditName('');
-      window.location.reload(); // Reload to show changes
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -52,6 +74,58 @@ const Chapters = () => {
     setEditingChapter(null);
     setEditName('');
   };
+
+  const handleAddChapter = async () => {
+    const name = newChapterName.trim();
+    if (!name) return;
+    setBusy(true);
+    try {
+      if (useBackend) {
+        await addChapter(categoryId, name);
+        const cat = await getCategoryByIdApi(categoryId);
+        setCategory(cat || null);
+      } else {
+        addChapterToCategory(categoryId, name);
+        setCategory(getCategoryById(categoryId) || null);
+      }
+      setShowAddForm(false);
+      setNewChapterName('');
+    } catch (err) {
+      alert(err?.message || 'حدث خطأ');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteChapter = async (chapterId) => {
+    if (!window.confirm('هل تريد حذف هذا الفصل؟')) return;
+    setBusy(true);
+    try {
+      if (useBackend) {
+        await deleteChapter(chapterId);
+        const cat = await getCategoryByIdApi(categoryId);
+        setCategory(cat || null);
+      } else {
+        deleteChapterFromCategory(chapterId);
+        setCategory(getCategoryById(categoryId) || null);
+      }
+    } catch (err) {
+      alert(err?.message || 'حدث خطأ أثناء الحذف');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-xl text-gray-600">جاري التحميل...</p></div>;
+  }
+  if (!category) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-2xl text-gray-600">التصنيف غير موجود</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,7 +177,8 @@ const Chapters = () => {
               />
               <button
                 onClick={handleAddChapter}
-                className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition font-medium"
+                disabled={busy}
+                className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition font-medium disabled:opacity-60"
               >
                 {isArabicBrowser() ? 'حفظ' : 'Save'}
               </button>
@@ -121,7 +196,7 @@ const Chapters = () => {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {category.chapters.map((chapter, index) => (
+          {(category.chapters || []).map((chapter, index) => (
             <div
               key={chapter.id}
               onClick={(e) => handleChapterClick(chapter.id, e)}

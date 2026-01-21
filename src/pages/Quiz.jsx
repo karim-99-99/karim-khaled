@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getQuestionsByLevel, getVideoByLevel, saveProgress, getCurrentUser, getLevelById } from '../services/storageService';
+import { getQuestionsByLevel, getVideoByLevel, getCurrentUser, getLevelById } from '../services/storageService';
 import { getVideoFile } from '../services/videoStorage';
 import VideoModal from '../components/VideoModal';
 import ProgressBar from '../components/ProgressBar';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
 import MathRenderer from '../components/MathRenderer';
+import { isBackendOn, getQuestionsByLevel as getQuestionsByLevelApi, getVideoByLevel as getVideoByLevelApi, getItemById as getItemByIdApi } from '../services/backendApi';
 
 const Quiz = () => {
-  // Support both new structure (with sectionId, categoryId, itemId) and legacy (levelId)
   const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } = useParams();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
@@ -21,21 +21,16 @@ const Quiz = () => {
   const [video, setVideo] = useState(null);
   const [showSidebar, setShowSidebar] = useState(true);
   const [isPaused, setIsPaused] = useState(false);
+  const [level, setLevel] = useState(null);
   const currentUser = getCurrentUser();
-  // Use itemId if available (new structure), otherwise use levelId (legacy)
   const actualItemId = itemId || levelId;
-  const level = getLevelById(actualItemId);
-  
-  // Load saved progress from localStorage
   const progressKey = `quiz_progress_${actualItemId}_${currentUser?.id || 'guest'}`;
   
   useEffect(() => {
-    // Try to load saved progress
     const savedProgress = localStorage.getItem(progressKey);
     if (savedProgress) {
       try {
         const { savedAnswers, savedIndex, timestamp } = JSON.parse(savedProgress);
-        // Only load if saved within last 7 days
         if (Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000) {
           setAnswers(savedAnswers);
           setCurrentIndex(savedIndex);
@@ -48,51 +43,59 @@ const Quiz = () => {
   }, [progressKey]);
 
   useEffect(() => {
-    const quizQuestions = getQuestionsByLevel(actualItemId);
-    
-    // If no questions, create sample questions
-    if (quizQuestions.length === 0) {
-      const sampleQuestions = [];
-      for (let i = 1; i <= 50; i++) {
-        sampleQuestions.push({
-          id: `q_${actualItemId}_${i}`,
-          itemId: actualItemId,
-          levelId: actualItemId, // Keep for backward compatibility
-          question: `سؤال ${i}: ما هو 2 + 2؟`,
-          questionEn: `Question ${i}: What is 2 + 2?`,
-          answers: [
-            { id: 'a', text: '3', textEn: '3', isCorrect: false },
-            { id: 'b', text: '4', textEn: '4', isCorrect: true },
-            { id: 'c', text: '5', textEn: '5', isCorrect: false },
-            { id: 'd', text: '6', textEn: '6', isCorrect: false },
-          ],
-        });
+    let c = false;
+    const load = async () => {
+      let quizQuestions = [];
+      let levelVideo = null;
+      if (isBackendOn()) {
+        const [pq, lv, lev] = await Promise.all([
+          getQuestionsByLevelApi(actualItemId),
+          getVideoByLevelApi(actualItemId),
+          getItemByIdApi(actualItemId)
+        ]);
+        quizQuestions = pq || [];
+        levelVideo = lv || null;
+        if (!c) setLevel(lev);
+      } else {
+        quizQuestions = getQuestionsByLevel(actualItemId);
+        levelVideo = getVideoByLevel(actualItemId);
+        setLevel(getLevelById(actualItemId));
       }
-      setQuestions(sampleQuestions);
-    } else {
-      setQuestions(quizQuestions.slice(0, 50)); // Ensure max 50 questions
-    }
-
-    const loadVideo = async () => {
-      const levelVideo = getVideoByLevel(actualItemId);
-      if (levelVideo && levelVideo.isFileUpload && levelVideo.url.startsWith('indexeddb://')) {
-        // Load video from IndexedDB
+      if (c) return;
+      if (quizQuestions.length === 0) {
+        const sampleQuestions = [];
+        for (let i = 1; i <= 50; i++) {
+          sampleQuestions.push({
+            id: `q_${actualItemId}_${i}`,
+            itemId: actualItemId,
+            levelId: actualItemId,
+            question: `سؤال ${i}: ما هو 2 + 2؟`,
+            questionEn: `Question ${i}: What is 2 + 2?`,
+            answers: [
+              { id: 'a', text: '3', textEn: '3', isCorrect: false },
+              { id: 'b', text: '4', textEn: '4', isCorrect: true },
+              { id: 'c', text: '5', textEn: '5', isCorrect: false },
+              { id: 'd', text: '6', textEn: '6', isCorrect: false },
+            ],
+          });
+        }
+        setQuestions(sampleQuestions);
+      } else {
+        setQuestions(quizQuestions.slice(0, 50));
+      }
+      if (levelVideo && !isBackendOn() && levelVideo.isFileUpload && levelVideo.url?.startsWith('indexeddb://')) {
         try {
           const videoFile = await getVideoFile(actualItemId);
-          if (videoFile) {
-            setVideo({ ...levelVideo, url: videoFile.url });
-          } else {
-            setVideo(levelVideo);
-          }
-        } catch (error) {
-          console.error('Error loading video file:', error);
+          setVideo(videoFile ? { ...levelVideo, url: videoFile.url } : levelVideo);
+        } catch (e) {
           setVideo(levelVideo);
         }
       } else {
         setVideo(levelVideo);
       }
     };
-    loadVideo();
+    load();
+    return () => { c = true; };
   }, [actualItemId]);
 
   const currentQuestion = questions[currentIndex];

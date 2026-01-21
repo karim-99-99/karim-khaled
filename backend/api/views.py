@@ -1,3 +1,4 @@
+import uuid
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -50,9 +51,19 @@ class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
-            username = serializer.validated_data['username']
+            username_or_email = serializer.validated_data['username']
             password = request.data.get('password')
-            user = authenticate(username=username, password=password)
+            
+            # Try to authenticate with username first
+            user = authenticate(username=username_or_email, password=password)
+            
+            # If failed, try with email
+            if not user and '@' in username_or_email:
+                try:
+                    user_obj = User.objects.get(email=username_or_email)
+                    user = authenticate(username=user_obj.username, password=password)
+                except User.DoesNotExist:
+                    user = None
             
             if user:
                 if not user.is_active_account and user.role == 'student':
@@ -133,6 +144,143 @@ class SectionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
 
+class SubjectViewSet(viewsets.ModelViewSet):
+    """Subjects CRUD (admin for write)"""
+    queryset = Subject.objects.prefetch_related('categories__chapters__items').all()
+    serializer_class = SubjectSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        id_val = self.request.data.get('id') or f"subject_{uuid.uuid4().hex[:12]}"
+        serializer.save(id=id_val)
+
+
+class CategoryViewSet(viewsets.ModelViewSet):
+    """Categories CRUD (admin for write)"""
+    queryset = Category.objects.prefetch_related('chapters__items').all()
+    serializer_class = CategorySerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        sid = self.request.query_params.get('subject_id')
+        if sid:
+            qs = qs.filter(subject_id=sid)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        sub = serializer.validated_data.get('subject')
+        pre = (sub.id if sub else 'cat')
+        id_val = self.request.data.get('id') or f"{pre}_{uuid.uuid4().hex[:8]}"
+        serializer.save(id=id_val)
+
+
+class ChapterViewSet(viewsets.ModelViewSet):
+    """Chapters CRUD (admin for write)"""
+    queryset = Chapter.objects.prefetch_related('items').all()
+    serializer_class = ChapterSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'pk'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        cid = self.request.query_params.get('category_id')
+        if cid:
+            qs = qs.filter(category_id=cid)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        cat = serializer.validated_data.get('category')
+        if not cat:
+            raise ValueError("Category is required")
+        
+        # Generate ID in Arabic format: {categoryId}_فصل_{number}
+        id_val = self.request.data.get('id')
+        if not id_val:
+            # Find the highest chapter number in this category
+            existing_chapters = Chapter.objects.filter(category=cat)
+            max_num = 0
+            prefix = f"{cat.id}_فصل_"
+            for ch in existing_chapters:
+                # Extract number from IDs like "categoryId_فصل_1", "categoryId_فصل_2", etc.
+                if ch.id.startswith(prefix):
+                    try:
+                        num_str = ch.id[len(prefix):]
+                        num = int(num_str)
+                        if num > max_num:
+                            max_num = num
+                    except (ValueError, IndexError):
+                        pass
+            next_num = max_num + 1
+            id_val = f"{prefix}{next_num}"
+        
+        serializer.save(id=id_val)
+
+
+class LessonViewSet(viewsets.ModelViewSet):
+    """Lessons/Items CRUD (admin for write)"""
+    queryset = Lesson.objects.all()
+    serializer_class = LessonSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+    lookup_url_kwarg = 'pk'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        cid = self.request.query_params.get('chapter_id')
+        if cid:
+            qs = qs.filter(chapter_id=cid)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        ch = serializer.validated_data.get('chapter')
+        if not ch:
+            raise ValueError("Chapter is required")
+        
+        # Generate ID in Arabic format: {chapterId}_درس_{number}
+        id_val = self.request.data.get('id')
+        if not id_val:
+            # Find the highest lesson number in this chapter
+            existing_lessons = Lesson.objects.filter(chapter=ch)
+            max_num = 0
+            prefix = f"{ch.id}_درس_"
+            for lesson in existing_lessons:
+                # Extract number from IDs like "chapterId_درس_1", "chapterId_درس_2", etc.
+                if lesson.id.startswith(prefix):
+                    try:
+                        num_str = lesson.id[len(prefix):]
+                        num = int(num_str)
+                        if num > max_num:
+                            max_num = num
+                    except (ValueError, IndexError):
+                        pass
+            next_num = max_num + 1
+            id_val = f"{prefix}{next_num}"
+        
+        serializer.save(id=id_val)
+
+
 class QuestionViewSet(viewsets.ModelViewSet):
     """Questions management"""
     queryset = Question.objects.select_related('lesson', 'chapter', 'category', 'subject', 'section', 'created_by').prefetch_related('answers').all()
@@ -173,14 +321,31 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
     
     def perform_create(self, serializer):
-        # Set references based on lesson
-        instance = serializer.save(created_by=self.request.user)
-        if instance.lesson:
-            instance.chapter = instance.lesson.chapter
-            instance.category = instance.lesson.chapter.category
-            instance.subject = instance.lesson.chapter.category.subject
-            instance.section = instance.lesson.chapter.category.subject.section
-            instance.save()
+        qid = self.request.data.get('id') or f"q_{int(timezone.now().timestamp())}_{uuid.uuid4().hex[:8]}"
+        validated_data = serializer.validated_data.copy()
+        answers_data = validated_data.pop('answers', [])
+        
+        # Create question with id
+        question = Question.objects.create(
+            id=qid,
+            created_by=self.request.user,
+            **validated_data
+        )
+        
+        # Set related fields if lesson exists
+        if question.lesson:
+            question.chapter = question.lesson.chapter
+            question.category = question.lesson.chapter.category
+            question.subject = question.lesson.chapter.category.subject
+            question.section = question.lesson.chapter.category.subject.section
+            question.save()
+        
+        # Create answers
+        for answer_data in answers_data:
+            Answer.objects.create(question=question, **answer_data)
+        
+        # Update serializer instance for response
+        serializer.instance = question
 
 
 class VideoViewSet(viewsets.ModelViewSet):
@@ -202,13 +367,26 @@ class VideoViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
     
     def perform_create(self, serializer):
-        instance = serializer.save(created_by=self.request.user)
-        if instance.lesson:
-            instance.chapter = instance.lesson.chapter
-            instance.category = instance.lesson.chapter.category
-            instance.subject = instance.lesson.chapter.category.subject
-            instance.section = instance.lesson.chapter.category.subject.section
-            instance.save()
+        vid = self.request.data.get('id') or f"v_{uuid.uuid4().hex[:12]}"
+        validated_data = serializer.validated_data.copy()
+        
+        # Create video with id
+        video = Video.objects.create(
+            id=vid,
+            created_by=self.request.user,
+            **validated_data
+        )
+        
+        # Set related fields if lesson exists
+        if video.lesson:
+            video.chapter = video.lesson.chapter
+            video.category = video.lesson.chapter.category
+            video.subject = video.lesson.chapter.category.subject
+            video.section = video.lesson.chapter.category.subject.section
+            video.save()
+        
+        # Update serializer instance for response
+        serializer.instance = video
 
 
 class FileViewSet(viewsets.ModelViewSet):
@@ -230,13 +408,26 @@ class FileViewSet(viewsets.ModelViewSet):
         return [permissions.IsAuthenticated()]
     
     def perform_create(self, serializer):
-        instance = serializer.save(created_by=self.request.user)
-        if instance.lesson:
-            instance.chapter = instance.lesson.chapter
-            instance.category = instance.lesson.chapter.category
-            instance.subject = instance.lesson.chapter.category.subject
-            instance.section = instance.lesson.chapter.category.subject.section
-            instance.save()
+        fid = self.request.data.get('id') or f"f_{uuid.uuid4().hex[:12]}"
+        validated_data = serializer.validated_data.copy()
+        
+        # Create file with id
+        file_obj = File.objects.create(
+            id=fid,
+            created_by=self.request.user,
+            **validated_data
+        )
+        
+        # Set related fields if lesson exists
+        if file_obj.lesson:
+            file_obj.chapter = file_obj.lesson.chapter
+            file_obj.category = file_obj.lesson.chapter.category
+            file_obj.subject = file_obj.lesson.chapter.category.subject
+            file_obj.section = file_obj.lesson.chapter.category.subject.section
+            file_obj.save()
+        
+        # Update serializer instance for response
+        serializer.instance = file_obj
 
 
 class StudentProgressViewSet(viewsets.ModelViewSet):

@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { addUser, getUserByEmail, getUserByUsername } from '../services/storageService';
+import { register as backendRegister } from '../services/backendApi';
 import Header from '../components/Header';
 import backgroundImage from '../assets/kareem.jpg';
 import { isArabicBrowser } from '../utils/language';
+
+const useBackend = () => !!import.meta.env.VITE_API_URL;
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -15,6 +18,7 @@ const Register = () => {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -25,12 +29,11 @@ const Register = () => {
     setError('');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess(false);
 
-    // Validation
     if (!formData.username.trim()) {
       setError('يرجى إدخال اسم المستخدم');
       return;
@@ -48,20 +51,39 @@ const Register = () => {
       return;
     }
 
-    // Check if email already exists
+    if (useBackend()) {
+      setLoading(true);
+      try {
+        await backendRegister({
+          username: formData.username.trim(),
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password,
+          password2: formData.password,
+          first_name: formData.name.trim(),
+          last_name: '',
+          phone: formData.phone.trim() || '',
+          role: 'student',
+        });
+        setSuccess(true);
+        setTimeout(() => navigate('/login'), 2000);
+      } catch (err) {
+        setError(err.message || 'حدث خطأ أثناء التسجيل');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (getUserByEmail(formData.email)) {
       setError('البريد الإلكتروني مستخدم بالفعل');
       return;
     }
-
-    // Check if username already exists
     if (getUserByUsername(formData.username)) {
       setError('اسم المستخدم مستخدم بالفعل');
       return;
     }
 
     try {
-      // Create new user
       addUser({
         username: formData.username.trim(),
         email: formData.email.trim().toLowerCase(),
@@ -70,11 +92,8 @@ const Register = () => {
         name: formData.name.trim(),
         role: 'student'
       });
-
       setSuccess(true);
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      setTimeout(() => navigate('/login'), 2000);
     } catch (err) {
       setError(err.message || 'حدث خطأ أثناء التسجيل');
     }
@@ -191,9 +210,10 @@ const Register = () => {
 
               <button
                 type="submit"
-                className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition shadow-lg hover:shadow-xl"
+                disabled={loading}
+                className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition shadow-lg hover:shadow-xl disabled:opacity-70"
               >
-                {isArabicBrowser() ? 'إنشاء الحساب' : 'Create Account'}
+                {loading ? (isArabicBrowser() ? 'جاري الإنشاء...' : 'Creating...') : (isArabicBrowser() ? 'إنشاء الحساب' : 'Create Account')}
               </button>
             </form>
           )}

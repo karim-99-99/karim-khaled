@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUsers, updateUser, deleteUser, getCurrentUser } from '../../services/storageService';
+import { getUsers as getUsersLocal, updateUser as updateUserLocal, deleteUser as deleteUserLocal, getCurrentUser } from '../../services/storageService';
+import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
 
@@ -11,6 +12,7 @@ const AdminUsers = () => {
   const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive
   const [selectedUser, setSelectedUser] = useState(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState({
     hasAbilitiesAccess: false,
     hasCollectionAccess: false,
@@ -21,6 +23,7 @@ const AdminUsers = () => {
   });
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
+  const useBackend = backendApi.isBackendOn();
 
   useEffect(() => {
     if (!currentUser || currentUser.role !== 'admin') {
@@ -34,11 +37,26 @@ const AdminUsers = () => {
     filterUsers();
   }, [users, searchTerm, filterStatus]);
 
-  const loadUsers = () => {
-    const allUsers = getUsers();
-    // Don't show admin users in the list (or show them but mark them differently)
-    const studentUsers = allUsers.filter(u => u.role === 'student');
-    setUsers(studentUsers);
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      if (useBackend) {
+        const allUsers = await backendApi.getUsers();
+        // Filter out admin users, show only students
+        const studentUsers = allUsers.filter(u => u.role === 'student');
+        setUsers(studentUsers);
+      } else {
+        const allUsers = getUsersLocal();
+        const studentUsers = allUsers.filter(u => u.role === 'student');
+        setUsers(studentUsers);
+      }
+    } catch (error) {
+      console.error('Error loading users:', error);
+      alert(error.message || 'حدث خطأ أثناء تحميل المستخدمين');
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const filterUsers = () => {
@@ -65,27 +83,35 @@ const AdminUsers = () => {
     setFilteredUsers(filtered);
   };
 
-  const handleToggleActive = (userId) => {
+  const handleToggleActive = async (userId) => {
     try {
       const user = users.find(u => u.id === userId);
       if (!user) return;
 
-      updateUser(userId, { isActive: !user.isActive });
-      loadUsers();
+      if (useBackend) {
+        await backendApi.updateUser(userId, { isActive: !user.isActive });
+      } else {
+        updateUserLocal(userId, { isActive: !user.isActive });
+      }
+      await loadUsers();
     } catch (error) {
       console.error('Error toggling user status:', error);
       alert(error.message || 'حدث خطأ أثناء تحديث حالة المستخدم');
     }
   };
 
-  const handleDelete = (userId, userName) => {
+  const handleDelete = async (userId, userName) => {
     if (!window.confirm(`هل أنت متأكد من حذف المستخدم "${userName}"؟\nهذا الإجراء لا يمكن التراجع عنه.`)) {
       return;
     }
 
     try {
-      deleteUser(userId);
-      loadUsers();
+      if (useBackend) {
+        await backendApi.deleteUser(userId);
+      } else {
+        deleteUserLocal(userId);
+      }
+      await loadUsers();
     } catch (error) {
       console.error('Error deleting user:', error);
       alert(error.message || 'حدث خطأ أثناء حذف المستخدم');
@@ -110,12 +136,16 @@ const AdminUsers = () => {
     setSelectedUser(null);
   };
 
-  const handleSavePermissions = () => {
+  const handleSavePermissions = async () => {
     if (!selectedUser) return;
 
     try {
-      updateUser(selectedUser.id, { permissions });
-      loadUsers();
+      if (useBackend) {
+        await backendApi.updateUser(selectedUser.id, { permissions });
+      } else {
+        updateUserLocal(selectedUser.id, { permissions });
+      }
+      await loadUsers();
       handleClosePermissions();
     } catch (error) {
       console.error('Error updating permissions:', error);
@@ -193,6 +223,11 @@ const AdminUsers = () => {
 
           {/* Users Table */}
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            {loading ? (
+              <div className="p-8 text-center text-dark-600">
+                {isArabicBrowser() ? 'جاري التحميل...' : 'Loading...'}
+              </div>
+            ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-primary-500 text-white">
@@ -299,6 +334,7 @@ const AdminUsers = () => {
                 </tbody>
               </table>
             </div>
+            )}
           </div>
 
           {/* Stats */}

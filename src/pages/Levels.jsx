@@ -1,18 +1,68 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getItemsByChapter, getLevelProgress, getCurrentUser, getChapterById, updateItemName, getFileByLevel, getVideoByLevel, getQuestionsByLevel } from '../services/storageService';
+import { getLevelProgress, getCurrentUser, getChapterById, updateItemName, getFileByLevel, getVideoByLevel, getQuestionsByLevel, addItemToChapter, deleteItemFromChapter } from '../services/storageService';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { isBackendOn, getChapterById as getChapterByIdApi, updateLesson, addLesson, deleteLesson, getVideos, getFiles, getQuestions } from '../services/backendApi';
 
 const Levels = () => {
   const { sectionId, subjectId, categoryId, chapterId } = useParams();
   const navigate = useNavigate();
-  const chapter = getChapterById(chapterId);
-  const items = chapter ? chapter.items : [];
+  const [chapter, setChapter] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [videos, setVideos] = useState([]);
+  const [files, setFiles] = useState([]);
+  const [questions, setQuestions] = useState([]);
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
   const [editingItem, setEditingItem] = useState(null);
   const [editName, setEditName] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newLessonName, setNewLessonName] = useState('');
+
+  const useBackend = !!import.meta.env.VITE_API_URL;
+
+  const items = (chapter?.items || []).map(i => ({ ...i, hasTest: i.has_test ?? i.hasTest }));
+
+  useEffect(() => {
+    let c = false;
+    async function load() {
+      try {
+        if (useBackend) {
+          const ch = await getChapterByIdApi(chapterId);
+          if (!c) setChapter(ch || null);
+          if (!c && !isAdmin) {
+            const [v, f, q] = await Promise.all([
+              getVideos(),
+              getFiles(),
+              getQuestions({ chapter_id: chapterId })
+            ]);
+            if (!c) { setVideos(Array.isArray(v) ? v : []); setFiles(Array.isArray(f) ? f : []); setQuestions(Array.isArray(q) ? q : []); }
+          }
+        } else {
+          if (!c) setChapter(getChapterById(chapterId) || null);
+        }
+      } finally {
+        if (!c) setLoading(false);
+      }
+    }
+    load();
+    return () => { c = true; };
+  }, [chapterId, isAdmin, useBackend]);
+
+  const getVideoForItem = (itemId) => {
+    if (useBackend) return (videos || []).find(v => (v.lesson || v.itemId || v.levelId) === itemId) || null;
+    return getVideoByLevel(itemId);
+  };
+  const getFileForItem = (itemId) => {
+    if (useBackend) return (files || []).find(f => (f.lesson || f.itemId || f.levelId) === itemId) || null;
+    return getFileByLevel(itemId);
+  };
+  const getQuestionsForItem = (itemId) => {
+    if (useBackend) return (questions || []).filter(q => (q.lesson || q.levelId || q.itemId) === itemId);
+    return getQuestionsByLevel(itemId);
+  };
 
 
   const getItemStatus = (itemId) => {
@@ -85,13 +135,23 @@ const Levels = () => {
     setEditName(item.name);
   };
 
-  const handleSaveEdit = (itemId, e) => {
+  const handleSaveEdit = async (itemId, e) => {
     e.stopPropagation();
-    if (editName.trim()) {
-      updateItemName(itemId, editName.trim());
+    if (!editName.trim()) return;
+    setBusy(true);
+    try {
+      if (useBackend) {
+        await updateLesson(itemId, { name: editName.trim() });
+        const ch = await getChapterByIdApi(chapterId);
+        setChapter(ch || null);
+      } else {
+        updateItemName(itemId, editName.trim());
+        setChapter(getChapterById(chapterId) || null);
+      }
       setEditingItem(null);
       setEditName('');
-      window.location.reload(); // Reload to show changes
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -100,6 +160,54 @@ const Levels = () => {
     setEditingItem(null);
     setEditName('');
   };
+
+  const handleAddLesson = async () => {
+    const name = newLessonName.trim();
+    if (!name) return;
+    setBusy(true);
+    try {
+      if (useBackend) {
+        await addLesson(chapterId, name, true);
+        const ch = await getChapterByIdApi(chapterId);
+        setChapter(ch || null);
+      } else {
+        addItemToChapter(chapterId, name, true);
+        setChapter(getChapterById(chapterId) || null);
+      }
+      setShowAddForm(false);
+      setNewLessonName('');
+    } catch (err) {
+      alert(err?.message || 'حدث خطأ');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDeleteLesson = async (itemId) => {
+    if (!window.confirm('هل تريد حذف هذا الدرس؟')) return;
+    setBusy(true);
+    try {
+      if (useBackend) {
+        await deleteLesson(itemId);
+        const ch = await getChapterByIdApi(chapterId);
+        setChapter(ch || null);
+      } else {
+        deleteItemFromChapter(itemId);
+        setChapter(getChapterById(chapterId) || null);
+      }
+    } catch (err) {
+      alert(err?.message || 'حدث خطأ أثناء الحذف');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-xl text-gray-600">جاري التحميل...</p></div>;
+  }
+  if (!chapter) {
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-xl text-gray-600">الفصل غير موجود</p></div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -115,12 +223,20 @@ const Levels = () => {
               ← رجوع
             </button>
             {isAdmin && (
-              <button
-                onClick={() => navigate(`/admin/lessons?chapterId=${chapterId}`)}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
-              >
-                📖 {isArabicBrowser() ? 'إدارة الدروس' : 'Manage Lessons'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowAddForm(true)}
+                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+                >
+                  + {isArabicBrowser() ? 'إضافة درس' : 'Add Lesson'}
+                </button>
+                <button
+                  onClick={() => navigate(`/admin/lessons?chapterId=${chapterId}`)}
+                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
+                >
+                  📖 {isArabicBrowser() ? 'إدارة الدروس' : 'Manage Lessons'}
+                </button>
+              </div>
             )}
           </div>
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
@@ -128,6 +244,28 @@ const Levels = () => {
           </h1>
           <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">اختر الدرس</p>
         </div>
+
+        {isAdmin && showAddForm && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6 border-2 border-blue-300">
+            <h3 className="text-lg font-bold text-dark-600 mb-3">{isArabicBrowser() ? 'إضافة درس جديد' : 'Add New Lesson'}</h3>
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={newLessonName}
+                onChange={(e) => setNewLessonName(e.target.value)}
+                placeholder={isArabicBrowser() ? 'اسم الدرس' : 'Lesson name'}
+                className="flex-1 px-4 py-2 border rounded-lg"
+                onKeyDown={(e) => { if (e.key === 'Enter') handleAddLesson(); }}
+              />
+              <button onClick={handleAddLesson} disabled={busy} className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 font-medium disabled:opacity-60">
+                {isArabicBrowser() ? 'حفظ' : 'Save'}
+              </button>
+              <button onClick={() => { setShowAddForm(false); setNewLessonName(''); }} className="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500">
+                {isArabicBrowser() ? 'إلغاء' : 'Cancel'}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {items.map((item) => {
@@ -142,20 +280,29 @@ const Levels = () => {
                 `}
               >
                 {isAdmin && (
-                  <button
-                    onClick={(e) => editingItem === item.id ? handleSaveEdit(item.id, e) : handleEditClick(item, e)}
-                    className="absolute top-2 left-2 bg-primary-500 hover:bg-primary-600 text-white p-2 rounded-lg text-sm font-medium z-10"
-                  >
-                    {editingItem === item.id ? '💾' : '✏️'}
-                  </button>
-                )}
-                {isAdmin && editingItem === item.id && (
-                  <button
-                    onClick={handleCancelEdit}
-                    className="absolute top-2 left-12 bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg text-sm font-medium z-10"
-                  >
-                    ✕
-                  </button>
+                  <div className="absolute top-2 left-2 flex gap-2 z-10">
+                    <button
+                      onClick={(e) => editingItem === item.id ? handleSaveEdit(item.id, e) : handleEditClick(item, e)}
+                      disabled={busy}
+                      className="bg-primary-500 hover:bg-primary-600 text-white p-2 rounded-lg text-sm font-medium disabled:opacity-60"
+                    >
+                      {editingItem === item.id ? '💾' : '✏️'}
+                    </button>
+                    {editingItem !== item.id && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleDeleteLesson(item.id); }}
+                        disabled={busy}
+                        className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg text-sm font-medium disabled:opacity-60"
+                      >
+                        🗑️
+                      </button>
+                    )}
+                    {editingItem === item.id && (
+                      <button onClick={handleCancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg text-sm font-medium">
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 )}
                 {status === 'completed' && (
                   <div className="absolute top-2 right-2 bg-yellow-500 text-white text-lg md:text-xl w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center shadow-md font-bold">✓</div>
@@ -217,11 +364,10 @@ const Levels = () => {
                   ) : (
                     <>
                       {(() => {
-                        // Check what content exists for this lesson
-                        const video = getVideoByLevel(item.id);
-                        const file = getFileByLevel(item.id);
-                        const questions = getQuestionsByLevel(item.id);
-                        const hasExam = item.hasTest && questions && questions.length > 0;
+                        const video = getVideoForItem(item.id);
+                        const file = getFileForItem(item.id);
+                        const qs = getQuestionsForItem(item.id);
+                        const hasExam = item.hasTest && qs && qs.length > 0;
                         
                         // Don't show any buttons if no content exists
                         if (!video && !file && !hasExam) {

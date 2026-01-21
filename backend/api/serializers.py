@@ -40,9 +40,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password2')
         password = validated_data.pop('password')
-        user = User.objects.create_user(**validated_data)
-        user.set_password(password)
-        user.save()
+        user = User.objects.create_user(**validated_data, password=password)
         return user
 
 
@@ -99,6 +97,7 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
         model = Question
         fields = ['id', 'lesson', 'question', 'question_en', 'question_image',
                   'explanation', 'answers']
+        read_only_fields = ['id']
     
     def create(self, validated_data):
         answers_data = validated_data.pop('answers')
@@ -128,6 +127,7 @@ class LessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = ['id', 'chapter', 'name', 'name_en', 'has_test', 'order']
+        read_only_fields = ['id']
 
 
 class ChapterSerializer(serializers.ModelSerializer):
@@ -137,6 +137,7 @@ class ChapterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chapter
         fields = ['id', 'category', 'name', 'name_en', 'order', 'items']
+        read_only_fields = ['id']
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -175,11 +176,14 @@ class VideoSerializer(serializers.ModelSerializer):
         model = Video
         fields = ['id', 'lesson', 'chapter', 'category', 'subject', 'section',
                   'title', 'description', 'video_file', 'video_file_url',
-                  'thumbnail', 'thumbnail_url', 'duration', 'order',
+                  'video_url', 'thumbnail', 'thumbnail_url', 'duration', 'order',
                   'created_at', 'updated_at', 'created_by']
-        read_only_fields = ['created_at', 'updated_at', 'created_by']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
     
     def get_video_file_url(self, obj):
+        # Return video_url if it exists (external link), otherwise return file URL
+        if obj.video_url:
+            return obj.video_url
         if obj.video_file:
             request = self.context.get('request')
             if request:
@@ -203,7 +207,7 @@ class FileSerializer(serializers.ModelSerializer):
         fields = ['id', 'lesson', 'chapter', 'category', 'subject', 'section',
                   'title', 'description', 'file', 'file_url', 'file_type', 'order',
                   'created_at', 'updated_at', 'created_by']
-        read_only_fields = ['created_at', 'updated_at', 'created_by']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
     
     def get_file_url(self, obj):
         if obj.file:

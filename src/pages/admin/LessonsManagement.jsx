@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getCategoriesBySubject, getChaptersByCategory, getLevelsByChapter, addItemToChapter, deleteItemFromChapter, getChapterById } from '../../services/storageService';
+import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
 
@@ -8,47 +9,79 @@ const LessonsManagement = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const chapterIdFromUrl = searchParams.get('chapterId');
+  const useBackend = !!import.meta.env.VITE_API_URL;
   
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedChapter, setSelectedChapter] = useState('');
+  const [chaptersForCategory, setChaptersForCategory] = useState([]);
   const [lessons, setLessons] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLessonName, setNewLessonName] = useState('');
   const [newLessonHasTest, setNewLessonHasTest] = useState(true);
 
   useEffect(() => {
-    setSubjects(getSubjects());
-    
-    // If chapterId is in URL, auto-select the appropriate dropdowns
-    if (chapterIdFromUrl) {
-      const chapter = getChapterById(chapterIdFromUrl);
-      if (chapter) {
-        // Find the category and subject that contains this chapter
-        const allSubjects = getSubjects();
-        for (const subject of allSubjects) {
-          for (const category of (subject.categories || [])) {
-            const ch = (category.chapters || []).find(c => c.id === chapterIdFromUrl);
-            if (ch) {
-              setSelectedSubject(subject.id);
-              setSelectedCategory(category.id);
-              setSelectedChapter(chapterIdFromUrl);
-              break;
+    if (useBackend) {
+      backendApi.getSubjects().then(setSubjects).catch(() => setSubjects([]));
+      if (chapterIdFromUrl) {
+        backendApi.getSubjects().then((all) => {
+          for (const s of all) {
+            for (const cat of s.categories || []) {
+              if ((cat.chapters || []).some(ch => ch.id === chapterIdFromUrl)) {
+                setSelectedSubject(s.id);
+                setSelectedCategory(cat.id);
+                setSelectedChapter(chapterIdFromUrl);
+                return;
+              }
+            }
+          }
+        });
+      }
+    } else {
+      setSubjects(getSubjects());
+      if (chapterIdFromUrl) {
+        const chapter = getChapterById(chapterIdFromUrl);
+        if (chapter) {
+          const allSubjects = getSubjects();
+          for (const subject of allSubjects) {
+            for (const category of (subject.categories || [])) {
+              if ((category.chapters || []).some(c => c.id === chapterIdFromUrl)) {
+                setSelectedSubject(subject.id);
+                setSelectedCategory(category.id);
+                setSelectedChapter(chapterIdFromUrl);
+                break;
+              }
             }
           }
         }
       }
     }
-  }, [chapterIdFromUrl]);
+  }, [chapterIdFromUrl, useBackend]);
 
   useEffect(() => {
-    if (selectedChapter) {
-      setLessons(getLevelsByChapter(selectedChapter));
-    } else {
-      setLessons([]);
+    if (!selectedCategory) {
+      setChaptersForCategory([]);
+      return;
     }
-  }, [selectedChapter]);
+    if (useBackend) {
+      backendApi.getChaptersByCategory(selectedCategory).then(setChaptersForCategory).catch(() => setChaptersForCategory([]));
+    } else {
+      setChaptersForCategory(getChaptersByCategory(selectedCategory));
+    }
+  }, [selectedCategory, useBackend]);
+
+  useEffect(() => {
+    if (!selectedChapter) {
+      setLessons([]);
+      return;
+    }
+    if (useBackend) {
+      backendApi.getLevelsByChapter(selectedChapter).then(setLessons).catch(() => setLessons([]));
+    } else {
+      setLessons(getLevelsByChapter(selectedChapter));
+    }
+  }, [selectedChapter, useBackend]);
 
   const handleSubjectChange = (subjectId) => {
     setSelectedSubject(subjectId);
@@ -67,7 +100,7 @@ const LessonsManagement = () => {
     setSelectedChapter(chapterId);
   };
 
-  const handleAddLesson = () => {
+  const handleAddLesson = async () => {
     if (!selectedChapter) {
       alert(isArabicBrowser() ? 'يرجى اختيار الفصل أولاً' : 'Please select a chapter first');
       return;
@@ -76,7 +109,19 @@ const LessonsManagement = () => {
       alert(isArabicBrowser() ? 'يرجى إدخال اسم الدرس' : 'Please enter lesson name');
       return;
     }
-    
+    if (useBackend) {
+      try {
+        await backendApi.addLesson(selectedChapter, newLessonName.trim(), newLessonHasTest);
+        const list = await backendApi.getLevelsByChapter(selectedChapter);
+        setLessons(list);
+        setNewLessonName('');
+        setNewLessonHasTest(true);
+        setShowAddForm(false);
+      } catch (e) {
+        alert(e.message || (isArabicBrowser() ? 'حدث خطأ أثناء إضافة الدرس' : 'Error adding lesson'));
+      }
+      return;
+    }
     const success = addItemToChapter(selectedChapter, newLessonName.trim(), newLessonHasTest);
     if (success) {
       setLessons(getLevelsByChapter(selectedChapter));
@@ -88,15 +133,29 @@ const LessonsManagement = () => {
     }
   };
 
-  const handleDeleteLesson = (lessonId) => {
-    if (window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الدرس؟' : 'Are you sure you want to delete this lesson?')) {
-      const success = deleteItemFromChapter(lessonId);
-      if (success) {
-        setLessons(getLevelsByChapter(selectedChapter));
-      } else {
-        alert(isArabicBrowser() ? 'حدث خطأ أثناء حذف الدرس' : 'Error deleting lesson');
+  const handleDeleteLesson = async (lessonId) => {
+    if (!window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الدرس؟' : 'Are you sure you want to delete this lesson?')) return;
+    if (useBackend) {
+      try {
+        await backendApi.deleteLesson(lessonId);
+        const list = await backendApi.getLevelsByChapter(selectedChapter);
+        setLessons(list);
+      } catch (e) {
+        console.error('deleteLesson error:', e);
+        const msg = e?.message || '';
+        if (msg.includes('Not found') || /404|غير موجود/.test(msg)) {
+          alert(isArabicBrowser() ? 'الدرس غير موجود أو تم حذفه مسبقاً.' : 'Lesson not found or already deleted.');
+        } else if (msg.includes('permission') || /403|صلاحي|صلاحية/.test(msg)) {
+          alert(isArabicBrowser() ? 'ليس لديك صلاحية الحذف. سجّل دخولاً بحساب مدير.' : 'You do not have permission to delete. Log in as admin.');
+        } else {
+          alert(msg || (isArabicBrowser() ? 'حدث خطأ أثناء حذف الدرس' : 'Error deleting lesson'));
+        }
       }
+      return;
     }
+    const success = deleteItemFromChapter(lessonId);
+    if (success) setLessons(getLevelsByChapter(selectedChapter));
+    else alert(isArabicBrowser() ? 'حدث خطأ أثناء حذف الدرس' : 'Error deleting lesson');
   };
 
   const selectedSubjectObj = subjects.find(s => s.id === selectedSubject);
@@ -169,7 +228,7 @@ const LessonsManagement = () => {
                   className="w-full px-4 py-2 border rounded-lg"
                 >
                   <option value="">{isArabicBrowser() ? 'اختر الفصل' : 'Select Chapter'}</option>
-                  {getChaptersByCategory(selectedCategory).map(chapter => (
+                  {chaptersForCategory.map(chapter => (
                     <option key={chapter.id} value={chapter.id}>
                       {chapter.name}
                     </option>

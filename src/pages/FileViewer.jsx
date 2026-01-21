@@ -4,6 +4,7 @@ import { getFileByLevel, getItemById } from '../services/storageService';
 import { getFileAttachment } from '../services/fileStorage';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { isBackendOn, getFileByLevel as getFileByLevelApi } from '../services/backendApi';
 
 const FileViewer = () => {
   const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } = useParams();
@@ -11,49 +12,47 @@ const FileViewer = () => {
   const [fileMetadata, setFileMetadata] = useState(null);
   const [fileUrl, setFileUrl] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // Use itemId if available (new structure), otherwise use levelId (legacy)
   const actualItemId = itemId || levelId;
-  const item = getItemById(actualItemId);
+  const [item, setItem] = useState(null);
 
   useEffect(() => {
     let currentFileUrl = null;
-    
     const loadFile = async () => {
       setLoading(true);
-      const file = getFileByLevel(actualItemId);
-      
+      let file = null;
+      if (isBackendOn()) {
+        file = await getFileByLevelApi(actualItemId);
+      } else {
+        file = getFileByLevel(actualItemId);
+        setItem(getItemById(actualItemId));
+      }
       if (!file) {
         setLoading(false);
         return;
       }
-      
       setFileMetadata(file);
-      
-      if (file.isFileUpload && file.url?.startsWith('indexeddb://')) {
-        // Load file from IndexedDB
+      if (isBackendOn() && file.url) {
+        currentFileUrl = file.url;
+        setFileUrl(file.url);
+      } else if (!isBackendOn() && file.isFileUpload && file.url?.startsWith('indexeddb://')) {
         try {
           const fileData = await getFileAttachment(actualItemId);
-          if (fileData && fileData.url) {
+          if (fileData?.url) {
             currentFileUrl = fileData.url;
             setFileUrl(fileData.url);
           }
-        } catch (error) {
-          console.error('Error loading file:', error);
+        } catch (e) {
+          console.error('Error loading file:', e);
         }
       } else if (file.url) {
         currentFileUrl = file.url;
         setFileUrl(file.url);
       }
-      
       setLoading(false);
     };
-    
     loadFile();
-    
-    // Cleanup blob URLs on unmount
     return () => {
-      if (currentFileUrl && currentFileUrl.startsWith('blob:')) {
+      if (currentFileUrl && typeof currentFileUrl === 'string' && currentFileUrl.startsWith('blob:')) {
         URL.revokeObjectURL(currentFileUrl);
       }
     };

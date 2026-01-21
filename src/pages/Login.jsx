@@ -1,51 +1,57 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { getUserByEmail, setCurrentUser } from '../services/storageService';
+import { login as backendLogin, isBackendOn } from '../services/backendApi';
 import Header from '../components/Header';
 import backgroundImage from '../assets/kareem.jpg';
 import { isArabicBrowser } from '../utils/language';
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const useBackend = isBackendOn() || !!import.meta.env.VITE_API_URL;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
+    if (useBackend) {
+      setLoading(true);
+      try {
+        const { token, user } = await backendLogin(email.trim(), password);
+        setCurrentUser({ ...user, token, isActive: user.is_active_account });
+        const redirectPath = searchParams.get('redirect');
+        if (redirectPath) navigate(redirectPath);
+        else navigate(user.role === 'admin' ? '/admin/dashboard' : '/courses');
+      } catch (err) {
+        setError(err.message || 'فشل تسجيل الدخول');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const user = getUserByEmail(email);
-    
     if (!user) {
       setError('البريد الإلكتروني غير صحيح');
       return;
     }
-
     if (user.password !== password) {
       setError('كلمة المرور غير صحيحة');
       return;
     }
-
-    // Check if account is active (admin accounts are always active)
     if (user.role === 'student' && user.isActive !== true) {
       setError('حسابك غير مفعّل. يرجى التواصل مع المدير لتفعيل حسابك.');
       return;
     }
-
     setCurrentUser(user);
-    
-    // Check if there's a redirect parameter, otherwise go to courses
     const redirectPath = searchParams.get('redirect');
-    if (redirectPath) {
-      navigate(redirectPath);
-    } else {
-      if (user.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/courses');
-      }
-    }
+    if (redirectPath) navigate(redirectPath);
+    else navigate(user.role === 'admin' ? '/admin/dashboard' : '/courses');
   };
 
   return (
@@ -66,15 +72,15 @@ const Login = () => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-              {isArabicBrowser() ? 'البريد الإلكتروني' : ''}
+              {useBackend ? (isArabicBrowser() ? 'اسم المستخدم' : 'Username') : (isArabicBrowser() ? 'البريد الإلكتروني' : 'Email')}
             </label>
             <input
-              type="email"
+              type={useBackend ? 'text' : 'email'}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-              placeholder="example@email.com"
+              placeholder={useBackend ? 'admin' : 'example@email.com'}
             />
           </div>
 
@@ -100,9 +106,10 @@ const Login = () => {
 
           <button
             type="submit"
-            className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition shadow-lg hover:shadow-xl"
+            disabled={loading}
+            className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition shadow-lg hover:shadow-xl disabled:opacity-70"
           >
-            {isArabicBrowser() ? 'تسجيل الدخول' : 'Login'}
+            {loading ? (isArabicBrowser() ? 'جاري الدخول...' : 'Signing in...') : (isArabicBrowser() ? 'تسجيل الدخول' : 'Login')}
           </button>
         </form>
 
@@ -120,9 +127,9 @@ const Login = () => {
 
         <div className="mt-6 text-center text-xs md:text-sm text-dark-600">
           <p className="font-medium">{isArabicBrowser() ? 'حساب تجريبي للطالب:' : ''}</p>
-          <p className="mt-2 font-mono text-xs md:text-sm text-dark-500">student@test.com / student123</p>
+          <p className="mt-2 font-mono text-xs md:text-sm text-dark-500">{useBackend ? 'student / student123' : 'student@test.com / student123'}</p>
           <p className="mt-2 font-medium">{isArabicBrowser() ? 'حساب المدير:' : ' :'}</p>
-          <p className="font-mono text-xs md:text-sm text-dark-500">admin@teacher.com / admin123</p>
+          <p className="font-mono text-xs md:text-sm text-dark-500">{useBackend ? 'admin / admin123' : 'admin@teacher.com / admin123'}</p>
         </div>
         </div>
       </div>

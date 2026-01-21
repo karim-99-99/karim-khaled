@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getVideos, getVideoByLevel, addVideo, updateVideo, deleteVideo, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory, getItemById, getChapterById, getCategoryById, getSections } from '../../services/storageService';
 import { saveVideoFile, getVideoFile, deleteVideoFile } from '../../services/videoStorage';
+import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
 
@@ -10,6 +11,7 @@ const Videos = () => {
   const [searchParams] = useSearchParams();
   const itemIdFromUrl = searchParams.get('itemId');
   const returnUrl = searchParams.get('returnUrl');
+  const useBackend = backendApi.isBackendOn();
   
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
@@ -19,26 +21,21 @@ const Videos = () => {
   const [videos, setVideos] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingVideo, setEditingVideo] = useState(null);
-  const [formData, setFormData] = useState({
-    url: '',
-    title: '',
-    titleEn: '',
-  });
-  const [uploadMethod, setUploadMethod] = useState('url'); // 'url' or 'file'
+  const [formData, setFormData] = useState({ url: '', title: '', titleEn: '' });
+  const [uploadMethod, setUploadMethod] = useState('url');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
+  const [chaptersForCategory, setChaptersForCategory] = useState([]);
+  const [levelsForChapter, setLevelsForChapter] = useState([]);
 
-  // Helper function to find item's parent information
   const findItemParents = (itemId) => {
     const sections = getSections();
     for (const section of sections) {
-      for (const subject of section.subjects) {
+      for (const subject of section.subjects || []) {
         for (const category of (subject.categories || [])) {
           for (const chapter of (category.chapters || [])) {
             const item = (chapter.items || []).find(i => i.id === itemId);
-            if (item) {
-              return { subject, category, chapter };
-            }
+            if (item) return { subject, category, chapter };
           }
         }
       }
@@ -47,53 +44,89 @@ const Videos = () => {
   };
 
   useEffect(() => {
-    setSubjects(getSubjects());
-    
-    // If itemId is in URL, auto-select the appropriate dropdowns
-    if (itemIdFromUrl) {
-      const parents = findItemParents(itemIdFromUrl);
-      if (parents) {
-        setSelectedSubject(parents.subject.id);
-        setSelectedCategory(parents.category.id);
-        setSelectedChapter(parents.chapter.id);
-        setSelectedLevel(itemIdFromUrl);
-        // Auto-open form if no video exists
-        setTimeout(() => {
-          const video = getVideoByLevel(itemIdFromUrl);
-          if (!video) {
-            setShowForm(true);
+    if (useBackend) {
+      backendApi.getSubjects().then((all) => {
+        if (all && all.length) {
+          setSubjects(all);
+          // After subjects are loaded, find and set the lesson if itemIdFromUrl exists
+          if (itemIdFromUrl) {
+            // Get lesson directly to find its parents
+            backendApi.getItemById(itemIdFromUrl).then((lesson) => {
+              if (lesson && lesson.chapter) {
+                // Get chapter to find category
+                backendApi.getChapterById(lesson.chapter).then((chapter) => {
+                  if (chapter && chapter.category) {
+                    // Get category to find subject
+                    backendApi.getCategoryById(chapter.category).then((category) => {
+                      if (category && category.subject) {
+                        // Set all fields
+                        setSelectedSubject(category.subject);
+                        setSelectedCategory(category.id);
+                        setSelectedChapter(chapter.id);
+                        setSelectedLevel(itemIdFromUrl);
+                        // Check if video exists, if not show form
+                        backendApi.getVideoByLevel(itemIdFromUrl).then((v) => { 
+                          if (!v) setShowForm(true); 
+                        });
+                      }
+                    }).catch(() => {});
+                  }
+                }).catch(() => {});
+              }
+            }).catch(() => {});
           }
-        }, 100);
+        }
+      }).catch(() => setSubjects([]));
+    } else {
+      setSubjects(getSubjects());
+      if (itemIdFromUrl) {
+        const parents = findItemParents(itemIdFromUrl);
+        if (parents) {
+          setSelectedSubject(parents.subject.id);
+          setSelectedCategory(parents.category.id);
+          setSelectedChapter(parents.chapter.id);
+          setSelectedLevel(itemIdFromUrl);
+          setTimeout(() => { if (!getVideoByLevel(itemIdFromUrl)) setShowForm(true); }, 100);
+        }
       }
     }
-  }, [itemIdFromUrl]);
+  }, [itemIdFromUrl, useBackend]);
 
   useEffect(() => {
-    const loadVideos = async () => {
-      if (selectedLevel) {
-        const video = getVideoByLevel(selectedLevel);
-        if (video && video.isFileUpload && video.url.startsWith('indexeddb://')) {
-          // Load video from IndexedDB
-          try {
-            const videoFile = await getVideoFile(selectedLevel);
-            if (videoFile) {
-              setVideos([{ ...video, url: videoFile.url, fileName: videoFile.fileName }]);
-            } else {
-              setVideos(video ? [video] : []);
-            }
-          } catch (error) {
-            console.error('Error loading video file:', error);
-            setVideos(video ? [video] : []);
-          }
-        } else {
+    if (!selectedLevel) {
+      setVideos([]);
+      return;
+    }
+    if (useBackend) {
+      backendApi.getVideoByLevel(selectedLevel).then((v) => setVideos(v ? [v] : [])).catch(() => setVideos([]));
+      return;
+    }
+    (async () => {
+      const video = getVideoByLevel(selectedLevel);
+      if (video && video.isFileUpload && video.url?.startsWith('indexeddb://')) {
+        try {
+          const vf = await getVideoFile(selectedLevel);
+          setVideos(vf ? [{ ...video, url: vf.url, fileName: vf.fileName }] : (video ? [video] : []));
+        } catch {
           setVideos(video ? [video] : []);
         }
       } else {
-        setVideos([]);
+        setVideos(video ? [video] : []);
       }
-    };
-    loadVideos();
-  }, [selectedLevel]);
+    })();
+  }, [selectedLevel, useBackend]);
+
+  useEffect(() => {
+    if (!selectedCategory) { setChaptersForCategory([]); return; }
+    if (useBackend) backendApi.getChaptersByCategory(selectedCategory).then(setChaptersForCategory).catch(() => setChaptersForCategory([]));
+    else setChaptersForCategory(getChaptersByCategory(selectedCategory) || []);
+  }, [selectedCategory, useBackend]);
+
+  useEffect(() => {
+    if (!selectedChapter) { setLevelsForChapter([]); return; }
+    if (useBackend) backendApi.getLevelsByChapter(selectedChapter).then(setLevelsForChapter).catch(() => setLevelsForChapter([]));
+    else setLevelsForChapter(getLevelsByChapter(selectedChapter) || []);
+  }, [selectedChapter, useBackend]);
 
   const handleSubjectChange = (subjectId) => {
     setSelectedSubject(subjectId);
@@ -147,21 +180,23 @@ const Videos = () => {
   };
 
   const handleDelete = async (videoId) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا الفيديو؟ / Are you sure?')) {
-      // Check if it's a file upload and delete from IndexedDB
-      const video = getVideoByLevel(selectedLevel);
-      if (video && video.isFileUpload && video.url.startsWith('indexeddb://')) {
-        try {
-          await deleteVideoFile(selectedLevel);
-        } catch (error) {
-          console.error('Error deleting video file:', error);
-        }
+    if (!window.confirm('هل أنت متأكد من حذف هذا الفيديو؟ / Are you sure?')) return;
+    if (useBackend) {
+      try {
+        await backendApi.deleteVideo(videoId);
+        const v = await backendApi.getVideoByLevel(selectedLevel);
+        setVideos(v ? [v] : []);
+      } catch (e) {
+        alert(e.message || 'خطأ في الحذف');
       }
-      
-      deleteVideo(videoId);
-      const updatedVideo = getVideoByLevel(selectedLevel);
-      setVideos(updatedVideo ? [updatedVideo] : []);
+      return;
     }
+    const video = getVideoByLevel(selectedLevel);
+    if (video && video.isFileUpload && video.url?.startsWith('indexeddb://')) {
+      try { await deleteVideoFile(selectedLevel); } catch (_) {}
+    }
+    deleteVideo(videoId);
+    setVideos(getVideoByLevel(selectedLevel) ? [getVideoByLevel(selectedLevel)] : []);
   };
 
   const handleFileUpload = async (event) => {
@@ -204,51 +239,69 @@ const Videos = () => {
       return;
     }
 
+    if (useBackend && uploadMethod === 'file') {
+      if (!uploadedFile && !editingVideo) {
+        alert('يرجى رفع ملف فيديو / Please upload a video file');
+        return;
+      }
+      setUploadProgress('جاري الحفظ... / Saving...');
+      try {
+        if (editingVideo) {
+          await backendApi.updateVideo(editingVideo.id, {
+            title: formData.title,
+            description: formData.titleEn || '',
+            ...(uploadedFile && { video_file: uploadedFile }),
+          });
+        } else {
+          await backendApi.addVideo(selectedLevel, {
+            title: formData.title,
+            description: formData.titleEn || '',
+            video_file: uploadedFile,
+          });
+        }
+        const v = await backendApi.getVideoByLevel(selectedLevel);
+        setVideos(v ? [v] : []);
+        setUploadProgress('تم الحفظ! / Saved!');
+      } catch (err) {
+        setUploadProgress('');
+        alert(err.message || 'حدث خطأ');
+        return;
+      }
+      setShowForm(false);
+      setFormData({ url: '', title: '', titleEn: '' });
+      setUploadedFile(null);
+      setUploadProgress('');
+      setUploadMethod('url');
+      return;
+    }
+
     if (uploadMethod === 'file') {
       if (!uploadedFile) {
         alert('يرجى رفع ملف فيديو / Please upload a video file');
         return;
       }
 
-      // Upload file to IndexedDB
       setUploadProgress('جاري حفظ الفيديو... / Saving video...');
       try {
-        // Check if IndexedDB is available
-        if (!window.indexedDB) {
-          throw new Error('IndexedDB is not supported in this browser');
-        }
-
-        await saveVideoFile(selectedLevel, uploadedFile, {
-          title: formData.title,
-          titleEn: formData.titleEn,
-        });
-
-        // Save metadata to localStorage
-        const videoData = {
-          url: `indexeddb://${selectedLevel}`, // Special URL format for IndexedDB videos
-          title: formData.title,
-          titleEn: formData.titleEn,
-          levelId: selectedLevel,
-          isFileUpload: true,
-        };
-
-        if (editingVideo) {
-          updateVideo(editingVideo.id, videoData);
-        } else {
-          addVideo(videoData);
-        }
-
+        if (!window.indexedDB) throw new Error('IndexedDB is not supported in this browser');
+        await saveVideoFile(selectedLevel, uploadedFile, { title: formData.title, titleEn: formData.titleEn });
+        const videoData = { url: `indexeddb://${selectedLevel}`, title: formData.title, titleEn: formData.titleEn, levelId: selectedLevel, isFileUpload: true };
+        if (editingVideo) updateVideo(editingVideo.id, videoData);
+        else addVideo(videoData);
         setUploadProgress('تم حفظ الفيديو بنجاح! / Video saved successfully!');
       } catch (error) {
-        const errorMessage = error.message || 'Unknown error occurred';
-        setUploadProgress(`حدث خطأ أثناء حفظ الفيديو / Error saving video: ${errorMessage}`);
-        console.error('Error saving video:', error);
-        alert(`حدث خطأ أثناء حفظ الفيديو / Error saving video\n${errorMessage}`);
+        setUploadProgress(`حدث خطأ / Error: ${error.message || ''}`);
+        alert(`حدث خطأ أثناء حفظ الفيديو / Error saving video\n${error.message || ''}`);
         return;
       }
     } else {
       // URL method
       let videoUrl = formData.url.trim();
+
+      if (!videoUrl) {
+        alert('يرجى إدخال رابط الفيديو / Please enter a video URL');
+        return;
+      }
 
       // Convert YouTube URLs to embed format
       if (videoUrl.includes('youtube.com/watch?v=')) {
@@ -261,6 +314,36 @@ const Videos = () => {
         // Already in embed format
       } else if (!videoUrl.startsWith('http')) {
         alert('يرجى إدخال رابط صحيح / Please enter a valid URL');
+        return;
+      }
+
+      if (useBackend) {
+        setUploadProgress('جاري الحفظ... / Saving...');
+        try {
+          if (editingVideo) {
+            await backendApi.updateVideo(editingVideo.id, {
+              title: formData.title,
+              description: formData.titleEn || '',
+              video_url: videoUrl,
+            });
+          } else {
+            await backendApi.addVideo(selectedLevel, {
+              title: formData.title,
+              description: formData.titleEn || '',
+              video_url: videoUrl,
+            });
+          }
+          const v = await backendApi.getVideoByLevel(selectedLevel);
+          setVideos(v ? [v] : []);
+          setUploadProgress('تم الحفظ! / Saved!');
+        } catch (err) {
+          setUploadProgress('');
+          alert(err.message || 'حدث خطأ');
+          return;
+        }
+        setShowForm(false);
+        setFormData({ url: '', title: '', titleEn: '' });
+        setUploadProgress('');
         return;
       }
 
@@ -289,7 +372,7 @@ const Videos = () => {
     const video = getVideoByLevel(selectedLevel);
     setVideos(video ? [video] : []);
     
-    // Delay closing to show success message, then navigate back
+    // Delay closing to show success message
     setTimeout(() => {
       setShowForm(false);
       setFormData({
@@ -300,16 +383,11 @@ const Videos = () => {
       setUploadedFile(null);
       setUploadProgress('');
       setUploadMethod('url');
-      
-      // Navigate back to lessons page if returnUrl is provided
-      if (returnUrl) {
-        navigate(returnUrl);
-      }
     }, 1000);
   };
 
   const selectedSubjectObj = subjects.find(s => s.id === selectedSubject);
-  const levels = selectedChapter ? getLevelsByChapter(selectedChapter) : [];
+  const levels = levelsForChapter;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -383,7 +461,7 @@ const Videos = () => {
                 className="w-full px-4 py-2 border rounded-lg"
               >
                 <option value="">اختر الفصل / Select Chapter</option>
-                {getChaptersByCategory(selectedCategory).map(chapter => (
+                {chaptersForCategory.map(chapter => (
                   <option key={chapter.id} value={chapter.id}>
                     {chapter.name}
                   </option>

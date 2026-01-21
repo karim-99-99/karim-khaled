@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getCategoriesBySubject, getChaptersByCategory, getLevelsByChapter, getFileByLevel, addFile, updateFile, deleteFile as deleteFileMetadata, getSections } from '../../services/storageService';
 import { saveFileAttachment, getFileAttachment, deleteFileAttachment } from '../../services/fileStorage';
+import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
 
@@ -10,29 +11,29 @@ const FilesManagement = () => {
   const [searchParams] = useSearchParams();
   const itemIdFromUrl = searchParams.get('itemId');
   const returnUrl = searchParams.get('returnUrl');
+  const useBackend = backendApi.isBackendOn();
   
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('');
+  const [chaptersForCategory, setChaptersForCategory] = useState([]);
+  const [levelsForChapter, setLevelsForChapter] = useState([]);
   const [fileMetadata, setFileMetadata] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [editingFile, setEditingFile] = useState(null);
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
 
-  // Helper function to find item's parent information
   const findItemParents = (itemId) => {
     const sections = getSections();
     for (const section of sections) {
-      for (const subject of section.subjects) {
+      for (const subject of section.subjects || []) {
         for (const category of (subject.categories || [])) {
           for (const chapter of (category.chapters || [])) {
             const item = (chapter.items || []).find(i => i.id === itemId);
-            if (item) {
-              return { subject, category, chapter };
-            }
+            if (item) return { subject, category, chapter };
           }
         }
       }
@@ -41,31 +42,69 @@ const FilesManagement = () => {
   };
 
   useEffect(() => {
-    setSubjects(getSubjects());
-    
-    // If itemId is in URL, auto-select the appropriate dropdowns
-    if (itemIdFromUrl) {
-      const parents = findItemParents(itemIdFromUrl);
-      if (parents) {
-        setSelectedSubject(parents.subject.id);
-        setSelectedCategory(parents.category.id);
-        setSelectedChapter(parents.chapter.id);
-        setSelectedLevel(itemIdFromUrl);
+    if (useBackend) {
+      backendApi.getSubjects().then((all) => {
+        if (all && all.length) {
+          setSubjects(all);
+          // After subjects are loaded, find and set the lesson if itemIdFromUrl exists
+          if (itemIdFromUrl) {
+            // Get lesson directly to find its parents
+            backendApi.getItemById(itemIdFromUrl).then((lesson) => {
+              if (lesson && lesson.chapter) {
+                // Get chapter to find category
+                backendApi.getChapterById(lesson.chapter).then((chapter) => {
+                  if (chapter && chapter.category) {
+                    // Get category to find subject
+                    backendApi.getCategoryById(chapter.category).then((category) => {
+                      if (category && category.subject) {
+                        // Set all fields
+                        setSelectedSubject(category.subject);
+                        setSelectedCategory(category.id);
+                        setSelectedChapter(chapter.id);
+                        setSelectedLevel(itemIdFromUrl);
+                      }
+                    }).catch(() => {});
+                  }
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+        }
+      }).catch(() => setSubjects([]));
+    } else {
+      setSubjects(getSubjects());
+      if (itemIdFromUrl) {
+        const parents = findItemParents(itemIdFromUrl);
+        if (parents) {
+          setSelectedSubject(parents.subject.id);
+          setSelectedCategory(parents.category.id);
+          setSelectedChapter(parents.chapter.id);
+          setSelectedLevel(itemIdFromUrl);
+        }
       }
     }
-  }, [itemIdFromUrl]);
+  }, [itemIdFromUrl, useBackend]);
 
   useEffect(() => {
-    const loadFile = async () => {
-      if (selectedLevel) {
-        const file = getFileByLevel(selectedLevel);
-        setFileMetadata(file);
-      } else {
-        setFileMetadata(null);
-      }
-    };
-    loadFile();
-  }, [selectedLevel]);
+    if (!selectedCategory) { setChaptersForCategory([]); return; }
+    if (useBackend) backendApi.getChaptersByCategory(selectedCategory).then(setChaptersForCategory).catch(() => setChaptersForCategory([]));
+    else setChaptersForCategory(getChaptersByCategory(selectedCategory) || []);
+  }, [selectedCategory, useBackend]);
+
+  useEffect(() => {
+    if (!selectedChapter) { setLevelsForChapter([]); return; }
+    if (useBackend) backendApi.getLevelsByChapter(selectedChapter).then(setLevelsForChapter).catch(() => setLevelsForChapter([]));
+    else setLevelsForChapter(getLevelsByChapter(selectedChapter) || []);
+  }, [selectedChapter, useBackend]);
+
+  useEffect(() => {
+    if (!selectedLevel) { setFileMetadata(null); return; }
+    if (useBackend) {
+      backendApi.getFileByLevel(selectedLevel).then(setFileMetadata).catch(() => setFileMetadata(null));
+    } else {
+      setFileMetadata(getFileByLevel(selectedLevel));
+    }
+  }, [selectedLevel, useBackend]);
 
   const handleSubjectChange = (subjectId) => {
     setSelectedSubject(subjectId);
@@ -107,21 +146,23 @@ const FilesManagement = () => {
   };
 
   const handleDelete = async (fileId) => {
-    if (window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الملف؟' : 'Are you sure?')) {
-      // Check if it's a file upload and delete from IndexedDB
-      const file = getFileByLevel(selectedLevel);
-      if (file && file.isFileUpload && file.url?.startsWith('indexeddb://')) {
-        try {
-          await deleteFileAttachment(selectedLevel);
-        } catch (error) {
-          console.error('Error deleting file:', error);
-        }
+    if (!window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الملف؟' : 'Are you sure?')) return;
+    if (useBackend) {
+      try {
+        await backendApi.deleteFile(fileId);
+        const f = await backendApi.getFileByLevel(selectedLevel);
+        setFileMetadata(f);
+      } catch (e) {
+        alert(e.message || (isArabicBrowser() ? 'خطأ في الحذف' : 'Error deleting'));
       }
-      
-      deleteFileMetadata(fileId);
-      const updatedFile = getFileByLevel(selectedLevel);
-      setFileMetadata(updatedFile);
+      return;
     }
+    const file = getFileByLevel(selectedLevel);
+    if (file && file.isFileUpload && file.url?.startsWith('indexeddb://')) {
+      try { await deleteFileAttachment(selectedLevel); } catch (_) {}
+    }
+    deleteFileMetadata(fileId);
+    setFileMetadata(getFileByLevel(selectedLevel));
   };
 
   const handleFileUpload = (event) => {
@@ -167,55 +208,60 @@ const FilesManagement = () => {
     }
 
     setUploadProgress(isArabicBrowser() ? 'جاري حفظ الملف...' : 'Saving file...');
+
+    if (useBackend) {
+      try {
+        if (editingFile) {
+          await backendApi.updateFile(editingFile.id, {
+            ...(uploadedFile && { file: uploadedFile }),
+            title: uploadedFile?.name || editingFile?.fileName || editingFile?.title || 'ملف',
+          });
+        } else {
+          await backendApi.addFile(selectedLevel, uploadedFile, { title: uploadedFile.name });
+        }
+        const f = await backendApi.getFileByLevel(selectedLevel);
+        setFileMetadata(f);
+        setUploadProgress(isArabicBrowser() ? 'تم الحفظ! / Saved!' : 'Saved!');
+      } catch (err) {
+        setUploadProgress('');
+        alert(err.message || (isArabicBrowser() ? 'حدث خطأ' : 'Error'));
+        return;
+      }
+      setShowForm(false);
+      setUploadedFile(null);
+      setUploadProgress('');
+      return;
+    }
+
     try {
-      if (!window.indexedDB) {
-        throw new Error('IndexedDB is not supported in this browser');
-      }
-
-      if (uploadedFile) {
-        await saveFileAttachment(selectedLevel, uploadedFile, {});
-      }
-
-      // Save metadata to localStorage
+      if (!window.indexedDB) throw new Error('IndexedDB is not supported in this browser');
+      if (uploadedFile) await saveFileAttachment(selectedLevel, uploadedFile, {});
       const fileData = {
         url: uploadedFile ? `indexeddb://${selectedLevel}` : editingFile?.url || `indexeddb://${selectedLevel}`,
         levelId: selectedLevel,
         isFileUpload: true,
         fileName: uploadedFile?.name || editingFile?.fileName || '',
-        fileType: uploadedFile?.type || editingFile?.fileType || ''
+        fileType: uploadedFile?.type || editingFile?.fileType || '',
       };
-
-      if (editingFile) {
-        updateFile(editingFile.id, fileData);
-      } else {
-        addFile(fileData);
-      }
-
+      if (editingFile) updateFile(editingFile.id, fileData);
+      else addFile(fileData);
       setUploadProgress(isArabicBrowser() ? 'تم حفظ الملف بنجاح! / File saved successfully!' : 'File saved successfully!');
     } catch (error) {
-      const errorMessage = error.message || 'Unknown error occurred';
-      setUploadProgress(isArabicBrowser() ? `حدث خطأ أثناء حفظ الملف / Error saving file: ${errorMessage}` : `Error saving file: ${errorMessage}`);
-      console.error('Error saving file:', error);
-      alert(isArabicBrowser() ? `حدث خطأ أثناء حفظ الملف / Error saving file\n${errorMessage}` : `Error saving file\n${errorMessage}`);
+      setUploadProgress('');
+      alert((isArabicBrowser() ? 'حدث خطأ / Error: ' : 'Error: ') + (error.message || ''));
       return;
     }
 
-    const file = getFileByLevel(selectedLevel);
-    setFileMetadata(file);
-    
+    setFileMetadata(getFileByLevel(selectedLevel));
     setTimeout(() => {
       setShowForm(false);
       setUploadedFile(null);
       setUploadProgress('');
-      
-      if (returnUrl) {
-        navigate(returnUrl);
-      }
     }, 1000);
   };
 
   const selectedSubjectObj = subjects.find(s => s.id === selectedSubject);
-  const levels = selectedChapter ? getLevelsByChapter(selectedChapter) : [];
+  const levels = levelsForChapter;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -289,7 +335,7 @@ const FilesManagement = () => {
                 className="w-full px-4 py-2 border rounded-lg"
               >
                 <option value="">{isArabicBrowser() ? 'اختر الفصل' : 'Select Chapter'}</option>
-                {getChaptersByCategory(selectedCategory).map(chapter => (
+                {chaptersForCategory.map(chapter => (
                   <option key={chapter.id} value={chapter.id}>
                     {chapter.name}
                   </option>

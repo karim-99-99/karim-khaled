@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getCategoriesBySubject, getChaptersByCategory, addChapterToCategory, deleteChapterFromCategory, getCategoryById } from '../../services/storageService';
+import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
 
@@ -8,6 +9,7 @@ const ChaptersManagement = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const categoryIdFromUrl = searchParams.get('categoryId');
+  const useBackend = !!import.meta.env.VITE_API_URL;
   
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
@@ -17,33 +19,48 @@ const ChaptersManagement = () => {
   const [newChapterName, setNewChapterName] = useState('');
 
   useEffect(() => {
-    setSubjects(getSubjects());
-    
-    // If categoryId is in URL, auto-select the appropriate dropdowns
-    if (categoryIdFromUrl) {
-      const category = getCategoryById(categoryIdFromUrl);
-      if (category) {
-        // Find the subject that contains this category
-        const allSubjects = getSubjects();
-        for (const subject of allSubjects) {
-          const cat = (subject.categories || []).find(c => c.id === categoryIdFromUrl);
-          if (cat) {
-            setSelectedSubject(subject.id);
-            setSelectedCategory(categoryIdFromUrl);
-            break;
+    if (useBackend) {
+      backendApi.getSubjects().then(setSubjects).catch(() => setSubjects([]));
+      if (categoryIdFromUrl) {
+        backendApi.getSubjects().then((all) => {
+          for (const s of all) {
+            if ((s.categories || []).some(c => c.id === categoryIdFromUrl)) {
+              setSelectedSubject(s.id);
+              setSelectedCategory(categoryIdFromUrl);
+              break;
+            }
+          }
+        });
+      }
+    } else {
+      setSubjects(getSubjects());
+      if (categoryIdFromUrl) {
+        const category = getCategoryById(categoryIdFromUrl);
+        if (category) {
+          const allSubjects = getSubjects();
+          for (const subject of allSubjects) {
+            if ((subject.categories || []).some(c => c.id === categoryIdFromUrl)) {
+              setSelectedSubject(subject.id);
+              setSelectedCategory(categoryIdFromUrl);
+              break;
+            }
           }
         }
       }
     }
-  }, [categoryIdFromUrl]);
+  }, [categoryIdFromUrl, useBackend]);
 
   useEffect(() => {
-    if (selectedCategory) {
-      setChapters(getChaptersByCategory(selectedCategory));
-    } else {
+    if (!selectedCategory) {
       setChapters([]);
+      return;
     }
-  }, [selectedCategory]);
+    if (useBackend) {
+      backendApi.getChaptersByCategory(selectedCategory).then(setChapters).catch(() => setChapters([]));
+    } else {
+      setChapters(getChaptersByCategory(selectedCategory));
+    }
+  }, [selectedCategory, useBackend]);
 
   const handleSubjectChange = (subjectId) => {
     setSelectedSubject(subjectId);
@@ -55,7 +72,7 @@ const ChaptersManagement = () => {
     setSelectedCategory(categoryId);
   };
 
-  const handleAddChapter = () => {
+  const handleAddChapter = async () => {
     if (!selectedCategory) {
       alert(isArabicBrowser() ? 'يرجى اختيار التصنيف أولاً' : 'Please select a category first');
       return;
@@ -64,7 +81,18 @@ const ChaptersManagement = () => {
       alert(isArabicBrowser() ? 'يرجى إدخال اسم الفصل' : 'Please enter chapter name');
       return;
     }
-    
+    if (useBackend) {
+      try {
+        await backendApi.addChapter(selectedCategory, newChapterName.trim());
+        const ch = await backendApi.getChaptersByCategory(selectedCategory);
+        setChapters(ch);
+        setNewChapterName('');
+        setShowAddForm(false);
+      } catch (e) {
+        alert(e.message || (isArabicBrowser() ? 'حدث خطأ أثناء إضافة الفصل' : 'Error adding chapter'));
+      }
+      return;
+    }
     const success = addChapterToCategory(selectedCategory, newChapterName.trim());
     if (success) {
       setChapters(getChaptersByCategory(selectedCategory));
@@ -75,15 +103,21 @@ const ChaptersManagement = () => {
     }
   };
 
-  const handleDeleteChapter = (chapterId) => {
-    if (window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الفصل؟ سيتم حذف جميع الدروس التابعة له أيضاً.' : 'Are you sure? This will also delete all lessons in this chapter.')) {
-      const success = deleteChapterFromCategory(chapterId);
-      if (success) {
-        setChapters(getChaptersByCategory(selectedCategory));
-      } else {
-        alert(isArabicBrowser() ? 'حدث خطأ أثناء حذف الفصل' : 'Error deleting chapter');
+  const handleDeleteChapter = async (chapterId) => {
+    if (!window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الفصل؟ سيتم حذف جميع الدروس التابعة له أيضاً.' : 'Are you sure? This will also delete all lessons in this chapter.')) return;
+    if (useBackend) {
+      try {
+        await backendApi.deleteChapter(chapterId);
+        const ch = await backendApi.getChaptersByCategory(selectedCategory);
+        setChapters(ch);
+      } catch (e) {
+        alert(e.message || (isArabicBrowser() ? 'حدث خطأ أثناء حذف الفصل' : 'Error deleting chapter'));
       }
+      return;
     }
+    const success = deleteChapterFromCategory(chapterId);
+    if (success) setChapters(getChaptersByCategory(selectedCategory));
+    else alert(isArabicBrowser() ? 'حدث خطأ أثناء حذف الفصل' : 'Error deleting chapter');
   };
 
   const selectedSubjectObj = subjects.find(s => s.id === selectedSubject);

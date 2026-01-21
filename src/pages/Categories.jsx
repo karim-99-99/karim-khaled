@@ -1,24 +1,49 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { getSubjectById, getCurrentUser } from '../services/storageService';
+import { useEffect, useState } from 'react';
 import Header from '../components/Header';
-import { isArabicBrowser } from '../utils/language';
+import { isBackendOn, getSubjectById as getSubjectByIdApi } from '../services/backendApi';
 
 const Categories = () => {
   const { sectionId, subjectId } = useParams();
   const navigate = useNavigate();
-  const subject = getSubjectById(subjectId);
+  const [subject, setSubject] = useState(null);
+  const [loading, setLoading] = useState(true);
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === 'admin';
 
+  const useBackend = !!import.meta.env.VITE_API_URL;
+
+  useEffect(() => {
+    let c = false;
+    async function load() {
+      try {
+        if (useBackend) {
+          const s = await getSubjectByIdApi(subjectId);
+          if (!c) setSubject(s || null);
+        } else {
+          if (!c) setSubject(getSubjectById(subjectId) || null);
+        }
+      } finally {
+        if (!c) setLoading(false);
+      }
+    }
+    load();
+    return () => { c = true; };
+  }, [subjectId, useBackend]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-xl text-gray-600">جاري التحميل...</p></div>;
+  }
   if (!subject) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-2xl text-gray-600">المادة غير موجودة - Subject ID: {subjectId}</p>
+        <p className="text-2xl text-gray-600">المادة غير موجودة</p>
       </div>
     );
   }
 
-  const categories = subject.categories || [];
+  const categories = (subject.categories || []).map(c => ({ ...c, hasTests: c.has_tests ?? c.hasTests }));
 
   const handleCategoryClick = (categoryId) => {
     navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`);

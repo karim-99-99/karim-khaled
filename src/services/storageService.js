@@ -351,13 +351,13 @@ export const initializeDefaultData = () => {
           // Create 20 lessons for each chapter
           for (let lesson = 1; lesson <= 20; lesson++) {
             items.push({
-              id: `${id}_chapter_${ch}_item_${lesson}`,
+              id: `${id}_فصل_${ch}_درس_${lesson}`,
               name: `الدرس ${lesson}`,
               hasTest: hasTests
             });
           }
           chapters.push({
-            id: `${id}_chapter_${ch}`,
+            id: `${id}_فصل_${ch}`,
             name: `الفصل ${ch}`,
             items: items
           });
@@ -372,61 +372,61 @@ export const initializeDefaultData = () => {
 
       const defaultSections = [
         {
-          id: 'section_tahseel',
-          name: 'تحصيل',
+          id: 'قسم_تحصيلي',
+          name: 'تحصيلي',
           subjects: [
             {
-              id: 'subject_math',
+              id: 'مادة_الرياضيات',
               name: 'الرياضيات',
               categories: [
-                createSampleCategory('subject_math_tasees', 'التأسيس', true),
-                createSampleCategory('subject_math_tajmeat', 'التجميعات', true)
+                createSampleCategory('مادة_الرياضيات_تأسيس', 'التأسيس', true),
+                createSampleCategory('مادة_الرياضيات_تجميعات', 'التجميعات', true)
               ]
             },
             {
-              id: 'subject_biology',
+              id: 'مادة_الأحياء',
               name: 'الأحياء',
               categories: [
-                createSampleCategory('subject_biology_tasees', 'التأسيس', true),
-                createSampleCategory('subject_biology_tajmeat', 'التجميعات', true)
+                createSampleCategory('مادة_الأحياء_تأسيس', 'التأسيس', true),
+                createSampleCategory('مادة_الأحياء_تجميعات', 'التجميعات', true)
               ]
             },
             {
-              id: 'subject_physics',
+              id: 'مادة_الفيزياء',
               name: 'الفيزياء',
               categories: [
-                createSampleCategory('subject_physics_tasees', 'التأسيس', true),
-                createSampleCategory('subject_physics_tajmeat', 'التجميعات', true)
+                createSampleCategory('مادة_الفيزياء_تأسيس', 'التأسيس', true),
+                createSampleCategory('مادة_الفيزياء_تجميعات', 'التجميعات', true)
               ]
             },
             {
-              id: 'subject_chemistry',
+              id: 'مادة_الكيمياء',
               name: 'الكيمياء',
               categories: [
-                createSampleCategory('subject_chemistry_tasees', 'التأسيس', true),
-                createSampleCategory('subject_chemistry_tajmeat', 'التجميعات', true)
+                createSampleCategory('مادة_الكيمياء_تأسيس', 'التأسيس', true),
+                createSampleCategory('مادة_الكيمياء_تجميعات', 'التجميعات', true)
               ]
             }
           ]
         },
         {
-          id: 'section_qudrat',
+          id: 'قسم_قدرات',
           name: 'قدرات',
           subjects: [
             {
-              id: 'subject_quantitative',
+              id: 'مادة_الكمي',
               name: 'الكمي',
               categories: [
-                createSampleCategory('subject_quantitative_tasees', 'التأسيس', true),
-                createSampleCategory('subject_quantitative_tajmeat', 'التجميعات', true)
+                createSampleCategory('مادة_الكمي_تأسيس', 'التأسيس', true),
+                createSampleCategory('مادة_الكمي_تجميعات', 'التجميعات', true)
               ]
             },
             {
-              id: 'subject_verbal',
+              id: 'مادة_اللفظي',
               name: 'اللفظي',
               categories: [
-                createSampleCategory('subject_verbal_tasees', 'التأسيس', true),
-                createSampleCategory('subject_verbal_tajmeat', 'التجميعات', true)
+                createSampleCategory('مادة_اللفظي_تأسيس', 'التأسيس', true),
+                createSampleCategory('مادة_اللفظي_تجميعات', 'التجميعات', true)
               ]
             }
           ]

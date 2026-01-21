@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getQuestions, getQuestionsByLevel, addQuestion, updateQuestion, deleteQuestion, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory, getItemById, getChapterById, getCategoryById, getSections } from '../../services/storageService';
+import * as backendApi from '../../services/backendApi';
 import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
@@ -19,17 +20,37 @@ import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import katex from 'katex';
 
+const findItemParentsFromSections = (sections, itemId) => {
+  if (!sections || !sections.length) return null;
+  for (const section of sections) {
+    for (const subject of section.subjects || []) {
+      for (const category of subject.categories || []) {
+        for (const chapter of category.chapters || []) {
+          // Check both 'items' and 'lessons' (Backend uses 'items' but API might return 'lessons')
+          const items = chapter.items || chapter.lessons || [];
+          const item = items.find(i => i.id === itemId);
+          if (item) return { subject, category, chapter };
+        }
+      }
+    }
+  }
+  return null;
+};
+
 const Questions = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const itemIdFromUrl = searchParams.get('itemId');
   const returnUrl = searchParams.get('returnUrl');
+  const useBackend = backendApi.isBackendOn();
   
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('');
+  const [chaptersForCategory, setChaptersForCategory] = useState([]);
+  const [levelsForChapter, setLevelsForChapter] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
@@ -404,43 +425,102 @@ const Questions = () => {
   };
 
   useEffect(() => {
-    try {
-      const allSubjects = getSubjects();
-      if (allSubjects && allSubjects.length > 0) {
-        setSubjects(allSubjects);
-      }
-      
-      // If itemId is in URL, auto-select the appropriate dropdowns
-      if (itemIdFromUrl) {
-        const parents = findItemParents(itemIdFromUrl);
-        if (parents) {
-          setSelectedSubject(parents.subject.id);
-          setSelectedCategory(parents.category.id);
-          setSelectedChapter(parents.chapter.id);
-          setSelectedLevel(itemIdFromUrl);
+    if (useBackend) {
+      backendApi.getSubjects().then((all) => {
+        if (all && all.length) {
+          setSubjects(all);
+          // After subjects are loaded, find and set the lesson if itemIdFromUrl exists
+          if (itemIdFromUrl) {
+            // Get lesson directly to find its parents
+            backendApi.getItemById(itemIdFromUrl).then((lesson) => {
+              if (lesson && lesson.chapter) {
+                // Get chapter to find category
+                backendApi.getChapterById(lesson.chapter).then((chapter) => {
+                  if (chapter && chapter.category) {
+                    // Get category to find subject
+                    backendApi.getCategoryById(chapter.category).then((category) => {
+                      if (category && category.subject) {
+                        // Set all fields
+                        setSelectedSubject(category.subject);
+                        setSelectedCategory(category.id);
+                        setSelectedChapter(chapter.id);
+                        setSelectedLevel(itemIdFromUrl);
+                      }
+                    }).catch(() => {});
+                  }
+                }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
         }
+      }).catch(() => setSubjects([]));
+    } else {
+      try {
+        const allSubjects = getSubjects();
+        if (allSubjects && allSubjects.length > 0) {
+          setSubjects(allSubjects);
+          if (itemIdFromUrl) {
+            const parents = findItemParents(itemIdFromUrl);
+            if (parents) {
+              // Set all fields in sequence to ensure proper loading
+              setSelectedSubject(parents.subject.id);
+              setTimeout(() => {
+                setSelectedCategory(parents.category.id);
+                setTimeout(() => {
+                  setSelectedChapter(parents.chapter.id);
+                  setTimeout(() => {
+                    setSelectedLevel(itemIdFromUrl);
+                  }, 150);
+                }, 150);
+              }, 150);
+            }
+          }
+        }
+      } catch (e) {
+        setSubjects([]);
       }
-    } catch (error) {
-      console.error('Error loading initial data:', error);
-      // Ensure subjects is at least an empty array to prevent crashes
-      setSubjects([]);
     }
-  }, [itemIdFromUrl]);
+  }, [itemIdFromUrl, useBackend]);
 
   useEffect(() => {
-    try {
-      if (selectedLevel) {
-        const levelQuestions = getQuestionsByLevel(selectedLevel);
-        setQuestions(levelQuestions || []);
-      } else {
-        // If no level selected, show empty array
+    if (!selectedCategory) {
+      setChaptersForCategory([]);
+      return;
+    }
+    if (useBackend) {
+      backendApi.getChaptersByCategory(selectedCategory).then(setChaptersForCategory).catch(() => setChaptersForCategory([]));
+    } else {
+      setChaptersForCategory(getChaptersByCategory(selectedCategory) || []);
+    }
+  }, [selectedCategory, useBackend]);
+
+  useEffect(() => {
+    if (!selectedChapter) {
+      setLevelsForChapter([]);
+      return;
+    }
+    if (useBackend) {
+      backendApi.getLevelsByChapter(selectedChapter).then(setLevelsForChapter).catch(() => setLevelsForChapter([]));
+    } else {
+      setLevelsForChapter(getLevelsByChapter(selectedChapter) || []);
+    }
+  }, [selectedChapter, useBackend]);
+
+  useEffect(() => {
+    if (!selectedLevel) {
+      setQuestions([]);
+      return;
+    }
+    if (useBackend) {
+      backendApi.getQuestionsByLevel(selectedLevel).then(setQuestions).catch(() => setQuestions([]));
+    } else {
+      try {
+        setQuestions(getQuestionsByLevel(selectedLevel) || []);
+      } catch {
         setQuestions([]);
       }
-    } catch (error) {
-      console.error('Error loading questions:', error);
-      setQuestions([]);
     }
-  }, [selectedLevel]);
+  }, [selectedLevel, useBackend]);
 
   // OLD REACTQUILL HANDLER REMOVED - Now using WordLikeEditor which handles its own events
   // The WordLikeEditor component manages its own Quill instance and event handlers
@@ -579,11 +659,20 @@ const Questions = () => {
     }, 100);
   };
 
-  const handleDelete = (questionId) => {
-    if (window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا السؤال؟' : 'Are you sure?')) {
-      deleteQuestion(questionId);
-      setQuestions(getQuestionsByLevel(selectedLevel));
+  const handleDelete = async (questionId) => {
+    if (!window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا السؤال؟' : 'Are you sure?')) return;
+    if (useBackend) {
+      try {
+        await backendApi.deleteQuestion(questionId);
+        const list = await backendApi.getQuestionsByLevel(selectedLevel);
+        setQuestions(list);
+      } catch (e) {
+        alert(e.message || (isArabicBrowser() ? 'خطأ في الحذف' : 'Error deleting'));
+      }
+      return;
     }
+    deleteQuestion(questionId);
+    setQuestions(getQuestionsByLevel(selectedLevel));
   };
 
   const handleAnswerChange = (index, field, value) => {
@@ -600,7 +689,7 @@ const Questions = () => {
     setFormData({ ...formData, answers: newAnswers });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     e.stopPropagation();
 
@@ -609,18 +698,34 @@ const Questions = () => {
       return;
     }
 
-    const questionData = {
-      ...formData,
-      levelId: selectedLevel,
+    const payload = {
+      question: formData.question,
+      questionEn: formData.questionEn,
+      explanation: formData.explanation,
+      answers: formData.answers,
     };
+    const imageFile = questionImage && questionImage instanceof File ? questionImage : null;
 
-    if (editingQuestion) {
-      updateQuestion(editingQuestion.id, questionData);
+    if (useBackend) {
+      try {
+        if (editingQuestion) {
+          await backendApi.updateQuestion(editingQuestion.id, payload, imageFile);
+        } else {
+          await backendApi.addQuestion(selectedLevel, payload, imageFile);
+        }
+        const list = await backendApi.getQuestionsByLevel(selectedLevel);
+        setQuestions(list);
+      } catch (err) {
+        alert(err.message || (isArabicBrowser() ? 'حدث خطأ' : 'Error'));
+        return;
+      }
     } else {
-      addQuestion(questionData);
+      const questionData = { ...formData, levelId: selectedLevel };
+      if (editingQuestion) updateQuestion(editingQuestion.id, questionData);
+      else addQuestion(questionData);
+      setQuestions(getQuestionsByLevel(selectedLevel));
     }
 
-    setQuestions(getQuestionsByLevel(selectedLevel));
     setShowForm(false);
     setEditingQuestion(null);
     setQuestionImage(null);
@@ -637,21 +742,15 @@ const Questions = () => {
         { id: 'd', text: '', isCorrect: false },
       ],
     });
-    if (imageInputRef.current) {
-      imageInputRef.current.value = '';
-    }
-    
-    // Navigate back to lessons page if returnUrl is provided and we came from a specific lesson
-    // Only navigate if explicitly saving (not on cancel or other actions)
+    if (imageInputRef.current) imageInputRef.current.value = '';
+
     if (returnUrl && itemIdFromUrl && e.target.type === 'submit') {
-      setTimeout(() => {
-        navigate(returnUrl);
-      }, 500);
+      setTimeout(() => navigate(returnUrl), 500);
     }
   };
 
   const selectedSubjectObj = subjects && subjects.length > 0 ? subjects.find(s => s.id === selectedSubject) : null;
-  const levels = selectedChapter ? (getLevelsByChapter(selectedChapter) || []) : [];
+  const levels = levelsForChapter;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -729,7 +828,7 @@ const Questions = () => {
                 className="w-full px-4 py-2 border rounded-lg"
               >
                 <option value="">اختر الفصل / Select Chapter</option>
-                {getChaptersByCategory(selectedCategory).map(chapter => (
+                {chaptersForCategory.map(chapter => (
                   <option key={chapter.id} value={chapter.id}>
                     {chapter.name}
                   </option>

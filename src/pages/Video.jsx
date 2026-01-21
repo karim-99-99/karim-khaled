@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getVideoByLevel, getItemById } from '../services/storageService';
 import { getVideoFile } from '../services/videoStorage';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { isBackendOn, getVideoByLevel as getVideoByLevelApi, getItemById as getItemByIdApi } from '../services/backendApi';
 
 const Video = () => {
   const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } = useParams();
@@ -11,34 +12,44 @@ const Video = () => {
   const [video, setVideo] = useState(null);
   const [actualVideoUrl, setActualVideoUrl] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [item, setItem] = useState(null);
+  const videoRef = useRef(null);
   
-  // Use itemId if available (new structure), otherwise use levelId (legacy)
   const actualItemId = itemId || levelId;
-  const item = getItemById(actualItemId);
 
   useEffect(() => {
+    let c = false;
     const loadVideo = async () => {
       setLoading(true);
-      const itemVideo = getVideoByLevel(actualItemId);
+      let itemVideo = null;
+      if (isBackendOn()) {
+        itemVideo = await getVideoByLevelApi(actualItemId);
+        const i = await getItemByIdApi(actualItemId);
+        if (!c) setItem(i);
+      } else {
+        itemVideo = getVideoByLevel(actualItemId);
+        if (!c) setItem(getItemById(actualItemId));
+      }
       
-      if (!itemVideo) {
+      if (!c && !itemVideo) {
         setLoading(false);
         return;
       }
+      if (c) return;
       
-      if (itemVideo.isFileUpload && itemVideo.url.startsWith('indexeddb://')) {
-        // Load video from IndexedDB
+      if (!isBackendOn() && itemVideo.isFileUpload && itemVideo.url?.startsWith('indexeddb://')) {
         try {
           const videoFile = await getVideoFile(actualItemId);
-          if (videoFile && videoFile.url) {
+          if (videoFile?.url) {
             setActualVideoUrl(videoFile.url);
             setVideo({ ...itemVideo, url: videoFile.url });
           } else {
             setVideo(itemVideo);
+            setActualVideoUrl(itemVideo.url);
           }
-        } catch (error) {
-          console.error('Error loading video file:', error);
+        } catch (e) {
           setVideo(itemVideo);
+          setActualVideoUrl(itemVideo.url);
         }
       } else {
         setActualVideoUrl(itemVideo.url);
@@ -48,13 +59,7 @@ const Video = () => {
     };
     
     loadVideo();
-    
-    // Cleanup blob URLs on unmount
-    return () => {
-      if (actualVideoUrl && actualVideoUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(actualVideoUrl);
-      }
-    };
+    return () => { c = true; };
   }, [actualItemId]);
 
   const handleBack = () => {
@@ -62,6 +67,14 @@ const Video = () => {
       navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
     } else {
       navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);
+    }
+  };
+
+  const skipVideo = (seconds) => {
+    if (videoRef.current) {
+      const currentTime = videoRef.current.currentTime;
+      const newTime = Math.max(0, Math.min(currentTime + seconds, videoRef.current.duration || 0));
+      videoRef.current.currentTime = newTime;
     }
   };
 
@@ -113,7 +126,7 @@ const Video = () => {
                 : (video.titleEn || item?.nameEn || 'Educational Video')}
             </h1>
             
-            <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4">
+            <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4 relative">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-white font-medium">{isArabicBrowser() ? 'جاري تحميل الفيديو...' : 'Loading video...'}</p>
@@ -127,14 +140,33 @@ const Video = () => {
                   allowFullScreen
                 />
               ) : actualVideoUrl ? (
-                <video
-                  src={actualVideoUrl}
-                  controls
-                  className="w-full h-full"
-                  autoPlay={false}
-                >
-                  {isArabicBrowser() ? 'متصفحك لا يدعم تشغيل الفيديو' : 'Your browser does not support video playback'}
-                </video>
+                <>
+                  <video
+                    ref={videoRef}
+                    src={actualVideoUrl}
+                    controls
+                    className="w-full h-full"
+                    autoPlay={false}
+                  >
+                    {isArabicBrowser() ? 'متصفحك لا يدعم تشغيل الفيديو' : 'Your browser does not support video playback'}
+                  </video>
+                  <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
+                    <button
+                      onClick={() => skipVideo(-10)}
+                      className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium shadow-lg transition"
+                      title={isArabicBrowser() ? 'رجوع 10 ثواني' : 'Rewind 10 seconds'}
+                    >
+                      ⏪ {isArabicBrowser() ? '10 ث' : '10s'}
+                    </button>
+                    <button
+                      onClick={() => skipVideo(10)}
+                      className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium shadow-lg transition"
+                      title={isArabicBrowser() ? 'تقديم 10 ثواني' : 'Forward 10 seconds'}
+                    >
+                      ⏩ {isArabicBrowser() ? '10 ث' : '10s'}
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-white font-medium">{isArabicBrowser() ? 'لا يوجد فيديو متاح' : 'No video available'}</p>

@@ -2,32 +2,43 @@ import { useNavigate } from 'react-router-dom';
 import { getSections, getCurrentUser } from '../services/storageService';
 import { useEffect, useState } from 'react';
 import Header from '../components/Header';
-import { isArabicBrowser } from '../utils/language';
 import { hasSectionAccess } from '../components/ProtectedRoute';
+import { isBackendOn, getSections as getSectionsApi } from '../services/backendApi';
 
 const Home = () => {
   const navigate = useNavigate();
   const [sections, setSections] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const useBackend = !!import.meta.env.VITE_API_URL;
 
   useEffect(() => {
-    try {
-      const currentUser = getCurrentUser();
-      const allSections = getSections() || [];
-      // Filter sections based on user permissions (if logged in)
-      if (currentUser && currentUser.role === 'student') {
-        const filteredSections = allSections.filter(section => 
-          section && hasSectionAccess(currentUser, section.id)
-        );
-        setSections(filteredSections);
-      } else {
-        // Show all sections for non-logged in users or admins
-        setSections(allSections);
+    let cancelled = false;
+    async function load() {
+      try {
+        const currentUser = getCurrentUser();
+        let allSections = [];
+        if (useBackend) {
+          const data = await getSectionsApi();
+          allSections = Array.isArray(data) ? data : (data?.results || []);
+        } else {
+          allSections = getSections() || [];
+        }
+        if (cancelled) return;
+        if (currentUser && currentUser.role === 'student') {
+          setSections((allSections || []).filter(s => s && hasSectionAccess(currentUser, s.id)));
+        } else {
+          setSections(allSections || []);
+        }
+      } catch (e) {
+        if (!cancelled) setSections([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading sections:', error);
-      setSections([]);
     }
-  }, []); // Empty dependency array - only run once on mount
+    load();
+    return () => { cancelled = true; };
+  }, [useBackend]);
 
   const handleSectionClick = (sectionId) => {
     navigate(`/section/${sectionId}/subjects`);
@@ -108,7 +119,9 @@ const Home = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 max-w-7xl mx-auto">
-          {sections && sections.length > 0 ? sections.map((section) => (
+          {loading ? (
+            <div className="col-span-full text-center py-12"><p className="text-xl text-gray-600">جاري التحميل...</p></div>
+          ) : sections && sections.length > 0 ? sections.map((section) => (
             <button
               key={section.id}
               onClick={() => handleSectionClick(section.id)}

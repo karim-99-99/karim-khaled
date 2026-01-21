@@ -1,15 +1,40 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { getSectionById, getCurrentUser } from '../services/storageService';
+import { useEffect, useState } from 'react';
 import Header from '../components/Header';
-import { isArabicBrowser } from '../utils/language';
 import { hasSubjectAccess } from '../components/ProtectedRoute';
+import { isBackendOn, getSectionById as getSectionByIdApi } from '../services/backendApi';
 
 const Subjects = () => {
   const { sectionId } = useParams();
   const navigate = useNavigate();
-  const section = getSectionById(sectionId);
+  const [section, setSection] = useState(null);
+  const [loading, setLoading] = useState(true);
   const currentUser = getCurrentUser();
 
+  const useBackend = !!import.meta.env.VITE_API_URL;
+
+  useEffect(() => {
+    let c = false;
+    async function load() {
+      try {
+        if (useBackend) {
+          const s = await getSectionByIdApi(sectionId);
+          if (!c) setSection(s || null);
+        } else {
+          if (!c) setSection(getSectionById(sectionId) || null);
+        }
+      } finally {
+        if (!c) setLoading(false);
+      }
+    }
+    load();
+    return () => { c = true; };
+  }, [sectionId, useBackend]);
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center"><p className="text-xl text-gray-600">جاري التحميل...</p></div>;
+  }
   if (!section) {
     return (
       <div className="min-h-screen flex items-center justify-center">

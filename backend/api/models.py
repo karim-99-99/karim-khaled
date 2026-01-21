@@ -179,7 +179,8 @@ class Video(models.Model):
     
     title = models.CharField(max_length=500)
     description = models.TextField(blank=True, null=True)
-    video_file = models.FileField(upload_to='videos/')
+    video_file = models.FileField(upload_to='videos/', blank=True, null=True)
+    video_url = models.URLField(blank=True, null=True)  # For external video links (YouTube, Vimeo, etc.)
     thumbnail = models.ImageField(upload_to='videos/thumbnails/', blank=True, null=True)
     duration = models.IntegerField(default=0)  # Duration in seconds
     order = models.IntegerField(default=0)
