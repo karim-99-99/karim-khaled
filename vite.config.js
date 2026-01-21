@@ -92,16 +92,17 @@ export default defineConfig({
   },
   build: {
     commonjsOptions: {
-      include: [/mathquill/, /quill/, /node_modules/],
+      include: [/mathquill/, /quill/, /parchment/, /node_modules/],
       transformMixedEsModules: true, // Handle mixed CommonJS/ESM modules
       requireReturnsDefault: 'auto', // Handle require() returns
+      esmExternals: true, // Handle ESM externals properly
     },
     // Enable code splitting and optimize chunks
     rollupOptions: {
       output: {
         manualChunks(id) {
           // CRITICAL: Process Quill FIRST to avoid circular dependencies
-          // Quill core dependencies must be in same chunk
+          // Quill core dependencies must be in same chunk (including parchment!)
           if (id.includes('node_modules/parchment') || 
               id.includes('node_modules/quill-delta') ||
               id.includes('node_modules/eventemitter3') ||

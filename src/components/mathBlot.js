@@ -24,12 +24,39 @@ const getEmbed = () => {
   if (!Quill || typeof Quill.import !== 'function') {
     return null;
   }
+  
+  // Try multiple import paths
   try {
-    return Quill.import('blots/embed');
+    const embed = Quill.import('blots/embed');
+    if (embed && typeof embed === 'function') {
+      return embed;
+    }
   } catch (e) {
-    console.warn('Failed to import Embed from Quill:', e);
-    return null;
+    console.warn('Failed to import blots/embed:', e);
   }
+  
+  // Try alternative path
+  try {
+    const Parchment = Quill.import('parchment');
+    if (Parchment && Parchment.Embed && typeof Parchment.Embed === 'function') {
+      return Parchment.Embed;
+    }
+  } catch (e) {
+    console.warn('Failed to import parchment Embed:', e);
+  }
+  
+  // Try BlockEmbed as fallback
+  try {
+    const blockEmbed = Quill.import('blots/block/embed');
+    if (blockEmbed && typeof blockEmbed === 'function') {
+      return blockEmbed;
+    }
+  } catch (e) {
+    console.warn('Failed to import blots/block/embed:', e);
+  }
+  
+  console.error('Could not find any suitable Embed class for MathBlot');
+  return null;
 };
 
 // Convert Western numerals to Arabic in rendered output
@@ -49,8 +76,9 @@ const createMathBlotClass = () => {
   try {
     EmbedClass = getEmbed();
     
-    if (!EmbedClass) {
-      // Quill is not ready yet, return null
+    if (!EmbedClass || typeof EmbedClass !== 'function') {
+      // Quill is not ready yet or Embed is not available, return null
+      console.warn('EmbedClass not available for MathBlot');
       return null;
     }
     

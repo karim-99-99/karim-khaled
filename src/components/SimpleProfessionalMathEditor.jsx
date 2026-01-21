@@ -9,68 +9,12 @@ import 'katex/dist/katex.min.css';
 const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
 const Quill = ReactQuill.Quill;
 
-// Custom Image Blot that preserves all attributes including style
-let customImageRegistered = false;
+// DON'T use Custom Image Blot - it causes issues in production builds
+// Instead, we'll use Parchment Attributors which are more reliable
 
-const registerCustomImageBlot = () => {
-  if (customImageRegistered || typeof Quill === 'undefined') return;
-  
-  try {
-    const BlockEmbed = Quill.import('blots/block/embed');
-    
-    class CustomImageBlot extends BlockEmbed {
-      static blotName = 'image';
-      static tagName = 'img';
-      
-      static create(value) {
-        const node = super.create(value);
-        if (typeof value === 'string') {
-          node.setAttribute('src', value);
-        } else if (typeof value === 'object') {
-          Object.keys(value).forEach(key => {
-            node.setAttribute(key, value[key]);
-          });
-        }
-        return node;
-      }
-      
-      static formats(domNode) {
-        const formats = {};
-        // Save all important attributes
-        const attributes = ['src', 'alt', 'width', 'height', 'style', 'class'];
-        attributes.forEach(attr => {
-          if (domNode.hasAttribute(attr)) {
-            formats[attr] = domNode.getAttribute(attr);
-          }
-        });
-        return formats;
-      }
-      
-      static value(domNode) {
-        const formats = this.formats(domNode);
-        return formats.src ? formats : domNode.getAttribute('src');
-      }
-      
-      format(name, value) {
-        if (['src', 'alt', 'width', 'height', 'style', 'class'].includes(name)) {
-          if (value) {
-            this.domNode.setAttribute(name, value);
-          } else {
-            this.domNode.removeAttribute(name);
-          }
-        } else {
-          super.format(name, value);
-        }
-      }
-    }
-    
-    Quill.register(CustomImageBlot, true);
-    customImageRegistered = true;
-    console.log('Custom Image Blot registered successfully');
-  } catch (error) {
-    console.error('Failed to register custom image blot:', error);
-  }
-};
+// We don't need to register custom attributors either
+// Quill already handles HTML content well enough
+// We'll rely on HTML persistence and DOM manipulation
 
 // Register Quill modules - don't call this at module level!
 let modulesRegistered = false;
@@ -128,9 +72,6 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           }
           return;
         }
-        
-        // Register custom Image Blot first (before other modules)
-        registerCustomImageBlot();
         
         // Register Quill modules
         await registerQuillModules();
@@ -275,8 +216,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
   const formats = [
     'header', 'bold', 'italic', 'underline', 'strike',
     'color', 'background', 'list', 'bullet', 'align',
-    'direction', 'link', 'image', 'math',
-    'width', 'height', 'style', 'class', 'float'
+    'direction', 'link', 'image', 'math'
   ];
 
   // Custom image handler - handle image uploads
@@ -408,29 +348,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
         if (e.target.tagName === 'IMG') {
           console.log('Image event detected:', e.type);
           
-          // Update the image blot with current attributes
-          const img = e.target;
-          try {
-            const blot = Quill.find(img);
-            if (blot && blot.domNode === img) {
-              // Get current styles from DOM
-              const style = img.getAttribute('style');
-              const width = img.getAttribute('width');
-              const height = img.getAttribute('height');
-              const className = img.getAttribute('class');
-              
-              console.log('Image attributes:', { style, width, height, className });
-              
-              // Force Quill to update its internal representation
-              if (style) blot.format('style', style);
-              if (width) blot.format('width', width);
-              if (height) blot.format('height', height);
-              if (className) blot.format('class', className);
-            }
-          } catch (err) {
-            console.error('Error updating image blot:', err);
-          }
-          
+          // Just save the content - HTML will preserve the image attributes
           saveContent();
         }
       };
