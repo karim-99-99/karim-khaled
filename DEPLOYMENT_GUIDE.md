@@ -32,7 +32,7 @@
    - **Branch**: `main`
    - **Root Directory**: `backend`
    - **Environment**: `Python 3`
-   - **Build Command**: `pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput`
+   - **Build Command**: `pip install -r requirements.txt && python manage.py migrate && python manage.py seed_initial_data && python manage.py collectstatic --noinput`
    - **Start Command**: `gunicorn config.wsgi:application`
 
 4. **إعداد Environment Variables:**

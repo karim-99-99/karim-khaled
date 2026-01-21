@@ -35,7 +35,7 @@ kareem-khalid/
    - **Environment**: `Python 3`
    - **Build Command**: 
      ```bash
-     pip install -r requirements.txt && python manage.py migrate && python manage.py collectstatic --noinput
+     pip install -r requirements.txt && python manage.py migrate && python manage.py seed_initial_data && python manage.py collectstatic --noinput
      ```
    - **Start Command**: 
      ```bash
@@ -112,11 +112,13 @@ VITE_API_URL=https://your-backend-name.onrender.com
 
 ### **الخطوة 4: إعداد قاعدة البيانات**
 
-1. في **Render Dashboard**: افتح **Backend Service** → **Shell**
-2. شغّل الأوامر التالية:
+✅ **تم إعداد قاعدة البيانات تلقائياً في Build Command!**
+
+إذا أردت إعادة إعداد البيانات، يمكنك:
+1. في Render Dashboard → Backend Service → Manual Deploy
+2. أو تحديث Build Command لإضافة `--clear`:
    ```bash
-   python manage.py migrate
-   python manage.py seed_initial_data
+   pip install -r requirements.txt && python manage.py migrate && python manage.py seed_initial_data --clear && python manage.py collectstatic --noinput
    ```
 
 ---
