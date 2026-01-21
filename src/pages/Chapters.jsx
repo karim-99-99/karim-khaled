@@ -53,6 +53,32 @@ const Chapters = () => {
     setEditName('');
   };
 
+  const handleAddChapter = () => {
+    if (!newChapterName.trim()) {
+      alert(isArabicBrowser() ? 'يرجى إدخال اسم الفصل' : 'Please enter chapter name');
+      return;
+    }
+    const success = addChapterToCategory(categoryId, newChapterName.trim());
+    if (success) {
+      setNewChapterName('');
+      setShowAddForm(false);
+      window.location.reload();
+    } else {
+      alert(isArabicBrowser() ? 'حدث خطأ أثناء إضافة الفصل' : 'Error adding chapter');
+    }
+  };
+
+  const handleDeleteChapter = (chapterId) => {
+    if (window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الفصل؟ سيتم حذف جميع الدروس التابعة له أيضاً.' : 'Are you sure? This will also delete all lessons in this chapter.')) {
+      const success = deleteChapterFromCategory(chapterId);
+      if (success) {
+        window.location.reload();
+      } else {
+        alert(isArabicBrowser() ? 'حدث خطأ أثناء حذف الفصل' : 'Error deleting chapter');
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
