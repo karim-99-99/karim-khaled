@@ -291,21 +291,6 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           if (onChange && quillRef.current) {
             try {
               const content = quillRef.current.getEditor().root.innerHTML;
-              
-              // Log image styles being saved
-              const tempDiv = document.createElement('div');
-              tempDiv.innerHTML = content;
-              const images = tempDiv.querySelectorAll('img');
-              
-              console.log('💾 SAVING CONTENT:');
-              console.log('   - Contains images:', images.length);
-              images.forEach((img, i) => {
-                const style = img.getAttribute('style') || '';
-                const width = img.getAttribute('width') || '';
-                const height = img.getAttribute('height') || '';
-                console.log(`   - Image ${i + 1}: style="${style.substring(0, 100)}", width="${width}", height="${height}"`);
-              });
-              
               onChange(content);
             } catch (err) {
               console.error('Error saving content:', err);
@@ -333,14 +318,6 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           // Check for attribute changes on images
           if (mutation.type === 'attributes' && target.tagName === 'IMG') {
             needsSave = true;
-            const attrName = mutation.attributeName;
-            const attrValue = target.getAttribute(attrName);
-            console.log('✅ IMAGE ATTRIBUTE CHANGED:', attrName, '=', attrValue);
-            
-            // Log all image attributes for debugging
-            if (attrName === 'style') {
-              console.log('📝 Full image HTML:', target.outerHTML.substring(0, 200));
-            }
           }
           
           // Check for child changes that might contain images
@@ -348,14 +325,12 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
             mutation.addedNodes.forEach(node => {
               if (node.tagName === 'IMG' || (node.querySelector && node.querySelector('img'))) {
                 needsSave = true;
-                console.log('✅ IMAGE ADDED to DOM');
               }
             });
           }
         });
 
         if (needsSave) {
-          console.log('💾 SAVING CONTENT with image changes...');
           saveContent();
         }
       });
@@ -372,9 +347,6 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
       // Also listen to DOM events on images for immediate feedback
       const handleImageEvent = (e) => {
         if (e.target.tagName === 'IMG') {
-          console.log('Image event detected:', e.type);
-          
-          // Just save the content - HTML will preserve the image attributes
           saveContent();
         }
       };
