@@ -352,21 +352,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
         if (e.target.tagName === 'IMG') {
           console.log('Image event detected:', e.type);
           
-          const img = e.target;
-          
-          // Force save all image attributes to ensure they persist
-          const currentStyle = img.getAttribute('style') || '';
-          const currentWidth = img.getAttribute('width') || '';
-          const currentHeight = img.getAttribute('height') || '';
-          
-          // Make sure styles are preserved
-          if (currentStyle) img.setAttribute('style', currentStyle);
-          if (currentWidth) img.setAttribute('width', currentWidth);
-          if (currentHeight) img.setAttribute('height', currentHeight);
-          
-          console.log('Image styles:', { style: currentStyle, width: currentWidth, height: currentHeight });
-          
-          // Save the content
+          // Just save the content - HTML will preserve the image attributes
           saveContent();
         }
       };
@@ -377,47 +363,12 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
       // Listen for clicks outside images (when deselecting)
       const handleClickOutside = (e) => {
         if (!e.target.closest('.blot-formatter__overlay')) {
-          // User clicked outside - force save all image styles
-          const images = editor.root.querySelectorAll('img');
-          images.forEach(img => {
-            const style = img.getAttribute('style');
-            const width = img.getAttribute('width');
-            const height = img.getAttribute('height');
-            
-            // Re-apply attributes to ensure they're in the DOM
-            if (style) img.setAttribute('style', style);
-            if (width) img.setAttribute('width', width);
-            if (height) img.setAttribute('height', height);
-          });
-          
-          // Save any pending changes
+          // User clicked outside - save any pending changes
           saveContent();
         }
       };
       
       document.addEventListener('click', handleClickOutside);
-      
-      // Also listen for when blotFormatter alignment buttons are clicked
-      const handleBlotFormatterClick = (e) => {
-        // Check if it's an alignment button
-        if (e.target.closest('.blot-formatter__toolbar-button')) {
-          console.log('Alignment button clicked');
-          // Wait a bit for blotFormatter to apply changes, then save
-          setTimeout(() => {
-            const images = editor.root.querySelectorAll('img');
-            images.forEach(img => {
-              const style = img.getAttribute('style');
-              if (style) {
-                img.setAttribute('style', style);
-                console.log('Forced image style:', style);
-              }
-            });
-            saveContent();
-          }, 100);
-        }
-      };
-      
-      document.addEventListener('click', handleBlotFormatterClick, true);
 
       return () => {
         editor.off('text-change', handleTextChange);
@@ -425,7 +376,6 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
         editor.root.removeEventListener('mouseup', handleImageEvent);
         editor.root.removeEventListener('touchend', handleImageEvent);
         document.removeEventListener('click', handleClickOutside);
-        document.removeEventListener('click', handleBlotFormatterClick, true);
         if (saveTimeout) clearTimeout(saveTimeout);
       };
     } catch (error) {
