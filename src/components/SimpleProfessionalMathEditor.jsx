@@ -9,6 +9,69 @@ import 'katex/dist/katex.min.css';
 const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
 const Quill = ReactQuill.Quill;
 
+// Custom Image Blot that preserves all attributes including style
+let customImageRegistered = false;
+
+const registerCustomImageBlot = () => {
+  if (customImageRegistered || typeof Quill === 'undefined') return;
+  
+  try {
+    const BlockEmbed = Quill.import('blots/block/embed');
+    
+    class CustomImageBlot extends BlockEmbed {
+      static blotName = 'image';
+      static tagName = 'img';
+      
+      static create(value) {
+        const node = super.create(value);
+        if (typeof value === 'string') {
+          node.setAttribute('src', value);
+        } else if (typeof value === 'object') {
+          Object.keys(value).forEach(key => {
+            node.setAttribute(key, value[key]);
+          });
+        }
+        return node;
+      }
+      
+      static formats(domNode) {
+        const formats = {};
+        // Save all important attributes
+        const attributes = ['src', 'alt', 'width', 'height', 'style', 'class'];
+        attributes.forEach(attr => {
+          if (domNode.hasAttribute(attr)) {
+            formats[attr] = domNode.getAttribute(attr);
+          }
+        });
+        return formats;
+      }
+      
+      static value(domNode) {
+        const formats = this.formats(domNode);
+        return formats.src ? formats : domNode.getAttribute('src');
+      }
+      
+      format(name, value) {
+        if (['src', 'alt', 'width', 'height', 'style', 'class'].includes(name)) {
+          if (value) {
+            this.domNode.setAttribute(name, value);
+          } else {
+            this.domNode.removeAttribute(name);
+          }
+        } else {
+          super.format(name, value);
+        }
+      }
+    }
+    
+    Quill.register(CustomImageBlot, true);
+    customImageRegistered = true;
+    console.log('Custom Image Blot registered successfully');
+  } catch (error) {
+    console.error('Failed to register custom image blot:', error);
+  }
+};
+
 // Register Quill modules - don't call this at module level!
 let modulesRegistered = false;
 
@@ -58,19 +121,22 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     
     const initializeEditor = async () => {
       try {
-        // Register Quill modules first
-        await registerQuillModules();
-        
-        // Wait for modules to be ready
-        await new Promise(resolve => setTimeout(resolve, 150));
-        
-        // Ensure Quill instance is available
+        // Ensure Quill instance is available first
         if (typeof Quill === 'undefined' || !Quill.import || !Quill.register) {
           if (mounted) {
             setTimeout(initializeEditor, 100);
           }
           return;
         }
+        
+        // Register custom Image Blot first (before other modules)
+        registerCustomImageBlot();
+        
+        // Register Quill modules
+        await registerQuillModules();
+        
+        // Wait for modules to be ready
+        await new Promise(resolve => setTimeout(resolve, 150));
         
         // Import and register MathBlot
         const mathBlotModule = await import('../components/mathBlot');
@@ -170,7 +236,38 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
       ['clean']
     ],
     // Enable image formatter for resize and alignment
-    blotFormatter: {},
+    blotFormatter: {
+      overlay: {
+        style: {
+          border: '2px solid #3b82f6',
+        }
+      },
+      align: {
+        icons: {
+          left: `
+            <svg viewBox="0 0 18 18">
+              <line class="ql-stroke" x1="3" x2="15" y1="9" y2="9"></line>
+              <line class="ql-stroke" x1="3" x2="13" y1="14" y2="14"></line>
+              <line class="ql-stroke" x1="3" x2="9" y1="4" y2="4"></line>
+            </svg>
+          `,
+          center: `
+            <svg viewBox="0 0 18 18">
+              <line class="ql-stroke" x1="15" x2="3" y1="9" y2="9"></line>
+              <line class="ql-stroke" x1="14" x2="4" y1="14" y2="14"></line>
+              <line class="ql-stroke" x1="12" x2="6" y1="4" y2="4"></line>
+            </svg>
+          `,
+          right: `
+            <svg viewBox="0 0 18 18">
+              <line class="ql-stroke" x1="15" x2="3" y1="9" y2="9"></line>
+              <line class="ql-stroke" x1="15" x2="5" y1="14" y2="14"></line>
+              <line class="ql-stroke" x1="15" x2="9" y1="4" y2="4"></line>
+            </svg>
+          `,
+        },
+      },
+    },
     // Enable drag & drop images
     imageDrop: true,
   };
@@ -178,7 +275,8 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
   const formats = [
     'header', 'bold', 'italic', 'underline', 'strike',
     'color', 'background', 'list', 'bullet', 'align',
-    'direction', 'link', 'image', 'math'
+    'direction', 'link', 'image', 'math',
+    'width', 'height', 'style', 'class', 'float'
   ];
 
   // Custom image handler - handle image uploads
@@ -230,6 +328,136 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
       });
     } catch (error) {
       console.error('Error setting up image handler:', error);
+    }
+  }, [onChange, isEditorReady]);
+
+  // Track blotFormatter changes and save them
+  useEffect(() => {
+    if (!quillRef.current || !isEditorReady) return;
+    
+    try {
+      const editor = quillRef.current.getEditor();
+      if (!editor) return;
+
+      let saveTimeout = null;
+      
+      const saveContent = () => {
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+          if (onChange && quillRef.current) {
+            try {
+              const content = quillRef.current.getEditor().root.innerHTML;
+              onChange(content);
+              console.log('Content saved with images:', content.includes('<img'));
+            } catch (err) {
+              console.error('Error saving content:', err);
+            }
+          }
+        }, 150);
+      };
+
+      // Listen to text-change events
+      const handleTextChange = (delta, oldDelta, source) => {
+        if (source === 'user' || source === 'api') {
+          saveContent();
+        }
+      };
+
+      editor.on('text-change', handleTextChange);
+
+      // MutationObserver to track ALL changes on images
+      const observer = new MutationObserver((mutations) => {
+        let needsSave = false;
+        
+        mutations.forEach((mutation) => {
+          const target = mutation.target;
+          
+          // Check for attribute changes on images
+          if (mutation.type === 'attributes' && target.tagName === 'IMG') {
+            needsSave = true;
+            console.log('Image attribute changed:', mutation.attributeName, target.getAttribute(mutation.attributeName));
+          }
+          
+          // Check for child changes that might contain images
+          if (mutation.type === 'childList') {
+            mutation.addedNodes.forEach(node => {
+              if (node.tagName === 'IMG' || (node.querySelector && node.querySelector('img'))) {
+                needsSave = true;
+              }
+            });
+          }
+        });
+
+        if (needsSave) {
+          console.log('Image changes detected, saving...');
+          saveContent();
+        }
+      });
+
+      // Start observing with comprehensive options
+      observer.observe(editor.root, {
+        attributes: true,
+        attributeOldValue: true,
+        childList: true,
+        subtree: true,
+        characterData: false
+      });
+
+      // Also listen to DOM events on images for immediate feedback
+      const handleImageEvent = (e) => {
+        if (e.target.tagName === 'IMG') {
+          console.log('Image event detected:', e.type);
+          
+          // Update the image blot with current attributes
+          const img = e.target;
+          try {
+            const blot = Quill.find(img);
+            if (blot && blot.domNode === img) {
+              // Get current styles from DOM
+              const style = img.getAttribute('style');
+              const width = img.getAttribute('width');
+              const height = img.getAttribute('height');
+              const className = img.getAttribute('class');
+              
+              console.log('Image attributes:', { style, width, height, className });
+              
+              // Force Quill to update its internal representation
+              if (style) blot.format('style', style);
+              if (width) blot.format('width', width);
+              if (height) blot.format('height', height);
+              if (className) blot.format('class', className);
+            }
+          } catch (err) {
+            console.error('Error updating image blot:', err);
+          }
+          
+          saveContent();
+        }
+      };
+
+      editor.root.addEventListener('mouseup', handleImageEvent);
+      editor.root.addEventListener('touchend', handleImageEvent);
+      
+      // Listen for clicks outside images (when deselecting)
+      const handleClickOutside = (e) => {
+        if (!e.target.closest('.blot-formatter__overlay')) {
+          // User clicked outside - save any pending changes
+          saveContent();
+        }
+      };
+      
+      document.addEventListener('click', handleClickOutside);
+
+      return () => {
+        editor.off('text-change', handleTextChange);
+        observer.disconnect();
+        editor.root.removeEventListener('mouseup', handleImageEvent);
+        editor.root.removeEventListener('touchend', handleImageEvent);
+        document.removeEventListener('click', handleClickOutside);
+        if (saveTimeout) clearTimeout(saveTimeout);
+      };
+    } catch (error) {
+      console.error('Error setting up change tracker:', error);
     }
   }, [onChange, isEditorReady]);
 
@@ -869,6 +1097,37 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           font-size: 17px;
           line-height: 1.8;
           position: relative !important;
+        }
+        
+        /* Image alignment styles */
+        .simple-professional-math-editor .ql-editor img {
+          max-width: 100%;
+          height: auto;
+          cursor: pointer;
+        }
+        
+        .simple-professional-math-editor .ql-editor img[style*="float: left"],
+        .simple-professional-math-editor .ql-editor img[style*="float:left"] {
+          float: left !important;
+          margin: 5px 10px 5px 0 !important;
+        }
+        
+        .simple-professional-math-editor .ql-editor img[style*="float: right"],
+        .simple-professional-math-editor .ql-editor img[style*="float:right"] {
+          float: right !important;
+          margin: 5px 0 5px 10px !important;
+        }
+        
+        .simple-professional-math-editor .ql-editor img[style*="display: block"],
+        .simple-professional-math-editor .ql-editor img[style*="display:block"] {
+          display: block !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+        
+        /* BlotFormatter overlay styling */
+        .blot-formatter__overlay {
+          z-index: 10;
         }
         
         /* Math equations styling - RTL for Arabic layout */

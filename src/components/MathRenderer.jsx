@@ -401,6 +401,23 @@ const MathRenderer = memo(({ html }) => {
 
     containerRef.current.innerHTML = html;
 
+    // Handle images - preserve their styles and attributes
+    const images = containerRef.current.querySelectorAll('img');
+    images.forEach(img => {
+      // Ensure images display correctly with their saved styles
+      const style = img.getAttribute('style');
+      if (style) {
+        // Styles are already set from HTML, just ensure they're applied
+        img.style.cssText = style;
+      }
+      
+      // Ensure max-width for responsive display
+      if (!style || !style.includes('max-width')) {
+        img.style.maxWidth = '100%';
+        img.style.height = 'auto';
+      }
+    });
+
     const mathElements = containerRef.current.querySelectorAll(
       '.math-equation[data-latex]'
     );
@@ -575,7 +592,32 @@ const MathRenderer = memo(({ html }) => {
     });
   }, [html]);
 
-  return <div ref={containerRef} />;
+  return (
+    <>
+      <div ref={containerRef} />
+      <style>{`
+        /* Ensure images display correctly with their alignment */
+        img[style*="float: left"],
+        img[style*="float:left"] {
+          float: left !important;
+          margin: 5px 10px 5px 0 !important;
+        }
+        
+        img[style*="float: right"],
+        img[style*="float:right"] {
+          float: right !important;
+          margin: 5px 0 5px 10px !important;
+        }
+        
+        img[style*="display: block"],
+        img[style*="display:block"] {
+          display: block !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+        }
+      `}</style>
+    </>
+  );
 });
 
 MathRenderer.displayName = 'MathRenderer';
