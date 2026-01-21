@@ -904,7 +904,6 @@ export const addChapterToCategory = (categoryId, chapterName) => {
     
     if (updated) {
       localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
-      memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
       return true;
     }
     return false;
@@ -937,7 +936,6 @@ export const deleteChapterFromCategory = (chapterId) => {
     
     if (updated) {
       localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
-      memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
       return true;
     }
     return false;
@@ -978,7 +976,6 @@ export const addItemToChapter = (chapterId, itemName, hasTest = true) => {
     
     if (updated) {
       localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
-      memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
       return true;
     }
     return false;
@@ -1014,7 +1011,6 @@ export const deleteItemFromChapter = (itemId) => {
     
     if (updated) {
       localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
-      memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
       return true;
     }
     return false;
