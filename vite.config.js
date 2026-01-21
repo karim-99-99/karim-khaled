@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
+  define: {
+    'global': 'globalThis',
+    'process.env': {},
+  },
   plugins: [
     react(),
     // Custom plugin to handle SPA routing
@@ -52,7 +56,13 @@ export default defineConfig({
     extensions: ['.js', '.jsx', '.ts', '.tsx', '.json', '.mjs'],
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
+    include: [
+      'react', 
+      'react-dom', 
+      'react-router-dom',
+      'quill',
+      'react-quill',
+    ],
     // Exclude packages that have initialization issues
     exclude: [
       'mathquill',
@@ -67,11 +77,13 @@ export default defineConfig({
       '@ckeditor/ckeditor5-image',
       '@ckeditor/ckeditor5-undo',
       'ckeditor5',
-      'quill',
-      'react-quill',
-      'quill-blot-formatter',
-      'quill-image-drop-and-paste',
     ],
+    // Force pre-bundling of these packages to handle CommonJS properly
+    esbuildOptions: {
+      define: {
+        global: 'globalThis'
+      },
+    },
   },
   server: {
     fs: {
@@ -80,8 +92,9 @@ export default defineConfig({
   },
   build: {
     commonjsOptions: {
-      include: [/mathquill/, /node_modules/],
+      include: [/mathquill/, /quill/, /node_modules/],
       transformMixedEsModules: true, // Handle mixed CommonJS/ESM modules
+      requireReturnsDefault: 'auto', // Handle require() returns
     },
     // Enable code splitting and optimize chunks
     rollupOptions: {

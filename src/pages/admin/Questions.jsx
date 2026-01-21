@@ -14,12 +14,10 @@ import WordLikeEditor from '../../components/WordLikeEditor';
 import EquationEditor from '../../components/EquationEditor';
 import VisualEquationEditor from '../../components/VisualEquationEditor';
 import WYSIWYGEquationEditor from '../../components/WYSIWYGEquationEditor';
+import SimpleProfessionalMathEditor from '../../components/SimpleProfessionalMathEditor';
 import { InlineMath, BlockMath } from 'react-katex';
 import 'katex/dist/katex.min.css';
 import katex from 'katex';
-
-// Lazy load SimpleProfessionalMathEditor to avoid initialization issues
-const SimpleProfessionalMathEditor = lazy(() => import('../../components/SimpleProfessionalMathEditor'));
 
 const Questions = () => {
   const navigate = useNavigate();
@@ -957,21 +955,11 @@ const Questions = () => {
                     </p>
                     
                     {/* Best Working Editor - No waiting, no loading! */}
-                    {/* Wrap in try-catch using error boundary concept */}
-                    <Suspense fallback={
-                      <div className="border rounded-lg p-8 text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto mb-4"></div>
-                        <p className="text-gray-500">
-                          {isArabicBrowser() ? 'جاري تحميل المحرر...' : 'Loading editor...'}
-                        </p>
-                      </div>
-                    }>
-                      <SimpleProfessionalMathEditor
-                        value={formData.question}
-                        onChange={handleQuillChange}
-                        placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
-                      />
-                    </Suspense>
+                    <SimpleProfessionalMathEditor
+                      value={formData.question}
+                      onChange={handleQuillChange}
+                      placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
+                    />
                   </div>
 
                   <div>

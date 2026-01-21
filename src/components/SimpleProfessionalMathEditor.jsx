@@ -43,6 +43,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
   const [mathValue, setMathValue] = useState('');
   const [editingMathIndex, setEditingMathIndex] = useState(null); // Track which equation is being edited
   const [MathfieldElement, setMathfieldElement] = useState(null);
+  const [isEditorReady, setIsEditorReady] = useState(false); // Track editor readiness
   const quillRef = useRef(null);
   const mathfieldRef = useRef(null);
   const [isRTL, setIsRTL] = useState(() => {
@@ -89,6 +90,11 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
               if (mounted) mathBlotModule.registerMathBlot();
             }, 200);
           }
+        }
+        
+        // Mark editor as ready
+        if (mounted) {
+          setIsEditorReady(true);
         }
       } catch (e) {
         console.error('Failed to initialize editor:', e);
@@ -177,12 +183,16 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
 
   // Custom image handler - handle image uploads
   useEffect(() => {
-    if (!quillRef.current) return;
+    if (!quillRef.current || !isEditorReady) return;
     
-    const editor = quillRef.current.getEditor();
-    const toolbar = editor.getModule('toolbar');
-    
-    toolbar.addHandler('image', () => {
+    try {
+      const editor = quillRef.current.getEditor();
+      if (!editor) return;
+      
+      const toolbar = editor.getModule('toolbar');
+      if (!toolbar) return;
+      
+      toolbar.addHandler('image', () => {
       const input = document.createElement('input');
       input.setAttribute('type', 'file');
       input.setAttribute('accept', 'image/*');
@@ -217,8 +227,11 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           reader.readAsDataURL(file);
         }
       };
-    });
-  }, [onChange]);
+      });
+    } catch (error) {
+      console.error('Error setting up image handler:', error);
+    }
+  }, [onChange, isEditorReady]);
 
   // Insert or update math equation as Quill Embed (Math Blot)
   const insertMath = () => {
@@ -321,10 +334,13 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
 
   // Handle click on math equation (Word-like: double-click to edit)
   useEffect(() => {
-    if (!quillRef.current) return;
+    if (!quillRef.current || !isEditorReady) return;
 
-    const editor = quillRef.current.getEditor();
-    const root = editor.root;
+    try {
+      const editor = quillRef.current.getEditor();
+      if (!editor || !editor.root) return;
+      
+      const root = editor.root;
 
     const handleMathClick = (e) => {
       const mathElement = e.target.closest('.math-equation[data-latex]');
@@ -350,15 +366,18 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
       }
     };
 
-    // Use event delegation for click handling
-    root.addEventListener('click', handleMathClick);
-    root.addEventListener('dblclick', handleMathClick); // Also support double-click like Word
+      // Use event delegation for click handling
+      root.addEventListener('click', handleMathClick);
+      root.addEventListener('dblclick', handleMathClick); // Also support double-click like Word
 
-    return () => {
-      root.removeEventListener('click', handleMathClick);
-      root.removeEventListener('dblclick', handleMathClick);
-    };
-  }, [value]);
+      return () => {
+        root.removeEventListener('click', handleMathClick);
+        root.removeEventListener('dblclick', handleMathClick);
+      };
+    } catch (error) {
+      console.error('Error setting up math click handler:', error);
+    }
+  }, [value, isEditorReady]);
 
   // Initialize MathLive field
   useEffect(() => {
@@ -671,16 +690,27 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
         </button>
       </div>
 
-      <ReactQuill
-        ref={quillRef}
-        value={value || ''}
-        onChange={(content) => onChange && onChange(content)}
-        modules={modules}
-        formats={formats}
-        placeholder={placeholder || (isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...')}
-        theme="snow"
-        dir={isArabicBrowser() ? 'rtl' : 'ltr'}
-      />
+      {isEditorReady ? (
+        <ReactQuill
+          ref={quillRef}
+          value={value || ''}
+          onChange={(content) => onChange && onChange(content)}
+          modules={modules}
+          formats={formats}
+          placeholder={placeholder || (isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...')}
+          theme="snow"
+          dir={isArabicBrowser() ? 'rtl' : 'ltr'}
+        />
+      ) : (
+        <div className="border-2 border-gray-300 rounded-lg p-8 min-h-[400px] flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-gray-600 font-medium">
+              {isArabicBrowser() ? 'جاري تحميل المحرر...' : 'Loading editor...'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Math Modal */}
       {showMathModal && (
