@@ -60,6 +60,7 @@ export default defineConfig({
       'react', 
       'react-dom', 
       'react-router-dom',
+      'prop-types',
       'quill',
       'react-quill',
     ],
