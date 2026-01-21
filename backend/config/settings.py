@@ -126,15 +126,28 @@ REST_FRAMEWORK = {
 }
 
 # CORS settings (allow frontend to access API)
-CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',') if os.environ.get('CORS_ALLOWED_ORIGINS') else [
-    "http://localhost:5173",  # Vite dev server
-    "http://localhost:5174",
-    "http://localhost:3000",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-    "http://127.0.0.1:3000",
-]
-CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CORS_ALLOWED_ORIGINS if origin.strip()]
+cors_origins_env = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+if cors_origins_env:
+    # Split by comma and clean each origin (remove query strings, trailing slashes, etc.)
+    CORS_ALLOWED_ORIGINS = []
+    for origin in cors_origins_env.split(','):
+        origin = origin.strip()
+        if origin:
+            # Remove query strings (everything after ?)
+            origin = origin.split('?')[0]
+            # Remove trailing slash
+            origin = origin.rstrip('/')
+            if origin:
+                CORS_ALLOWED_ORIGINS.append(origin)
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "http://localhost:5173",  # Vite dev server
+        "http://localhost:5174",
+        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:3000",
+    ]
 
 # Allow all origins in development if DEBUG is True
 if DEBUG:
