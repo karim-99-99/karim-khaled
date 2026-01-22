@@ -153,6 +153,12 @@ else:
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CORS_ALLOWED_ORIGINS = []
+else:
+    # In production, only allow specific origins
+    # If CORS_ALLOWED_ORIGINS is empty, allow all (for testing - not recommended for production)
+    if not CORS_ALLOWED_ORIGINS:
+        # Fallback: allow all origins if not specified (for initial setup)
+        CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 

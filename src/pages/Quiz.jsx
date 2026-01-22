@@ -235,23 +235,29 @@ const Quiz = () => {
 
     // After result is shown
     const userAnswer = answers[currentQuestion.id] || selectedAnswer;
-    const correctAnswer = currentQuestion.answers.find(a => a.isCorrect);
-    const isUserCorrect = userAnswer === correctAnswer?.id;
+    const isUserAnswer = userAnswer === answer.id;
+    const isCorrectAnswer = answer.isCorrect;
 
-    if (answer.isCorrect) {
-      // Correct answer always green
+    // If user answered correctly
+    if (isUserAnswer && isCorrectAnswer) {
+      // User selected the correct answer - green background
       return 'bg-green-500 text-white';
     }
     
-    // If user answered correctly, all other answers turn red
-    // If user answered incorrectly, all wrong answers turn red
-    if (isUserCorrect) {
-      // User answered correctly - all other answers turn red
-      return 'bg-red-500 text-white';
-    } else {
-      // User answered incorrectly - all wrong answers turn red
+    // If user answered incorrectly
+    if (isUserAnswer && !isCorrectAnswer) {
+      // User selected wrong answer - red background
       return 'bg-red-500 text-white';
     }
+    
+    // If this is the correct answer but user didn't select it
+    if (!isUserAnswer && isCorrectAnswer) {
+      // Correct answer (user didn't select it) - green background
+      return 'bg-green-500 text-white';
+    }
+    
+    // All other answers - default gray
+    return 'bg-gray-100 text-dark-600';
   };
 
   if (questions.length === 0) {
@@ -412,11 +418,21 @@ const Quiz = () => {
           <div className="mb-8">
             {/* Question Image */}
             {currentQuestion?.image && (
-              <div className="mb-4 flex justify-center">
+              <div className={`mb-4 flex ${
+                currentQuestion.imageAlign === 'left' ? 'justify-start' : 
+                currentQuestion.imageAlign === 'right' ? 'justify-end' : 
+                'justify-center'
+              }`}>
                 <img
                   src={currentQuestion.image}
                   alt="Question"
-                  className="w-full max-w-full h-auto max-h-[300px] sm:max-h-[400px] md:max-h-[500px] rounded-lg border shadow-md object-contain"
+                  className="rounded-lg border shadow-md object-contain"
+                  style={{
+                    width: currentQuestion.imageScale ? `${currentQuestion.imageScale}%` : '100%',
+                    maxWidth: '100%',
+                    height: 'auto',
+                    maxHeight: '500px'
+                  }}
                 />
               </div>
             )}

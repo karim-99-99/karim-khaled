@@ -57,6 +57,7 @@ const Questions = () => {
   const [questionImage, setQuestionImage] = useState(null);
   const [questionImagePreview, setQuestionImagePreview] = useState(null);
   const [imageScale, setImageScale] = useState(100); // Image scale percentage
+  const [imageAlign, setImageAlign] = useState('center'); // Image alignment: 'left', 'center', 'right'
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageSrc, setModalImageSrc] = useState(null);
   const [showMathEditor, setShowMathEditor] = useState(false);
@@ -69,6 +70,8 @@ const Questions = () => {
     question: '',
     questionEn: '',
     image: null, // base64 encoded image
+    imageAlign: 'center', // Image alignment
+    imageScale: 100, // Image scale
     explanation: '', // Explanation for the correct answer
     answers: [
       { id: 'a', text: '', isCorrect: false },
@@ -564,18 +567,27 @@ const Questions = () => {
         setQuestionImage(file);
         setQuestionImagePreview(base64String);
         setImageScale(100); // Reset scale when new image is uploaded
-        setFormData({ ...formData, image: base64String });
+        setImageAlign('center'); // Reset alignment
+        setFormData({ ...formData, image: base64String, imageScale: 100, imageAlign: 'center' });
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleImageZoom = (delta) => {
-    setImageScale(prev => Math.max(25, Math.min(300, prev + delta)));
+    const newScale = Math.max(25, Math.min(300, imageScale + delta));
+    setImageScale(newScale);
+    setFormData({ ...formData, imageScale: newScale });
   };
 
   const handleImageReset = () => {
     setImageScale(100);
+    setFormData({ ...formData, imageScale: 100 });
+  };
+
+  const handleImageAlign = (align) => {
+    setImageAlign(align);
+    setFormData({ ...formData, imageAlign: align });
   };
 
   const handleImageMaximize = (imageSrc) => {
@@ -598,10 +610,14 @@ const Questions = () => {
     setQuestionImage(null);
     setQuestionImagePreview(null);
     setImageScale(100);
+    setImageAlign('center');
     setFormData({
       question: '',
       questionEn: '',
       image: null,
+      imageScale: 100,
+      imageAlign: 'center',
+      explanation: '',
       answers: [
         { id: 'a', text: '', isCorrect: false },
         { id: 'b', text: '', isCorrect: false },
@@ -628,10 +644,15 @@ const Questions = () => {
     
     // Use setTimeout to show loading state first, then load form
     setTimeout(() => {
+      const imageScale = question.imageScale || 100;
+      const imageAlign = question.imageAlign || 'center';
+      
       setFormData({
         question: question.question || '',
         questionEn: question.questionEn || '',
         image: question.image || null,
+        imageScale: imageScale,
+        imageAlign: imageAlign,
         explanation: question.explanation || '',
         answers: question.answers ? question.answers.map((ans) => ({ id: ans.id, text: ans.text || '', isCorrect: ans.isCorrect || false })) : [
           { id: 'a', text: '', isCorrect: false },
@@ -646,7 +667,8 @@ const Questions = () => {
         setQuestionImagePreview(null);
       }
       setQuestionImage(null);
-      setImageScale(100);
+      setImageScale(imageScale);
+      setImageAlign(imageAlign);
       if (imageInputRef.current) {
         imageInputRef.current.value = '';
       }
@@ -700,8 +722,8 @@ const Questions = () => {
 
     const payload = {
       question: formData.question,
-      questionEn: formData.questionEn,
-      explanation: formData.explanation,
+      questionEn: formData.questionEn || '',
+      explanation: formData.explanation?.trim() || null, // Optional field - can be null
       answers: formData.answers,
     };
     const imageFile = questionImage && questionImage instanceof File ? questionImage : null;
@@ -730,10 +752,14 @@ const Questions = () => {
     setEditingQuestion(null);
     setQuestionImage(null);
     setQuestionImagePreview(null);
+    setImageScale(100);
+    setImageAlign('center');
     setFormData({
       question: '',
       questionEn: '',
       image: null,
+      imageScale: 100,
+      imageAlign: 'center',
       explanation: '',
       answers: [
         { id: 'a', text: '', isCorrect: false },
@@ -1061,19 +1087,158 @@ const Questions = () => {
                     />
                   </div>
 
+                  {/* Image Upload and Control Section */}
                   <div>
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      شرح الإجابة الصحيحة / Explanation (يظهر عند الإجابة الخاطئة)
+                      {isArabicBrowser() ? 'صورة السؤال / Question Image' : 'Question Image'} <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
+                    </label>
+                    
+                    {/* Image Upload Input */}
+                    <div className="mb-3">
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageChange}
+                        className="w-full px-4 py-2 border rounded-lg text-sm"
+                      />
+                    </div>
+
+                    {/* Image Preview with Controls */}
+                    {questionImagePreview && (
+                      <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                        {/* Image Display with Alignment */}
+                        <div className={`mb-4 flex ${imageAlign === 'left' ? 'justify-start' : imageAlign === 'right' ? 'justify-end' : 'justify-center'}`}>
+                          <img
+                            src={questionImagePreview}
+                            alt="Question preview"
+                            className="rounded-lg shadow-lg transition-all duration-200"
+                            style={{
+                              width: `${imageScale}%`,
+                              maxWidth: '100%',
+                              height: 'auto',
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => handleImageMaximize(questionImagePreview)}
+                          />
+                        </div>
+
+                        {/* Image Controls */}
+                        <div className="space-y-3">
+                          {/* Scale Controls */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-2">
+                              {isArabicBrowser() ? 'حجم الصورة / Image Size' : 'Image Size'}: {imageScale}%
+                            </label>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleImageZoom(-10)}
+                                className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition text-sm font-medium"
+                                disabled={imageScale <= 25}
+                              >
+                                {isArabicBrowser() ? 'تصغير' : 'Zoom Out'} (-)
+                              </button>
+                              <input
+                                type="range"
+                                min="25"
+                                max="300"
+                                value={imageScale}
+                                onChange={(e) => {
+                                  const newScale = parseInt(e.target.value);
+                                  setImageScale(newScale);
+                                  setFormData({ ...formData, imageScale: newScale });
+                                }}
+                                className="flex-1"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleImageZoom(10)}
+                                className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition text-sm font-medium"
+                                disabled={imageScale >= 300}
+                              >
+                                {isArabicBrowser() ? 'تكبير' : 'Zoom In'} (+)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleImageReset}
+                                className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition text-sm font-medium"
+                              >
+                                {isArabicBrowser() ? 'إعادة تعيين' : 'Reset'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Alignment Controls */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-600 mb-2">
+                              {isArabicBrowser() ? 'محاذاة الصورة / Image Alignment' : 'Image Alignment'}
+                            </label>
+                            <div className="flex gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleImageAlign('left')}
+                                className={`flex-1 px-4 py-2 rounded transition font-medium ${
+                                  imageAlign === 'left'
+                                    ? 'bg-primary-500 text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                {isArabicBrowser() ? '← يسار' : '← Left'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleImageAlign('center')}
+                                className={`flex-1 px-4 py-2 rounded transition font-medium ${
+                                  imageAlign === 'center'
+                                    ? 'bg-primary-500 text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                {isArabicBrowser() ? '↔ وسط' : '↔ Center'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleImageAlign('right')}
+                                className={`flex-1 px-4 py-2 rounded transition font-medium ${
+                                  imageAlign === 'right'
+                                    ? 'bg-primary-500 text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                }`}
+                              >
+                                {isArabicBrowser() ? 'يمين →' : 'Right →'}
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Remove Image Button */}
+                          <div>
+                            <button
+                              type="button"
+                              onClick={handleRemoveImage}
+                              className="w-full bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition font-medium text-sm"
+                            >
+                              {isArabicBrowser() ? 'حذف الصورة' : 'Remove Image'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                      شرح الإجابة الصحيحة / Explanation <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
                     </label>
                     <p className="text-xs text-gray-500 mb-2">
                       {isArabicBrowser() 
-                        ? '💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ' 
-                        : '💡 Add an explanation to help students understand the correct answer when they make a mistake'}
+                        ? '💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ (اختياري)' 
+                        : '💡 Add an explanation to help students understand the correct answer when they make a mistake (optional)'}
                     </p>
                     <SimpleProfessionalMathEditor
                       value={formData.explanation}
                       onChange={(content) => setFormData({ ...formData, explanation: content })}
-                      placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا...' : 'Write explanation for the correct answer here...'}
+                      placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا... (اختياري)' : 'Write explanation for the correct answer here... (optional)'}
                     />
                   </div>
 

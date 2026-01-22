@@ -38,7 +38,17 @@ const request = async (path, options = {}) => {
   } else if (options.body != null && options.body !== '' && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
-  const res = await fetch(url, { ...options, headers });
+  let res;
+  try {
+    res = await fetch(url, { ...options, headers });
+  } catch (fetchError) {
+    // Network error (CORS, connection failed, etc.)
+    if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
+      throw new Error('فشل الاتصال بالخادم. تحقق من أن الـ Backend يعمل وأن CORS مضبوط بشكل صحيح.');
+    }
+    throw fetchError;
+  }
+  
   if (res.status === 401) {
     // Only clear token for non-auth endpoints (auth endpoints can return 401 for invalid credentials)
     if (!isAuthEndpoint) {
@@ -272,6 +282,8 @@ const mapQuestionFromBackend = (q) => ({
   questionEn: q.question_en,
   explanation: q.explanation,
   image: q.question_image_url || q.question_image,
+  imageScale: q.image_scale || 100, // Default to 100% if not set
+  imageAlign: q.image_align || 'center', // Default to center if not set
   itemId: q.lesson,
   levelId: q.lesson,
   answers: (q.answers || []).map((a) => ({
@@ -304,7 +316,7 @@ export const addQuestion = async (lessonId, { question, questionEn, explanation,
     lesson: lessonId,
     question: question || '',
     question_en: questionEn || '',
-    explanation: explanation || '',
+    explanation: explanation?.trim() || null, // Optional field - send null if empty
     answers: (answers || []).map((a) => ({
       answer_id: (a.id || a.key || 'a').toString().toLowerCase().slice(0, 1),
       text: a.text || '',
@@ -325,7 +337,7 @@ export const updateQuestion = async (questionId, { question, questionEn, explana
   const body = {
     question: question ?? '',
     question_en: questionEn ?? '',
-    explanation: explanation ?? '',
+    explanation: explanation?.trim() || null, // Optional field - send null if empty
     answers: (answers || []).map((a) => ({
       answer_id: (a.id || a.key || 'a').toString().toLowerCase().slice(0, 1),
       text: a.text || '',

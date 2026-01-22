@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getCategoriesBySubject, getChaptersByCategory, getLevelsByChapter, addItemToChapter, deleteItemFromChapter, getChapterById } from '../../services/storageService';
 import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
+import Toast from '../../components/Toast';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { isArabicBrowser } from '../../utils/language';
 
 const LessonsManagement = () => {
@@ -20,6 +22,8 @@ const LessonsManagement = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLessonName, setNewLessonName] = useState('');
   const [newLessonHasTest, setNewLessonHasTest] = useState(true);
+  const [toast, setToast] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   useEffect(() => {
     if (useBackend) {
@@ -102,11 +106,17 @@ const LessonsManagement = () => {
 
   const handleAddLesson = async () => {
     if (!selectedChapter) {
-      alert(isArabicBrowser() ? 'يرجى اختيار الفصل أولاً' : 'Please select a chapter first');
+      setToast({
+        message: isArabicBrowser() ? 'يرجى اختيار الفصل أولاً' : 'Please select a chapter first',
+        type: 'error'
+      });
       return;
     }
     if (!newLessonName.trim()) {
-      alert(isArabicBrowser() ? 'يرجى إدخال اسم الدرس' : 'Please enter lesson name');
+      setToast({
+        message: isArabicBrowser() ? 'يرجى إدخال اسم الدرس' : 'Please enter lesson name',
+        type: 'error'
+      });
       return;
     }
     if (useBackend) {
@@ -117,8 +127,15 @@ const LessonsManagement = () => {
         setNewLessonName('');
         setNewLessonHasTest(true);
         setShowAddForm(false);
+        setToast({
+          message: isArabicBrowser() ? 'تم إضافة الدرس بنجاح' : 'Lesson added successfully',
+          type: 'success'
+        });
       } catch (e) {
-        alert(e.message || (isArabicBrowser() ? 'حدث خطأ أثناء إضافة الدرس' : 'Error adding lesson'));
+        setToast({
+          message: e.message || (isArabicBrowser() ? 'حدث خطأ أثناء إضافة الدرس' : 'Error adding lesson'),
+          type: 'error'
+        });
       }
       return;
     }
@@ -128,34 +145,70 @@ const LessonsManagement = () => {
       setNewLessonName('');
       setNewLessonHasTest(true);
       setShowAddForm(false);
+      setToast({
+        message: isArabicBrowser() ? 'تم إضافة الدرس بنجاح' : 'Lesson added successfully',
+        type: 'success'
+      });
     } else {
-      alert(isArabicBrowser() ? 'حدث خطأ أثناء إضافة الدرس' : 'Error adding lesson');
+      setToast({
+        message: isArabicBrowser() ? 'حدث خطأ أثناء إضافة الدرس' : 'Error adding lesson',
+        type: 'error'
+      });
     }
   };
 
   const handleDeleteLesson = async (lessonId) => {
-    if (!window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الدرس؟' : 'Are you sure you want to delete this lesson?')) return;
-    if (useBackend) {
-      try {
-        await backendApi.deleteLesson(lessonId);
-        const list = await backendApi.getLevelsByChapter(selectedChapter);
-        setLessons(list);
-      } catch (e) {
-        console.error('deleteLesson error:', e);
-        const msg = e?.message || '';
-        if (msg.includes('Not found') || /404|غير موجود/.test(msg)) {
-          alert(isArabicBrowser() ? 'الدرس غير موجود أو تم حذفه مسبقاً.' : 'Lesson not found or already deleted.');
-        } else if (msg.includes('permission') || /403|صلاحي|صلاحية/.test(msg)) {
-          alert(isArabicBrowser() ? 'ليس لديك صلاحية الحذف. سجّل دخولاً بحساب مدير.' : 'You do not have permission to delete. Log in as admin.');
-        } else {
-          alert(msg || (isArabicBrowser() ? 'حدث خطأ أثناء حذف الدرس' : 'Error deleting lesson'));
+    setConfirmDialog({
+      message: isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الدرس؟' : 'Are you sure you want to delete this lesson?',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        if (useBackend) {
+          try {
+            await backendApi.deleteLesson(lessonId);
+            const list = await backendApi.getLevelsByChapter(selectedChapter);
+            setLessons(list);
+            setToast({
+              message: isArabicBrowser() ? 'تم حذف الدرس بنجاح' : 'Lesson deleted successfully',
+              type: 'success'
+            });
+          } catch (e) {
+            console.error('deleteLesson error:', e);
+            const msg = e?.message || '';
+            if (msg.includes('Not found') || /404|غير موجود/.test(msg)) {
+              setToast({
+                message: isArabicBrowser() ? 'الدرس غير موجود أو تم حذفه مسبقاً.' : 'Lesson not found or already deleted.',
+                type: 'error'
+              });
+            } else if (msg.includes('permission') || /403|صلاحي|صلاحية/.test(msg)) {
+              setToast({
+                message: isArabicBrowser() ? 'ليس لديك صلاحية الحذف. سجّل دخولاً بحساب مدير.' : 'You do not have permission to delete. Log in as admin.',
+                type: 'error'
+              });
+            } else {
+              setToast({
+                message: msg || (isArabicBrowser() ? 'حدث خطأ أثناء حذف الدرس' : 'Error deleting lesson'),
+                type: 'error'
+              });
+            }
+          }
+          return;
         }
-      }
-      return;
-    }
-    const success = deleteItemFromChapter(lessonId);
-    if (success) setLessons(getLevelsByChapter(selectedChapter));
-    else alert(isArabicBrowser() ? 'حدث خطأ أثناء حذف الدرس' : 'Error deleting lesson');
+        const success = deleteItemFromChapter(lessonId);
+        if (success) {
+          setLessons(getLevelsByChapter(selectedChapter));
+          setToast({
+            message: isArabicBrowser() ? 'تم حذف الدرس بنجاح' : 'Lesson deleted successfully',
+            type: 'success'
+          });
+        } else {
+          setToast({
+            message: isArabicBrowser() ? 'حدث خطأ أثناء حذف الدرس' : 'Error deleting lesson',
+            type: 'error'
+          });
+        }
+      },
+      onCancel: () => setConfirmDialog(null)
+    });
   };
 
   const selectedSubjectObj = subjects.find(s => s.id === selectedSubject);
@@ -343,6 +396,24 @@ const LessonsManagement = () => {
           )}
         </div>
       </div>
+      
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+      
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <ConfirmDialog
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
+        />
+      )}
     </div>
   );
 };

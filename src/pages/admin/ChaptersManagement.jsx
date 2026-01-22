@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getCategoriesBySubject, getChaptersByCategory, addChapterToCategory, deleteChapterFromCategory, getCategoryById } from '../../services/storageService';
 import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
+import Toast from '../../components/Toast';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import { isArabicBrowser } from '../../utils/language';
 
 const ChaptersManagement = () => {
@@ -17,6 +19,8 @@ const ChaptersManagement = () => {
   const [chapters, setChapters] = useState([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newChapterName, setNewChapterName] = useState('');
+  const [toast, setToast] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
 
   useEffect(() => {
     if (useBackend) {
@@ -74,11 +78,17 @@ const ChaptersManagement = () => {
 
   const handleAddChapter = async () => {
     if (!selectedCategory) {
-      alert(isArabicBrowser() ? 'يرجى اختيار التصنيف أولاً' : 'Please select a category first');
+      setToast({
+        message: isArabicBrowser() ? 'يرجى اختيار التصنيف أولاً' : 'Please select a category first',
+        type: 'error'
+      });
       return;
     }
     if (!newChapterName.trim()) {
-      alert(isArabicBrowser() ? 'يرجى إدخال اسم الفصل' : 'Please enter chapter name');
+      setToast({
+        message: isArabicBrowser() ? 'يرجى إدخال اسم الفصل' : 'Please enter chapter name',
+        type: 'error'
+      });
       return;
     }
     if (useBackend) {
@@ -88,8 +98,15 @@ const ChaptersManagement = () => {
         setChapters(ch);
         setNewChapterName('');
         setShowAddForm(false);
+        setToast({
+          message: isArabicBrowser() ? 'تم إضافة الفصل بنجاح' : 'Chapter added successfully',
+          type: 'success'
+        });
       } catch (e) {
-        alert(e.message || (isArabicBrowser() ? 'حدث خطأ أثناء إضافة الفصل' : 'Error adding chapter'));
+        setToast({
+          message: e.message || (isArabicBrowser() ? 'حدث خطأ أثناء إضافة الفصل' : 'Error adding chapter'),
+          type: 'error'
+        });
       }
       return;
     }
@@ -98,26 +115,56 @@ const ChaptersManagement = () => {
       setChapters(getChaptersByCategory(selectedCategory));
       setNewChapterName('');
       setShowAddForm(false);
+      setToast({
+        message: isArabicBrowser() ? 'تم إضافة الفصل بنجاح' : 'Chapter added successfully',
+        type: 'success'
+      });
     } else {
-      alert(isArabicBrowser() ? 'حدث خطأ أثناء إضافة الفصل' : 'Error adding chapter');
+      setToast({
+        message: isArabicBrowser() ? 'حدث خطأ أثناء إضافة الفصل' : 'Error adding chapter',
+        type: 'error'
+      });
     }
   };
 
   const handleDeleteChapter = async (chapterId) => {
-    if (!window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الفصل؟ سيتم حذف جميع الدروس التابعة له أيضاً.' : 'Are you sure? This will also delete all lessons in this chapter.')) return;
-    if (useBackend) {
-      try {
-        await backendApi.deleteChapter(chapterId);
-        const ch = await backendApi.getChaptersByCategory(selectedCategory);
-        setChapters(ch);
-      } catch (e) {
-        alert(e.message || (isArabicBrowser() ? 'حدث خطأ أثناء حذف الفصل' : 'Error deleting chapter'));
-      }
-      return;
-    }
-    const success = deleteChapterFromCategory(chapterId);
-    if (success) setChapters(getChaptersByCategory(selectedCategory));
-    else alert(isArabicBrowser() ? 'حدث خطأ أثناء حذف الفصل' : 'Error deleting chapter');
+    setConfirmDialog({
+      message: isArabicBrowser() ? 'هل أنت متأكد من حذف هذا الفصل؟ سيتم حذف جميع الدروس التابعة له أيضاً.' : 'Are you sure? This will also delete all lessons in this chapter.',
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        if (useBackend) {
+          try {
+            await backendApi.deleteChapter(chapterId);
+            const ch = await backendApi.getChaptersByCategory(selectedCategory);
+            setChapters(ch);
+            setToast({
+              message: isArabicBrowser() ? 'تم حذف الفصل بنجاح' : 'Chapter deleted successfully',
+              type: 'success'
+            });
+          } catch (e) {
+            setToast({
+              message: e.message || (isArabicBrowser() ? 'حدث خطأ أثناء حذف الفصل' : 'Error deleting chapter'),
+              type: 'error'
+            });
+          }
+          return;
+        }
+        const success = deleteChapterFromCategory(chapterId);
+        if (success) {
+          setChapters(getChaptersByCategory(selectedCategory));
+          setToast({
+            message: isArabicBrowser() ? 'تم حذف الفصل بنجاح' : 'Chapter deleted successfully',
+            type: 'success'
+          });
+        } else {
+          setToast({
+            message: isArabicBrowser() ? 'حدث خطأ أثناء حذف الفصل' : 'Error deleting chapter',
+            type: 'error'
+          });
+        }
+      },
+      onCancel: () => setConfirmDialog(null)
+    });
   };
 
   const selectedSubjectObj = subjects.find(s => s.id === selectedSubject);
@@ -269,6 +316,24 @@ const ChaptersManagement = () => {
           )}
         </div>
       </div>
+      
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+      
+      {/* Confirm Dialog */}
+      {confirmDialog && (
+        <ConfirmDialog
+          message={confirmDialog.message}
+          onConfirm={confirmDialog.onConfirm}
+          onCancel={confirmDialog.onCancel}
+        />
+      )}
     </div>
   );
 };
