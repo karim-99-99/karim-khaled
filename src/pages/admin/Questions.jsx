@@ -449,14 +449,23 @@ const Questions = () => {
                         setSelectedChapter(chapter.id);
                         setSelectedLevel(itemIdFromUrl);
                       }
-                    }).catch(() => {});
+                    }).catch((err) => {
+                      console.error('Error loading category:', err);
+                    });
                   }
-                }).catch(() => {});
+                }).catch((err) => {
+                  console.error('Error loading chapter:', err);
+                });
               }
-            }).catch(() => {});
+            }).catch((err) => {
+              console.error('Error loading lesson:', err);
+            });
           }
         }
-      }).catch(() => setSubjects([]));
+      }).catch((err) => {
+        console.error('Error loading subjects:', err);
+        setSubjects([]);
+      });
     } else {
       try {
         const allSubjects = getSubjects();
@@ -515,11 +524,19 @@ const Questions = () => {
       return;
     }
     if (useBackend) {
-      backendApi.getQuestionsByLevel(selectedLevel).then(setQuestions).catch(() => setQuestions([]));
+      backendApi.getQuestionsByLevel(selectedLevel)
+        .then((questions) => {
+          setQuestions(questions || []);
+        })
+        .catch((err) => {
+          console.error('Error loading questions:', err);
+          setQuestions([]);
+        });
     } else {
       try {
         setQuestions(getQuestionsByLevel(selectedLevel) || []);
-      } catch {
+      } catch (err) {
+        console.error('Error loading questions from local storage:', err);
         setQuestions([]);
       }
     }
@@ -736,16 +753,26 @@ const Questions = () => {
           await backendApi.addQuestion(selectedLevel, payload, imageFile);
         }
         const list = await backendApi.getQuestionsByLevel(selectedLevel);
-        setQuestions(list);
+        setQuestions(list || []);
       } catch (err) {
-        alert(err.message || (isArabicBrowser() ? 'حدث خطأ' : 'Error'));
+        console.error('Error saving question:', err);
+        alert(err.message || (isArabicBrowser() ? 'حدث خطأ أثناء حفظ السؤال' : 'Error saving question'));
         return;
       }
     } else {
-      const questionData = { ...formData, levelId: selectedLevel };
-      if (editingQuestion) updateQuestion(editingQuestion.id, questionData);
-      else addQuestion(questionData);
-      setQuestions(getQuestionsByLevel(selectedLevel));
+      try {
+        const questionData = { ...formData, levelId: selectedLevel };
+        if (editingQuestion) {
+          updateQuestion(editingQuestion.id, questionData);
+        } else {
+          addQuestion(questionData);
+        }
+        setQuestions(getQuestionsByLevel(selectedLevel) || []);
+      } catch (err) {
+        console.error('Error saving question to local storage:', err);
+        alert(isArabicBrowser() ? 'حدث خطأ أثناء حفظ السؤال' : 'Error saving question');
+        return;
+      }
     }
 
     setShowForm(false);
