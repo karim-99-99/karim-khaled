@@ -877,11 +877,19 @@ const Questions = () => {
   };
 
   const handleCorrectAnswerChange = (index) => {
-    const newAnswers = formData.answers.map((ans, i) => ({
-      ...ans,
-      isCorrect: i === index,
-    }));
-    setFormData({ ...formData, answers: newAnswers });
+    try {
+      if (!formData.answers || !Array.isArray(formData.answers)) {
+        console.error('formData.answers is not an array');
+        return;
+      }
+      const newAnswers = formData.answers.map((ans, i) => ({
+        ...ans,
+        isCorrect: i === index,
+      }));
+      setFormData({ ...formData, answers: newAnswers });
+    } catch (err) {
+      console.error('Error in handleCorrectAnswerChange:', err);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -1052,11 +1060,15 @@ const Questions = () => {
                 className="w-full px-4 py-2 border rounded-lg"
               >
                 <option value="">اختر التصنيف / Select Category</option>
-                {selectedSubjectObj?.categories?.map(category => (
-                  <option key={category.id} value={category.id}>
-                    {category.name}
-                  </option>
-                ))}
+                {selectedSubjectObj?.categories && Array.isArray(selectedSubjectObj.categories) ? (
+                  selectedSubjectObj.categories.map(category => (
+                    <option key={category?.id || Math.random()} value={category?.id || ''}>
+                      {category?.name || ''}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>لا توجد تصنيفات / No categories available</option>
+                )}
               </select>
             </div>
 
@@ -1071,11 +1083,15 @@ const Questions = () => {
                 className="w-full px-4 py-2 border rounded-lg"
               >
                 <option value="">اختر الفصل / Select Chapter</option>
-                {chaptersForCategory.map(chapter => (
-                  <option key={chapter.id} value={chapter.id}>
-                    {chapter.name}
-                  </option>
-                ))}
+                {chaptersForCategory && Array.isArray(chaptersForCategory) && chaptersForCategory.length > 0 ? (
+                  chaptersForCategory.map(chapter => (
+                    <option key={chapter?.id || Math.random()} value={chapter?.id || ''}>
+                      {chapter?.name || ''}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>لا توجد فصول / No chapters available</option>
+                )}
               </select>
             </div>
 
@@ -1090,11 +1106,15 @@ const Questions = () => {
                 className="w-full px-4 py-2 border rounded-lg"
               >
                 <option value="">اختر المستوى / Select Level</option>
-                {levels.map(level => (
-                  <option key={level.id} value={level.id}>
-                    {level.name}
-                  </option>
-                ))}
+                {levels && Array.isArray(levels) && levels.length > 0 ? (
+                  levels.map(level => (
+                    <option key={level?.id || Math.random()} value={level?.id || ''}>
+                      {level?.name || ''}
+                    </option>
+                  ))
+                ) : (
+                  <option disabled>لا توجد دروس / No lessons available</option>
+                )}
               </select>
             </div>
           </div>
@@ -1137,8 +1157,9 @@ const Questions = () => {
                   </button>
                 </div>
               ) : (
-                questions.map((question, index) => (
-                <div key={question.id} className="border rounded-lg p-3 sm:p-4">
+                questions && Array.isArray(questions) ? (
+                  questions.map((question, index) => (
+                    <div key={question?.id || index} className="border rounded-lg p-3 sm:p-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
                     <div className="flex-1 w-full sm:w-auto">
                       {/* Question with inline images */}
@@ -1179,22 +1200,33 @@ const Questions = () => {
                     </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
-                    {question.answers.map((answer) => (
-                      <div
-                        key={answer.id}
-                        className={`p-2 rounded ${
-                          answer.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
-                        }`}
-                      >
-                        <div className="text-dark-600">
-                          <MathRenderer html={answer.text} inline={true} />
+                    {question.answers && Array.isArray(question.answers) ? (
+                      question.answers.map((answer) => (
+                        <div
+                          key={answer?.id || Math.random()}
+                          className={`p-2 rounded ${
+                            answer?.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
+                          }`}
+                        >
+                          <div className="text-dark-600">
+                            <MathRenderer html={answer?.text || ''} inline={true} />
+                          </div>
+                          {answer?.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
                         </div>
-                        {answer.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
+                      ))
+                    ) : (
+                      <div className="text-gray-500 text-sm col-span-full">
+                        {isArabicBrowser() ? 'لا توجد إجابات' : 'No answers'}
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
-                ))
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>{isArabicBrowser() ? 'خطأ في تحميل الأسئلة' : 'Error loading questions'}</p>
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -1538,7 +1570,8 @@ const Questions = () => {
                         ? '💡 يمكنك إضافة معادلات رياضية وصور في الإجابات أيضاً!' 
                         : '💡 You can add math equations and images in answers too!'}
                     </p>
-                    {formData.answers.map((answer, index) => (
+                    {formData.answers && Array.isArray(formData.answers) ? (
+                      formData.answers.map((answer, index) => (
                       <div key={answer.id} className="mb-4 p-3 border rounded-lg bg-gray-50">
                         <div className="flex items-start gap-3">
                           <div className="flex items-center pt-3">
@@ -1566,7 +1599,12 @@ const Questions = () => {
                           </div>
                         </div>
                       </div>
-                    ))}
+                      ))
+                    ) : (
+                      <div className="text-gray-500 text-sm py-4">
+                        {isArabicBrowser() ? 'لا توجد إجابات' : 'No answers'}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex gap-3">
