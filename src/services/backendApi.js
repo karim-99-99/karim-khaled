@@ -352,20 +352,48 @@ const mapQuestionFromBackend = (q) => {
 };
 
 export const getQuestions = async (filters = {}) => {
-  const params = new URLSearchParams();
-  if (filters.lesson_id) params.set('lesson_id', filters.lesson_id);
-  if (filters.chapter_id) params.set('chapter_id', filters.chapter_id);
-  if (filters.category_id) params.set('category_id', filters.category_id);
-  if (filters.subject_id) params.set('subject_id', filters.subject_id);
-  const path = params.toString() ? `/questions/?${params}` : '/questions/';
-  const list = await request(path);
-  const arr = Array.isArray(list) ? list : (list?.results || []);
-  return arr.map(mapQuestionFromBackend);
+  try {
+    const params = new URLSearchParams();
+    if (filters.lesson_id) params.set('lesson_id', filters.lesson_id);
+    if (filters.chapter_id) params.set('chapter_id', filters.chapter_id);
+    if (filters.category_id) params.set('category_id', filters.category_id);
+    if (filters.subject_id) params.set('subject_id', filters.subject_id);
+    const path = params.toString() ? `/questions/?${params}` : '/questions/';
+    const list = await request(path);
+    const arr = Array.isArray(list) ? list : (list?.results || []);
+    
+    // Map questions with error handling for each question
+    const mappedQuestions = [];
+    for (const q of arr) {
+      try {
+        const mapped = mapQuestionFromBackend(q);
+        if (mapped && mapped.id) {
+          mappedQuestions.push(mapped);
+        }
+      } catch (err) {
+        console.error('Error mapping question:', err, q);
+        // Skip this question but continue processing others
+      }
+    }
+    return mappedQuestions;
+  } catch (err) {
+    console.error('Error in getQuestions:', err);
+    return [];
+  }
 };
 
 export const getQuestionsByLevel = async (levelId) => {
-  const arr = await getQuestions({ lesson_id: levelId });
-  return arr;
+  try {
+    if (!levelId) {
+      console.warn('getQuestionsByLevel called without levelId');
+      return [];
+    }
+    const arr = await getQuestions({ lesson_id: levelId });
+    return Array.isArray(arr) ? arr : [];
+  } catch (err) {
+    console.error('Error in getQuestionsByLevel:', err);
+    return [];
+  }
 };
 
 export const addQuestion = async (lessonId, { question, questionEn, explanation, answers }, questionImageFile = null) => {

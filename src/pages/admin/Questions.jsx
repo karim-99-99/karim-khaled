@@ -428,69 +428,92 @@ const Questions = () => {
   };
 
   useEffect(() => {
-    if (useBackend) {
-      backendApi.getSubjects().then((all) => {
-        if (all && all.length) {
-          setSubjects(all);
-          // After subjects are loaded, find and set the lesson if itemIdFromUrl exists
-          if (itemIdFromUrl) {
-            // Get lesson directly to find its parents
-            backendApi.getItemById(itemIdFromUrl).then((lesson) => {
-              if (lesson && lesson.chapter) {
-                // Get chapter to find category
-                backendApi.getChapterById(lesson.chapter).then((chapter) => {
-                  if (chapter && chapter.category) {
-                    // Get category to find subject
-                    backendApi.getCategoryById(chapter.category).then((category) => {
-                      if (category && category.subject) {
-                        // Set all fields
-                        setSelectedSubject(category.subject);
-                        setSelectedCategory(category.id);
-                        setSelectedChapter(chapter.id);
-                        setSelectedLevel(itemIdFromUrl);
-                      }
-                    }).catch((err) => {
-                      console.error('Error loading category:', err);
-                    });
+    try {
+      if (useBackend) {
+        backendApi.getSubjects().then((all) => {
+          try {
+            if (all && all.length) {
+              setSubjects(Array.isArray(all) ? all : []);
+              // After subjects are loaded, find and set the lesson if itemIdFromUrl exists
+              if (itemIdFromUrl) {
+                // Get lesson directly to find its parents
+                backendApi.getItemById(itemIdFromUrl).then((lesson) => {
+                  try {
+                    if (lesson && lesson.chapter) {
+                      // Get chapter to find category
+                      backendApi.getChapterById(lesson.chapter).then((chapter) => {
+                        try {
+                          if (chapter && chapter.category) {
+                            // Get category to find subject
+                            backendApi.getCategoryById(chapter.category).then((category) => {
+                              try {
+                                if (category && category.subject) {
+                                  // Set all fields
+                                  setSelectedSubject(category.subject);
+                                  setSelectedCategory(category.id);
+                                  setSelectedChapter(chapter.id);
+                                  setSelectedLevel(itemIdFromUrl);
+                                }
+                              } catch (err) {
+                                console.error('Error setting category fields:', err);
+                              }
+                            }).catch((err) => {
+                              console.error('Error loading category:', err);
+                            });
+                          }
+                        } catch (err) {
+                          console.error('Error processing chapter:', err);
+                        }
+                      }).catch((err) => {
+                        console.error('Error loading chapter:', err);
+                      });
+                    }
+                  } catch (err) {
+                    console.error('Error processing lesson:', err);
                   }
                 }).catch((err) => {
-                  console.error('Error loading chapter:', err);
+                  console.error('Error loading lesson:', err);
                 });
               }
-            }).catch((err) => {
-              console.error('Error loading lesson:', err);
-            });
+            }
+          } catch (err) {
+            console.error('Error processing subjects:', err);
+            setSubjects([]);
           }
-        }
-      }).catch((err) => {
-        console.error('Error loading subjects:', err);
-        setSubjects([]);
-      });
-    } else {
-      try {
-        const allSubjects = getSubjects();
-        if (allSubjects && allSubjects.length > 0) {
-          setSubjects(allSubjects);
-          if (itemIdFromUrl) {
-            const parents = findItemParents(itemIdFromUrl);
-            if (parents) {
-              // Set all fields in sequence to ensure proper loading
-              setSelectedSubject(parents.subject.id);
-              setTimeout(() => {
-                setSelectedCategory(parents.category.id);
+        }).catch((err) => {
+          console.error('Error loading subjects:', err);
+          setSubjects([]);
+        });
+      } else {
+        try {
+          const allSubjects = getSubjects();
+          if (allSubjects && allSubjects.length > 0) {
+            setSubjects(Array.isArray(allSubjects) ? allSubjects : []);
+            if (itemIdFromUrl) {
+              const parents = findItemParents(itemIdFromUrl);
+              if (parents) {
+                // Set all fields in sequence to ensure proper loading
+                setSelectedSubject(parents.subject.id);
                 setTimeout(() => {
-                  setSelectedChapter(parents.chapter.id);
+                  setSelectedCategory(parents.category.id);
                   setTimeout(() => {
-                    setSelectedLevel(itemIdFromUrl);
+                    setSelectedChapter(parents.chapter.id);
+                    setTimeout(() => {
+                      setSelectedLevel(itemIdFromUrl);
+                    }, 150);
                   }, 150);
                 }, 150);
-              }, 150);
+              }
             }
           }
+        } catch (e) {
+          console.error('Error loading subjects from local storage:', e);
+          setSubjects([]);
         }
-      } catch (e) {
-        setSubjects([]);
       }
+    } catch (err) {
+      console.error('Unexpected error in useEffect:', err);
+      setSubjects([]);
     }
   }, [itemIdFromUrl, useBackend]);
 
@@ -526,7 +549,14 @@ const Questions = () => {
     if (useBackend) {
       backendApi.getQuestionsByLevel(selectedLevel)
         .then((questions) => {
-          setQuestions(questions || []);
+          try {
+            // Ensure questions is an array
+            const safeQuestions = Array.isArray(questions) ? questions : [];
+            setQuestions(safeQuestions);
+          } catch (err) {
+            console.error('Error processing questions:', err);
+            setQuestions([]);
+          }
         })
         .catch((err) => {
           console.error('Error loading questions:', err);
@@ -534,7 +564,8 @@ const Questions = () => {
         });
     } else {
       try {
-        setQuestions(getQuestionsByLevel(selectedLevel) || []);
+        const localQuestions = getQuestionsByLevel(selectedLevel);
+        setQuestions(Array.isArray(localQuestions) ? localQuestions : []);
       } catch (err) {
         console.error('Error loading questions from local storage:', err);
         setQuestions([]);
@@ -964,10 +995,11 @@ const Questions = () => {
   const levels = levelsForChapter;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-      <div className="py-8 px-4">
-        <div className="max-w-7xl mx-auto">
+    <ErrorBoundary isArabic={isArabicBrowser()}>
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="py-8 px-4">
+          <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-center">
           <h1 className="text-2xl md:text-3xl font-bold text-dark-600">{isArabicBrowser() ? 'إدارة الأسئلة' : 'Manage Questions'}</h1>
           <button
@@ -1561,6 +1593,7 @@ const Questions = () => {
         </div>
       </div>
     </div>
+    </ErrorBoundary>
   );
 };
 
