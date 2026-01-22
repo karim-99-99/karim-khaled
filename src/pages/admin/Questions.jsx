@@ -1532,13 +1532,11 @@ const Questions = () => {
                               {isArabicBrowser() ? 'حذف الصورة' : 'Remove Image'}
                             </button>
                           </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        </ErrorBoundary>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </ErrorBoundary>
 
                         <div>
                           <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
