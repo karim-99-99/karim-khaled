@@ -1538,93 +1538,93 @@ const Questions = () => {
                   </div>
                 </ErrorBoundary>
 
-                        <div>
-                          <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                            شرح الإجابة الصحيحة / Explanation <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
-                          </label>
-                          <p className="text-xs text-gray-500 mb-2">
-                            {isArabicBrowser() 
-                              ? '💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ (اختياري)' 
-                              : '💡 Add an explanation to help students understand the correct answer when they make a mistake (optional)'}
-                          </p>
-                          <SimpleProfessionalMathEditor
-                            value={formData.explanation}
-                            onChange={(content) => setFormData({ ...formData, explanation: content })}
-                            placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا... (اختياري)' : 'Write explanation for the correct answer here... (optional)'}
-                          />
-                        </div>
-
-                        <div className="mt-6">
-                          <label className="block text-sm md:text-base font-medium text-dark-600 mb-3">
-                            الإجابات / Answers (اختر الإجابة الصحيحة / Select Correct Answer)
-                          </label>
-                          <p className="text-xs text-gray-500 mb-3">
-                            {isArabicBrowser() 
-                              ? '💡 يمكنك إضافة معادلات رياضية وصور في الإجابات أيضاً!' 
-                              : '💡 You can add math equations and images in answers too!'}
-                          </p>
-                          {formData.answers && Array.isArray(formData.answers) ? (
-                            formData.answers.map((answer, index) => (
-                              <div key={answer.id} className="mb-4 p-3 border rounded-lg bg-gray-50">
-                                <div className="flex items-start gap-3">
-                                  <div className="flex items-center pt-3">
-                                    <input
-                                      type="radio"
-                                      name="correctAnswer"
-                                      checked={answer.isCorrect}
-                                      onChange={() => handleCorrectAnswerChange(index)}
-                                      className="w-5 h-5 cursor-pointer"
-                                      title={isArabicBrowser() ? 'اختر كإجابة صحيحة' : 'Select as correct answer'}
-                                    />
-                                  </div>
-                                  <div className="flex-1">
-                                    <label className="block text-xs font-medium text-gray-600 mb-2">
-                                      {isArabicBrowser() ? `الإجابة ${String.fromCharCode(65 + index)}` : `Answer ${String.fromCharCode(65 + index)}`}
-                                      {answer.isCorrect && (
-                                        <span className="ml-2 text-green-600 font-bold">✓ {isArabicBrowser() ? 'صحيحة' : 'Correct'}</span>
-                                      )}
-                                    </label>
-                                    <SimpleProfessionalMathEditor
-                                      value={answer.text}
-                                      onChange={(content) => handleAnswerChange(index, 'text', content)}
-                                      placeholder={isArabicBrowser() ? `اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...` : `Write answer ${String.fromCharCode(65 + index)} here...`}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            ))
-                          ) : (
-                            <div className="text-gray-500 text-sm py-4">
-                              {isArabicBrowser() ? 'لا توجد إجابات' : 'No answers'}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="flex gap-3">
-                          <button
-                            type="submit"
-                            className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition font-medium"
-                          >
-                            {isArabicBrowser() ? 'حفظ' : 'Save'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setShowForm(false)}
-                            className="flex-1 bg-gray-400 text-white py-2 rounded-lg hover:bg-gray-500 transition"
-                          >
-                            {isArabicBrowser() ? 'إلغاء' : 'Cancel'}
-                          </button>
-                        </div>
-                      </form>
-                    )}
-                  </div>
+                <div>
+                  <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                    شرح الإجابة الصحيحة / Explanation <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    {isArabicBrowser() 
+                      ? '💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ (اختياري)' 
+                      : '💡 Add an explanation to help students understand the correct answer when they make a mistake (optional)'}
+                  </p>
+                  <SimpleProfessionalMathEditor
+                    value={formData.explanation}
+                    onChange={(content) => setFormData({ ...formData, explanation: content })}
+                    placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا... (اختياري)' : 'Write explanation for the correct answer here... (optional)'}
+                  />
                 </div>
-              </div>
+
+                <div className="mt-6">
+                  <label className="block text-sm md:text-base font-medium text-dark-600 mb-3">
+                    الإجابات / Answers (اختر الإجابة الصحيحة / Select Correct Answer)
+                  </label>
+                  <p className="text-xs text-gray-500 mb-3">
+                    {isArabicBrowser() 
+                      ? '💡 يمكنك إضافة معادلات رياضية وصور في الإجابات أيضاً!' 
+                      : '💡 You can add math equations and images in answers too!'}
+                  </p>
+                  {formData.answers && Array.isArray(formData.answers) ? (
+                    formData.answers.map((answer, index) => (
+                      <div key={answer.id} className="mb-4 p-3 border rounded-lg bg-gray-50">
+                        <div className="flex items-start gap-3">
+                          <div className="flex items-center pt-3">
+                            <input
+                              type="radio"
+                              name="correctAnswer"
+                              checked={answer.isCorrect}
+                              onChange={() => handleCorrectAnswerChange(index)}
+                              className="w-5 h-5 cursor-pointer"
+                              title={isArabicBrowser() ? 'اختر كإجابة صحيحة' : 'Select as correct answer'}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-xs font-medium text-gray-600 mb-2">
+                              {isArabicBrowser() ? `الإجابة ${String.fromCharCode(65 + index)}` : `Answer ${String.fromCharCode(65 + index)}`}
+                              {answer.isCorrect && (
+                                <span className="ml-2 text-green-600 font-bold">✓ {isArabicBrowser() ? 'صحيحة' : 'Correct'}</span>
+                              )}
+                            </label>
+                            <SimpleProfessionalMathEditor
+                              value={answer.text}
+                              onChange={(content) => handleAnswerChange(index, 'text', content)}
+                              placeholder={isArabicBrowser() ? `اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...` : `Write answer ${String.fromCharCode(65 + index)} here...`}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-500 text-sm py-4">
+                      {isArabicBrowser() ? 'لا توجد إجابات' : 'No answers'}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="submit"
+                    className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition font-medium"
+                  >
+                    {isArabicBrowser() ? 'حفظ' : 'Save'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                    className="flex-1 bg-gray-400 text-white py-2 rounded-lg hover:bg-gray-500 transition"
+                  >
+                    {isArabicBrowser() ? 'إلغاء' : 'Cancel'}
+                  </button>
+                </div>
+              </form>
             )}
           </div>
         </div>
       </div>
-    </div>
+    )}
+  </div>
+</div>
+</div>
+</div>
     </ErrorBoundary>
   );
 };
