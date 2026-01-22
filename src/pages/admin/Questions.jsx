@@ -1026,109 +1026,109 @@ const Questions = () => {
 
             {/* Filters */}
             <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                المادة / Subject
-              </label>
-              <select
-                value={selectedSubject}
-                onChange={(e) => handleSubjectChange(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg"
-              >
-                <option value="">اختر المادة / Select Subject</option>
-                {subjects && subjects.length > 0 ? (
-                  subjects.map(subject => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>لا توجد مواد / No subjects available</option>
-                )}
-              </select>
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                    المادة / Subject
+                  </label>
+                  <select
+                    value={selectedSubject}
+                    onChange={(e) => handleSubjectChange(e.target.value)}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  >
+                    <option value="">اختر المادة / Select Subject</option>
+                    {subjects && subjects.length > 0 ? (
+                      subjects.map(subject => (
+                        <option key={subject.id} value={subject.id}>
+                          {subject.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>لا توجد مواد / No subjects available</option>
+                    )}
+                  </select>
+                </div>
 
-            <div>
-              <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                التصنيف / Category
-              </label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                disabled={!selectedSubject}
-                className="w-full px-4 py-2 border rounded-lg"
-              >
-                <option value="">اختر التصنيف / Select Category</option>
-                {selectedSubjectObj?.categories && Array.isArray(selectedSubjectObj.categories) ? (
-                  selectedSubjectObj.categories.map(category => (
-                    <option key={category?.id || Math.random()} value={category?.id || ''}>
-                      {category?.name || ''}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>لا توجد تصنيفات / No categories available</option>
-                )}
-              </select>
-            </div>
+                <div>
+                  <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                    التصنيف / Category
+                  </label>
+                  <select
+                    value={selectedCategory}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                    disabled={!selectedSubject}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  >
+                    <option value="">اختر التصنيف / Select Category</option>
+                    {selectedSubjectObj?.categories && Array.isArray(selectedSubjectObj.categories) ? (
+                      selectedSubjectObj.categories.map(category => (
+                        <option key={category?.id || Math.random()} value={category?.id || ''}>
+                          {category?.name || ''}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>لا توجد تصنيفات / No categories available</option>
+                    )}
+                  </select>
+                </div>
 
-            <div>
-              <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                الفصل / Chapter
-              </label>
-              <select
-                value={selectedChapter}
-                onChange={(e) => handleChapterChange(e.target.value)}
-                disabled={!selectedCategory}
-                className="w-full px-4 py-2 border rounded-lg"
-              >
-                <option value="">اختر الفصل / Select Chapter</option>
-                {chaptersForCategory && Array.isArray(chaptersForCategory) && chaptersForCategory.length > 0 ? (
-                  chaptersForCategory.map(chapter => (
-                    <option key={chapter?.id || Math.random()} value={chapter?.id || ''}>
-                      {chapter?.name || ''}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>لا توجد فصول / No chapters available</option>
-                )}
-              </select>
-            </div>
+                <div>
+                  <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                    الفصل / Chapter
+                  </label>
+                  <select
+                    value={selectedChapter}
+                    onChange={(e) => handleChapterChange(e.target.value)}
+                    disabled={!selectedCategory}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  >
+                    <option value="">اختر الفصل / Select Chapter</option>
+                    {chaptersForCategory && Array.isArray(chaptersForCategory) && chaptersForCategory.length > 0 ? (
+                      chaptersForCategory.map(chapter => (
+                        <option key={chapter?.id || Math.random()} value={chapter?.id || ''}>
+                          {chapter?.name || ''}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>لا توجد فصول / No chapters available</option>
+                    )}
+                  </select>
+                </div>
 
-            <div>
-              <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                المستوى / Level
-              </label>
-              <select
-                value={selectedLevel}
-                onChange={(e) => handleLevelChange(e.target.value)}
-                disabled={!selectedChapter}
-                className="w-full px-4 py-2 border rounded-lg"
-              >
-                <option value="">اختر المستوى / Select Level</option>
-                {levels && Array.isArray(levels) && levels.length > 0 ? (
-                  levels.map(level => (
-                    <option key={level?.id || Math.random()} value={level?.id || ''}>
-                      {level?.name || ''}
-                    </option>
-                  ))
-                ) : (
-                  <option disabled>لا توجد دروس / No lessons available</option>
-                )}
-              </select>
-            </div>
-          </div>
+                <div>
+                  <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                    المستوى / Level
+                  </label>
+                  <select
+                    value={selectedLevel}
+                    onChange={(e) => handleLevelChange(e.target.value)}
+                    disabled={!selectedChapter}
+                    className="w-full px-4 py-2 border rounded-lg"
+                  >
+                    <option value="">اختر المستوى / Select Level</option>
+                    {levels && Array.isArray(levels) && levels.length > 0 ? (
+                      levels.map(level => (
+                        <option key={level?.id || Math.random()} value={level?.id || ''}>
+                          {level?.name || ''}
+                        </option>
+                      ))
+                    ) : (
+                      <option disabled>لا توجد دروس / No lessons available</option>
+                    )}
+                  </select>
+                </div>
+              </div>
             </div>
 
             {/* Questions List */}
             {!selectedLevel ? (
-          <div className="bg-white rounded-lg shadow p-6 text-center">
-            <p className="text-lg text-gray-500 mb-4">
-              {isArabicBrowser() 
-                ? 'يرجى اختيار المادة، التصنيف، الفصل، والمستوى لعرض الأسئلة' 
-                : 'Please select Subject, Category, Chapter, and Level to view questions'}
-            </p>
-          </div>
+              <div className="bg-white rounded-lg shadow p-6 text-center">
+                <p className="text-lg text-gray-500 mb-4">
+                  {isArabicBrowser() 
+                    ? 'يرجى اختيار المادة، التصنيف، الفصل، والمستوى لعرض الأسئلة' 
+                    : 'Please select Subject, Category, Chapter, and Level to view questions'}
+                </p>
+              </div>
             ) : (
               <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
