@@ -282,37 +282,73 @@ export const getItemById = async (itemId) => {
 
 // ——— Questions ———
 const mapQuestionFromBackend = (q) => {
+  if (!q || !q.id) {
+    // Return default structure if question is invalid
+    return {
+      id: '',
+      question: '',
+      questionEn: '',
+      explanation: '',
+      image: null,
+      imageScale: 100,
+      imageAlign: 'center',
+      itemId: null,
+      levelId: null,
+      answers: [],
+    };
+  }
+  
   // Load image settings from localStorage if available
   let imageScale = 100;
   let imageAlign = 'center';
   try {
-    const saved = localStorage.getItem(`question_image_settings_${q.id}`);
-    if (saved) {
-      const settings = JSON.parse(saved);
-      imageScale = settings.scale || 100;
-      imageAlign = settings.align || 'center';
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem(`question_image_settings_${q.id}`);
+      if (saved) {
+        const settings = JSON.parse(saved);
+        imageScale = settings.scale || 100;
+        imageAlign = settings.align || 'center';
+      }
     }
   } catch (e) {
     // Ignore errors, use defaults
+    console.warn('Error loading image settings for question:', q.id, e);
   }
   
-  return {
-    id: q.id,
-    question: q.question,
-    questionEn: q.question_en,
-    explanation: q.explanation,
-    image: q.question_image_url || q.question_image,
-    imageScale: imageScale,
-    imageAlign: imageAlign,
-    itemId: q.lesson,
-    levelId: q.lesson,
-    answers: (q.answers || []).map((a) => ({
-      id: a.answer_id,
-      key: a.answer_id,
-      text: a.text,
-      isCorrect: !!a.is_correct,
-    })),
-  };
+  try {
+    return {
+      id: q.id || '',
+      question: q.question || '',
+      questionEn: q.question_en || '',
+      explanation: q.explanation || '',
+      image: q.question_image_url || q.question_image || null,
+      imageScale: imageScale,
+      imageAlign: imageAlign,
+      itemId: q.lesson || null,
+      levelId: q.lesson || null,
+      answers: (q.answers || []).map((a) => ({
+        id: a.answer_id || 'a',
+        key: a.answer_id || 'a',
+        text: a.text || '',
+        isCorrect: !!a.is_correct,
+      })),
+    };
+  } catch (e) {
+    console.error('Error mapping question from backend:', e, q);
+    // Return safe default structure
+    return {
+      id: q.id || '',
+      question: q.question || '',
+      questionEn: q.question_en || '',
+      explanation: q.explanation || '',
+      image: null,
+      imageScale: 100,
+      imageAlign: 'center',
+      itemId: q.lesson || null,
+      levelId: q.lesson || null,
+      answers: [],
+    };
+  }
 };
 
 export const getQuestions = async (filters = {}) => {

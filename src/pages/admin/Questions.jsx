@@ -8,6 +8,7 @@ import 'react-quill/dist/quill.snow.css';
 // Get ReactQuill from namespace (react-quill v2.0.0)
 const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
 import Header from '../../components/Header';
+import ErrorBoundary from '../../components/ErrorBoundary';
 import { isArabicBrowser } from '../../utils/language';
 import MathEditor from '../../components/MathEditor';
 import MathRenderer from '../../components/MathRenderer';
@@ -60,6 +61,7 @@ const Questions = () => {
   const [imageAlign, setImageAlign] = useState('center'); // Image alignment: 'left', 'center', 'right'
   const [showImageModal, setShowImageModal] = useState(false);
   const [modalImageSrc, setModalImageSrc] = useState(null);
+  const [pendingImageSettings, setPendingImageSettings] = useState(null); // Store settings for new questions
   const [showMathEditor, setShowMathEditor] = useState(false);
   const [isLoadingForm, setIsLoadingForm] = useState(false);
   // Using the best working editor - SimpleProfessionalMathEditor with RTL/LTR button!
@@ -578,96 +580,161 @@ const Questions = () => {
       
       const reader = new FileReader();
       reader.onloadend = () => {
-        const base64String = reader.result;
-        setQuestionImage(file);
-        setQuestionImagePreview(base64String);
-        setImageScale(100); // Reset scale when new image is uploaded
-        setImageAlign('center'); // Reset alignment
-        setFormData({ ...formData, image: base64String });
+        try {
+          const base64String = reader.result;
+          setQuestionImage(file);
+          setQuestionImagePreview(base64String);
+          setImageScale(100); // Reset scale when new image is uploaded
+          setImageAlign('center'); // Reset alignment
+          setPendingImageSettings({ scale: 100, align: 'center' }); // Reset pending settings
+          setFormData(prev => ({ ...prev, image: base64String }));
+        } catch (err) {
+          console.error('Error processing image:', err);
+          alert(isArabicBrowser() ? 'حدث خطأ أثناء معالجة الصورة' : 'Error processing image');
+        }
+      };
+      reader.onerror = () => {
+        console.error('Error reading image file');
+        alert(isArabicBrowser() ? 'حدث خطأ أثناء قراءة الصورة' : 'Error reading image file');
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleImageZoom = (delta) => {
-    const newScale = Math.max(25, Math.min(300, imageScale + delta));
-    setImageScale(newScale);
-    // Save to localStorage for persistence
-    if (editingQuestion?.id) {
-      try {
-        const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
-        const settings = saved ? JSON.parse(saved) : {};
-        settings.scale = newScale;
-        localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
-      } catch (e) {
-        console.error('Error saving image scale:', e);
+    try {
+      const newScale = Math.max(25, Math.min(300, imageScale + delta));
+      setImageScale(newScale);
+      
+      // Save to localStorage for persistence (if editing existing question)
+      if (editingQuestion?.id) {
+        try {
+          const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
+          const settings = saved ? JSON.parse(saved) : {};
+          settings.scale = newScale;
+          localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
+        } catch (e) {
+          console.error('Error saving image scale to localStorage:', e);
+        }
+      } else {
+        // For new questions, store in pending settings
+        setPendingImageSettings(prev => ({
+          ...prev,
+          scale: newScale,
+          align: imageAlign
+        }));
       }
+    } catch (err) {
+      console.error('Error in handleImageZoom:', err);
     }
   };
 
   const handleImageReset = () => {
-    setImageScale(100);
-    // Save to localStorage for persistence
-    if (editingQuestion?.id) {
-      try {
-        const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
-        const settings = saved ? JSON.parse(saved) : {};
-        settings.scale = 100;
-        localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
-      } catch (e) {
-        console.error('Error saving image scale:', e);
+    try {
+      setImageScale(100);
+      
+      // Save to localStorage for persistence (if editing existing question)
+      if (editingQuestion?.id) {
+        try {
+          const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
+          const settings = saved ? JSON.parse(saved) : {};
+          settings.scale = 100;
+          localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
+        } catch (e) {
+          console.error('Error saving image scale to localStorage:', e);
+        }
+      } else {
+        // For new questions, store in pending settings
+        setPendingImageSettings(prev => ({
+          ...prev,
+          scale: 100,
+          align: imageAlign
+        }));
       }
+    } catch (err) {
+      console.error('Error in handleImageReset:', err);
     }
   };
 
   const handleImageAlign = (align) => {
-    setImageAlign(align);
-    // Save to localStorage for persistence
-    if (editingQuestion?.id) {
-      try {
-        const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
-        const settings = saved ? JSON.parse(saved) : {};
-        settings.align = align;
-        localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
-      } catch (e) {
-        console.error('Error saving image align:', e);
+    try {
+      setImageAlign(align);
+      
+      // Save to localStorage for persistence (if editing existing question)
+      if (editingQuestion?.id) {
+        try {
+          const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
+          const settings = saved ? JSON.parse(saved) : {};
+          settings.align = align;
+          localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
+        } catch (e) {
+          console.error('Error saving image align to localStorage:', e);
+        }
+      } else {
+        // For new questions, store in pending settings
+        setPendingImageSettings(prev => ({
+          ...prev,
+          scale: imageScale,
+          align: align
+        }));
       }
+    } catch (err) {
+      console.error('Error in handleImageAlign:', err);
     }
   };
 
   const handleImageMaximize = (imageSrc) => {
-    setModalImageSrc(imageSrc);
-    setShowImageModal(true);
+    try {
+      if (!imageSrc || typeof imageSrc !== 'string') {
+        console.warn('Invalid image source for maximization');
+        return;
+      }
+      setModalImageSrc(imageSrc);
+      setShowImageModal(true);
+    } catch (err) {
+      console.error('Error maximizing image:', err);
+    }
   };
 
   const handleRemoveImage = () => {
-    setQuestionImage(null);
-    setQuestionImagePreview(null);
-    setFormData({ ...formData, image: null });
-    if (imageInputRef.current) {
-      imageInputRef.current.value = '';
+    try {
+      setQuestionImage(null);
+      setQuestionImagePreview(null);
+      setPendingImageSettings(null);
+      setFormData(prev => ({ ...prev, image: null }));
+      if (imageInputRef.current) {
+        imageInputRef.current.value = '';
+      }
+    } catch (err) {
+      console.error('Error removing image:', err);
     }
   };
 
 
   const handleAddNew = () => {
-    setEditingQuestion(null);
-    setQuestionImage(null);
-    setQuestionImagePreview(null);
-    setImageScale(100);
-    setImageAlign('center');
-    setFormData({
-      question: '',
-      questionEn: '',
-      image: null,
-      explanation: '',
-      answers: [
-        { id: 'a', text: '', isCorrect: false },
-        { id: 'b', text: '', isCorrect: false },
-        { id: 'c', text: '', isCorrect: false },
-        { id: 'd', text: '', isCorrect: false },
-      ],
-    });
+    try {
+      setEditingQuestion(null);
+      setQuestionImage(null);
+      setQuestionImagePreview(null);
+      setImageScale(100);
+      setImageAlign('center');
+      setPendingImageSettings(null);
+      setFormData({
+        question: '',
+        questionEn: '',
+        image: null,
+        explanation: '',
+        answers: [
+          { id: 'a', text: '', isCorrect: false },
+          { id: 'b', text: '', isCorrect: false },
+          { id: 'c', text: '', isCorrect: false },
+          { id: 'd', text: '', isCorrect: false },
+        ],
+      });
+    } catch (err) {
+      console.error('Error in handleAddNew:', err);
+    }
+  };
     if (imageInputRef.current) {
       imageInputRef.current.value = '';
     }
@@ -733,6 +800,7 @@ const Questions = () => {
           setQuestionImage(null);
           setImageScale(imageScale);
           setImageAlign(imageAlign);
+          setPendingImageSettings(null); // Clear pending settings when editing
           if (imageInputRef.current) {
             imageInputRef.current.value = '';
           }
@@ -814,11 +882,12 @@ const Questions = () => {
         // Save image settings to localStorage
         if (savedQuestion?.id) {
           try {
-            const settings = {
+            const settings = pendingImageSettings || {
               scale: imageScale,
               align: imageAlign
             };
             localStorage.setItem(`question_image_settings_${savedQuestion.id}`, JSON.stringify(settings));
+            setPendingImageSettings(null); // Clear pending settings
           } catch (e) {
             console.error('Error saving image settings:', e);
           }
@@ -846,11 +915,12 @@ const Questions = () => {
         // Save image settings to localStorage
         if (savedQuestion?.id) {
           try {
-            const settings = {
+            const settings = pendingImageSettings || {
               scale: imageScale,
               align: imageAlign
             };
             localStorage.setItem(`question_image_settings_${savedQuestion.id}`, JSON.stringify(settings));
+            setPendingImageSettings(null); // Clear pending settings
           } catch (e) {
             console.error('Error saving image settings:', e);
           }
@@ -870,6 +940,7 @@ const Questions = () => {
     setQuestionImagePreview(null);
     setImageScale(100);
     setImageAlign('center');
+    setPendingImageSettings(null);
     setFormData({
       question: '',
       questionEn: '',
@@ -1202,24 +1273,25 @@ const Questions = () => {
                   </div>
 
                   {/* Image Upload and Control Section */}
-                  <div>
-                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      {isArabicBrowser() ? 'صورة السؤال / Question Image' : 'Question Image'} <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
-                    </label>
-                    
-                    {/* Image Upload Input */}
-                    <div className="mb-3">
-                      <input
-                        ref={imageInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="w-full px-4 py-2 border rounded-lg text-sm"
-                      />
-                    </div>
+                  <ErrorBoundary isArabic={isArabicBrowser()}>
+                    <div>
+                      <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                        {isArabicBrowser() ? 'صورة السؤال / Question Image' : 'Question Image'} <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
+                      </label>
+                      
+                      {/* Image Upload Input */}
+                      <div className="mb-3">
+                        <input
+                          ref={imageInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="w-full px-4 py-2 border rounded-lg text-sm"
+                        />
+                      </div>
 
-                    {/* Image Preview with Controls */}
-                    {questionImagePreview && (
+                      {/* Image Preview with Controls */}
+                      {questionImagePreview && typeof questionImagePreview === 'string' && (
                       <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
                         {/* Image Display with Alignment */}
                         <div className={`mb-4 flex ${imageAlign === 'left' ? 'justify-start' : imageAlign === 'right' ? 'justify-end' : 'justify-center'}`}>
@@ -1228,12 +1300,22 @@ const Questions = () => {
                             alt="Question preview"
                             className="rounded-lg shadow-lg transition-all duration-200"
                             style={{
-                              width: `${imageScale}%`,
+                              width: `${Math.max(25, Math.min(300, imageScale || 100))}%`,
                               maxWidth: '100%',
                               height: 'auto',
                               cursor: 'pointer'
                             }}
-                            onClick={() => handleImageMaximize(questionImagePreview)}
+                            onError={(e) => {
+                              console.error('Error loading image preview');
+                              e.target.style.display = 'none';
+                            }}
+                            onClick={() => {
+                              try {
+                                handleImageMaximize(questionImagePreview);
+                              } catch (err) {
+                                console.error('Error maximizing image:', err);
+                              }
+                            }}
                           />
                         </div>
 
@@ -1242,12 +1324,18 @@ const Questions = () => {
                           {/* Scale Controls */}
                           <div>
                             <label className="block text-xs font-medium text-gray-600 mb-2">
-                              {isArabicBrowser() ? 'حجم الصورة / Image Size' : 'Image Size'}: {imageScale}%
+                              {isArabicBrowser() ? 'حجم الصورة / Image Size' : 'Image Size'}: {Math.max(25, Math.min(300, imageScale || 100))}%
                             </label>
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleImageZoom(-10)}
+                                onClick={() => {
+                                  try {
+                                    handleImageZoom(-10);
+                                  } catch (err) {
+                                    console.error('Error zooming out:', err);
+                                  }
+                                }}
                                 className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition text-sm font-medium"
                                 disabled={imageScale <= 25}
                               >
@@ -1257,27 +1345,45 @@ const Questions = () => {
                                 type="range"
                                 min="25"
                                 max="300"
-                                value={imageScale}
+                                value={Math.max(25, Math.min(300, imageScale || 100))}
                                 onChange={(e) => {
-                                  const newScale = parseInt(e.target.value);
-                                  setImageScale(newScale);
-                                  // Save to localStorage for persistence
-                                  if (editingQuestion?.id) {
-                                    try {
-                                      const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
-                                      const settings = saved ? JSON.parse(saved) : {};
-                                      settings.scale = newScale;
-                                      localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
-                                    } catch (err) {
-                                      console.error('Error saving image scale:', err);
+                                  try {
+                                    const newScale = parseInt(e.target.value);
+                                    setImageScale(newScale);
+                                    
+                                    // Save to localStorage for persistence (if editing existing question)
+                                    if (editingQuestion?.id) {
+                                      try {
+                                        const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
+                                        const settings = saved ? JSON.parse(saved) : {};
+                                        settings.scale = newScale;
+                                        localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
+                                      } catch (err) {
+                                        console.error('Error saving image scale to localStorage:', err);
+                                      }
+                                    } else {
+                                      // For new questions, store in pending settings
+                                      setPendingImageSettings(prev => ({
+                                        ...prev,
+                                        scale: newScale,
+                                        align: imageAlign
+                                      }));
                                     }
+                                  } catch (err) {
+                                    console.error('Error in image scale slider:', err);
                                   }
                                 }}
                                 className="flex-1"
                               />
                               <button
                                 type="button"
-                                onClick={() => handleImageZoom(10)}
+                                onClick={() => {
+                                  try {
+                                    handleImageZoom(10);
+                                  } catch (err) {
+                                    console.error('Error zooming in:', err);
+                                  }
+                                }}
                                 className="bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition text-sm font-medium"
                                 disabled={imageScale >= 300}
                               >
@@ -1285,7 +1391,13 @@ const Questions = () => {
                               </button>
                               <button
                                 type="button"
-                                onClick={handleImageReset}
+                                onClick={() => {
+                                  try {
+                                    handleImageReset();
+                                  } catch (err) {
+                                    console.error('Error resetting image:', err);
+                                  }
+                                }}
                                 className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition text-sm font-medium"
                               >
                                 {isArabicBrowser() ? 'إعادة تعيين' : 'Reset'}
@@ -1301,7 +1413,13 @@ const Questions = () => {
                             <div className="flex gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleImageAlign('left')}
+                                onClick={() => {
+                                  try {
+                                    handleImageAlign('left');
+                                  } catch (err) {
+                                    console.error('Error aligning image left:', err);
+                                  }
+                                }}
                                 className={`flex-1 px-4 py-2 rounded transition font-medium ${
                                   imageAlign === 'left'
                                     ? 'bg-primary-500 text-white'
@@ -1312,7 +1430,13 @@ const Questions = () => {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleImageAlign('center')}
+                                onClick={() => {
+                                  try {
+                                    handleImageAlign('center');
+                                  } catch (err) {
+                                    console.error('Error aligning image center:', err);
+                                  }
+                                }}
                                 className={`flex-1 px-4 py-2 rounded transition font-medium ${
                                   imageAlign === 'center'
                                     ? 'bg-primary-500 text-white'
@@ -1323,7 +1447,13 @@ const Questions = () => {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => handleImageAlign('right')}
+                                onClick={() => {
+                                  try {
+                                    handleImageAlign('right');
+                                  } catch (err) {
+                                    console.error('Error aligning image right:', err);
+                                  }
+                                }}
                                 className={`flex-1 px-4 py-2 rounded transition font-medium ${
                                   imageAlign === 'right'
                                     ? 'bg-primary-500 text-white'
@@ -1348,7 +1478,8 @@ const Questions = () => {
                         </div>
                       </div>
                     )}
-                  </div>
+                    </div>
+                  </ErrorBoundary>
 
                   <div>
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
