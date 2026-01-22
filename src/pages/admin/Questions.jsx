@@ -1009,23 +1009,23 @@ const Questions = () => {
         <div className="py-8 px-4">
           <div className="max-w-7xl mx-auto">
             <div className="mb-6 flex justify-between items-center">
-          <h1 className="text-2xl md:text-3xl font-bold text-dark-600">{isArabicBrowser() ? 'إدارة الأسئلة' : 'Manage Questions'}</h1>
-          <button
-            onClick={() => {
-              if (returnUrl) {
-                navigate(returnUrl);
-              } else {
-                navigate('/admin/dashboard');
-              }
-            }}
-            className="bg-dark-600 text-white px-4 py-2 rounded-lg hover:bg-dark-700 transition font-medium"
-          >
-            ← {isArabicBrowser() ? 'رجوع' : 'Back'}
-          </button>
+              <h1 className="text-2xl md:text-3xl font-bold text-dark-600">{isArabicBrowser() ? 'إدارة الأسئلة' : 'Manage Questions'}</h1>
+              <button
+                onClick={() => {
+                  if (returnUrl) {
+                    navigate(returnUrl);
+                  } else {
+                    navigate('/admin/dashboard');
+                  }
+                }}
+                className="bg-dark-600 text-white px-4 py-2 rounded-lg hover:bg-dark-700 transition font-medium"
+              >
+                ← {isArabicBrowser() ? 'رجوع' : 'Back'}
+              </button>
             </div>
 
             {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
@@ -1121,7 +1121,7 @@ const Questions = () => {
             </div>
 
             {/* Questions List */}
-        {!selectedLevel ? (
+            {!selectedLevel ? (
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <p className="text-lg text-gray-500 mb-4">
               {isArabicBrowser() 
@@ -1129,169 +1129,168 @@ const Questions = () => {
                 : 'Please select Subject, Category, Chapter, and Level to view questions'}
             </p>
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
-                <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
-                {isArabicBrowser() ? 'الأسئلة' : 'Questions'} ({questions && Array.isArray(questions) ? questions.length : 0})
-              </h2>
-              <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={handleAddNew}
-                className="bg-primary-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-primary-600 transition font-medium text-sm sm:text-base w-full sm:w-auto"
-              >
-                + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add Question'}
-              </button>
-              </div>
-            </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
+                  <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
+                    {isArabicBrowser() ? 'الأسئلة' : 'Questions'} ({questions && Array.isArray(questions) ? questions.length : 0})
+                  </h2>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={handleAddNew}
+                      className="bg-primary-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-primary-600 transition font-medium text-sm sm:text-base w-full sm:w-auto"
+                    >
+                      + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add Question'}
+                    </button>
+                  </div>
+                </div>
 
-            <div className="space-y-4">
-              {!questions || !Array.isArray(questions) || questions.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <p className="text-lg mb-4">{isArabicBrowser() ? 'لا توجد أسئلة لهذا المستوى' : 'No questions for this level'}</p>
-                  <button
-                    onClick={handleAddNew}
-                    className="bg-primary-500 text-white px-6 py-2 rounded-lg hover:bg-primary-600 transition font-medium"
-                  >
-                    + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add New Question'}
-                  </button>
-                </div>
-              ) : (
-                questions.map((question, index) => (
-                    <div key={question?.id || index} className="border rounded-lg p-3 sm:p-4">
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
-                    <div className="flex-1 w-full sm:w-auto">
-                      {/* Question with inline images */}
-                      <div className="font-semibold text-sm sm:text-base md:text-lg text-dark-600 mb-2 break-words">
-                        <span>{index + 1}. </span>
-                        <MathRenderer html={question.question || ''} inline={false} />
-                      </div>
-                      
-                      {/* Separator */}
-                      <div className="border-t border-gray-300 my-2"></div>
-                      {question.questionEn && (
-                        <div className="text-xs sm:text-sm md:text-base text-dark-500 mb-2 break-words" dangerouslySetInnerHTML={{ __html: question.questionEn }} />
-                      )}
-                      {question.image && (
-                        <div className="mt-2">
-                          <img
-                            src={question.image}
-                            alt="Question"
-                            className="w-full max-w-md h-auto max-h-48 sm:max-h-64 rounded-lg border object-contain cursor-pointer hover:opacity-90 transition"
-                            onClick={() => handleImageMaximize(question.image)}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
+                <div className="space-y-4">
+                  {!questions || !Array.isArray(questions) || questions.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      <p className="text-lg mb-4">{isArabicBrowser() ? 'لا توجد أسئلة لهذا المستوى' : 'No questions for this level'}</p>
                       <button
-                        onClick={() => handleEdit(question)}
-                        className="flex-1 sm:flex-none bg-yellow-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-yellow-600 text-sm sm:text-base transition"
+                        onClick={handleAddNew}
+                        className="bg-primary-500 text-white px-6 py-2 rounded-lg hover:bg-primary-600 transition font-medium"
                       >
-                        {isArabicBrowser() ? 'تعديل' : 'Edit'}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(question.id)}
-                        className="flex-1 sm:flex-none bg-red-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-red-600 text-sm sm:text-base transition"
-                      >
-                        {isArabicBrowser() ? 'حذف' : 'Delete'}
+                        + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add New Question'}
                       </button>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
-                    {question.answers && Array.isArray(question.answers) ? (
-                      question.answers.map((answer) => (
-                        <div
-                          key={answer?.id || Math.random()}
-                          className={`p-2 rounded ${
-                            answer?.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
-                          }`}
-                        >
-                          <div className="text-dark-600">
-                            <MathRenderer html={answer?.text || ''} inline={true} />
+                  ) : (
+                    questions.map((question, index) => (
+                      <div key={question?.id || index} className="border rounded-lg p-3 sm:p-4">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
+                          <div className="flex-1 w-full sm:w-auto">
+                            {/* Question with inline images */}
+                            <div className="font-semibold text-sm sm:text-base md:text-lg text-dark-600 mb-2 break-words">
+                              <span>{index + 1}. </span>
+                              <MathRenderer html={question.question || ''} inline={false} />
+                            </div>
+                            
+                            {/* Separator */}
+                            <div className="border-t border-gray-300 my-2"></div>
+                            {question.questionEn && (
+                              <div className="text-xs sm:text-sm md:text-base text-dark-500 mb-2 break-words" dangerouslySetInnerHTML={{ __html: question.questionEn }} />
+                            )}
+                            {question.image && (
+                              <div className="mt-2">
+                                <img
+                                  src={question.image}
+                                  alt="Question"
+                                  className="w-full max-w-md h-auto max-h-48 sm:max-h-64 rounded-lg border object-contain cursor-pointer hover:opacity-90 transition"
+                                  onClick={() => handleImageMaximize(question.image)}
+                                />
+                              </div>
+                            )}
                           </div>
-                          {answer?.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <button
+                              onClick={() => handleEdit(question)}
+                              className="flex-1 sm:flex-none bg-yellow-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-yellow-600 text-sm sm:text-base transition"
+                            >
+                              {isArabicBrowser() ? 'تعديل' : 'Edit'}
+                            </button>
+                            <button
+                              onClick={() => handleDelete(question.id)}
+                              className="flex-1 sm:flex-none bg-red-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-red-600 text-sm sm:text-base transition"
+                            >
+                              {isArabicBrowser() ? 'حذف' : 'Delete'}
+                            </button>
+                          </div>
                         </div>
-                      ))
-                    ) : (
-                      <div className="text-gray-500 text-sm col-span-full">
-                        {isArabicBrowser() ? 'لا توجد إجابات' : 'No answers'}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
+                          {question.answers && Array.isArray(question.answers) ? (
+                            question.answers.map((answer) => (
+                              <div
+                                key={answer?.id || Math.random()}
+                                className={`p-2 rounded ${
+                                  answer?.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
+                                }`}
+                              >
+                                <div className="text-dark-600">
+                                  <MathRenderer html={answer?.text || ''} inline={true} />
+                                </div>
+                                {answer?.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-gray-500 text-sm col-span-full">
+                              {isArabicBrowser() ? 'لا توجد إجابات' : 'No answers'}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
+                    ))
+                  )}
                 </div>
-                ))
-              )}
-            </div>
-          </div>
+              </div>
             )}
 
             {/* Image Maximize Modal */}
-        {showImageModal && (
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4"
-            onClick={() => setShowImageModal(false)}
-          >
-            <div className="relative max-w-[95vw] max-h-[95vh] bg-white rounded-lg p-4">
-              <button
+            {showImageModal && (
+              <div 
+                className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4"
                 onClick={() => setShowImageModal(false)}
-                className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-red-600 text-xl font-bold z-10"
               >
-                ×
-              </button>
-              <img
-                src={modalImageSrc}
-                alt="Full size preview"
-                className="max-w-full max-h-[90vh] rounded-lg"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          </div>
-        )}
+                <div className="relative max-w-[95vw] max-h-[95vh] bg-white rounded-lg p-4">
+                  <button
+                    onClick={() => setShowImageModal(false)}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-red-600 text-xl font-bold z-10"
+                  >
+                    ×
+                  </button>
+                  <img
+                    src={modalImageSrc}
+                    alt="Full size preview"
+                    className="max-w-full max-h-[90vh] rounded-lg"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+            )}
 
-        {/* Math Editor Modal */}
-        {showMathEditor && (
-          <MathEditor
-            onInsert={handleInsertMath}
-            onClose={() => setShowMathEditor(false)}
-          />
+            {/* Math Editor Modal */}
+            {showMathEditor && (
+              <MathEditor
+                onInsert={handleInsertMath}
+                onClose={() => setShowMathEditor(false)}
+              />
             )}
 
             {/* Add/Edit Form Modal */}
-        {showForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4" onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowForm(false);
-              setIsLoadingForm(false);
-            }
-          }}>
-            <div className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-2xl lg:max-w-4xl w-full max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <div className="p-6">
-                <h2 className="text-2xl font-bold mb-4">
-                  {editingQuestion ? 'تعديل سؤال / Edit Question' : 'إضافة سؤال جديد / Add Question'}
-                </h2>
-                
-                {/* Loading State */}
-                {isLoadingForm && (
-                  <div className="flex items-center justify-center py-20">
-                    <div className="text-center">
-                      <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary-500 mb-4"></div>
-                      <p className="text-lg font-medium text-gray-600">
-                        {isArabicBrowser() ? 'جاري التحميل...' : 'Loading...'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Form Content - Only show when not loading */}
-                {!isLoadingForm && (
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      السؤال / Question
-                    </label>
-                    <div className="mb-2 flex flex-wrap gap-2">
+            {showForm && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4" onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                  setShowForm(false);
+                  setIsLoadingForm(false);
+                }
+              }}>
+                <div className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-2xl lg:max-w-4xl w-full max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                  <div className="p-6">
+                    <h2 className="text-2xl font-bold mb-4">
+                      {editingQuestion ? 'تعديل سؤال / Edit Question' : 'إضافة سؤال جديد / Add Question'}
+                    </h2>
+                    
+                    {/* Loading State */}
+                    {isLoadingForm && (
+                      <div className="flex items-center justify-center py-20">
+                        <div className="text-center">
+                          <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary-500 mb-4"></div>
+                          <p className="text-lg font-medium text-gray-600">
+                            {isArabicBrowser() ? 'جاري التحميل...' : 'Loading...'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Form Content - Only show when not loading */}
+                    {!isLoadingForm && (
+                      <form onSubmit={handleSubmit} className="space-y-4">
+                        <div>
+                          <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                            السؤال / Question
+                          </label>
+                          <div className="mb-2 flex flex-wrap gap-2">
                       <span className="text-xs md:text-sm text-gray-600 font-medium self-center">
                         {isArabicBrowser() ? 'إدراج أرقام عربية:' : 'Insert Arabic Numbers:'}
                       </span>
@@ -1314,77 +1313,77 @@ const Questions = () => {
                       >
                         {isArabicBrowser() ? 'تحويل المحدد' : 'Convert Selected'}
                       </button>
-                    </div>
+                          </div>
 
-                    <p className="text-xs text-gray-500 mb-2">
-                      {isArabicBrowser() 
-                        ? '💡 ملاحظة: استخدم شريط أدوات المعادلات لإدراج المعادلات والرموز الرياضية' 
-                        : '💡 Note: Use the equation toolbar to insert equations and math symbols'}
-                    </p>
-                    
-                    {/* Best Working Editor - No waiting, no loading! */}
-                    <SimpleProfessionalMathEditor
-                      value={formData.question}
-                      onChange={handleQuillChange}
-                      placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
-                    />
-                  </div>
-
-                  {/* Image Upload and Control Section */}
-                  <ErrorBoundary isArabic={isArabicBrowser()}>
-                    <div>
-                      <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                        {isArabicBrowser() ? 'صورة السؤال / Question Image' : 'Question Image'} <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
-                      </label>
-                      
-                      {/* Image Upload Input */}
-                      <div className="mb-3">
-                        <input
-                          ref={imageInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageChange}
-                          className="w-full px-4 py-2 border rounded-lg text-sm"
-                        />
-                      </div>
-
-                      {/* Image Preview with Controls */}
-                      {questionImagePreview && typeof questionImagePreview === 'string' && (
-                      <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
-                        {/* Image Display with Alignment */}
-                        <div className={`mb-4 flex ${imageAlign === 'left' ? 'justify-start' : imageAlign === 'right' ? 'justify-end' : 'justify-center'}`}>
-                          <img
-                            src={questionImagePreview}
-                            alt="Question preview"
-                            className="rounded-lg shadow-lg transition-all duration-200"
-                            style={{
-                              width: `${Math.max(25, Math.min(300, imageScale || 100))}%`,
-                              maxWidth: '100%',
-                              height: 'auto',
-                              cursor: 'pointer'
-                            }}
-                            onError={(e) => {
-                              console.error('Error loading image preview');
-                              e.target.style.display = 'none';
-                            }}
-                            onClick={() => {
-                              try {
-                                handleImageMaximize(questionImagePreview);
-                              } catch (err) {
-                                console.error('Error maximizing image:', err);
-                              }
-                            }}
+                          <p className="text-xs text-gray-500 mb-2">
+                            {isArabicBrowser() 
+                              ? '💡 ملاحظة: استخدم شريط أدوات المعادلات لإدراج المعادلات والرموز الرياضية' 
+                              : '💡 Note: Use the equation toolbar to insert equations and math symbols'}
+                          </p>
+                          
+                          {/* Best Working Editor - No waiting, no loading! */}
+                          <SimpleProfessionalMathEditor
+                            value={formData.question}
+                            onChange={handleQuillChange}
+                            placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
                           />
                         </div>
 
-                        {/* Image Controls */}
-                        <div className="space-y-3">
-                          {/* Scale Controls */}
+                        {/* Image Upload and Control Section */}
+                        <ErrorBoundary isArabic={isArabicBrowser()}>
                           <div>
-                            <label className="block text-xs font-medium text-gray-600 mb-2">
-                              {isArabicBrowser() ? 'حجم الصورة / Image Size' : 'Image Size'}: {Math.max(25, Math.min(300, imageScale || 100))}%
+                            <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                              {isArabicBrowser() ? 'صورة السؤال / Question Image' : 'Question Image'} <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
                             </label>
-                            <div className="flex items-center gap-2">
+                            
+                            {/* Image Upload Input */}
+                            <div className="mb-3">
+                              <input
+                                ref={imageInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageChange}
+                                className="w-full px-4 py-2 border rounded-lg text-sm"
+                              />
+                            </div>
+
+                            {/* Image Preview with Controls */}
+                            {questionImagePreview && typeof questionImagePreview === 'string' && (
+                              <div className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                                {/* Image Display with Alignment */}
+                                <div className={`mb-4 flex ${imageAlign === 'left' ? 'justify-start' : imageAlign === 'right' ? 'justify-end' : 'justify-center'}`}>
+                                  <img
+                                    src={questionImagePreview}
+                                    alt="Question preview"
+                                    className="rounded-lg shadow-lg transition-all duration-200"
+                                    style={{
+                                      width: `${Math.max(25, Math.min(300, imageScale || 100))}%`,
+                                      maxWidth: '100%',
+                                      height: 'auto',
+                                      cursor: 'pointer'
+                                    }}
+                                    onError={(e) => {
+                                      console.error('Error loading image preview');
+                                      e.target.style.display = 'none';
+                                    }}
+                                    onClick={() => {
+                                      try {
+                                        handleImageMaximize(questionImagePreview);
+                                      } catch (err) {
+                                        console.error('Error maximizing image:', err);
+                                      }
+                                    }}
+                                  />
+                                </div>
+
+                                {/* Image Controls */}
+                                <div className="space-y-3">
+                                  {/* Scale Controls */}
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                                      {isArabicBrowser() ? 'حجم الصورة / Image Size' : 'Image Size'}: {Math.max(25, Math.min(300, imageScale || 100))}%
+                                    </label>
+                                    <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => {
@@ -1533,94 +1532,96 @@ const Questions = () => {
                               {isArabicBrowser() ? 'حذف الصورة' : 'Remove Image'}
                             </button>
                           </div>
-                        </div>
-                      </div>
-                    )}
-                    </div>
-                  </ErrorBoundary>
-
-                  <div>
-                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      شرح الإجابة الصحيحة / Explanation <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
-                    </label>
-                    <p className="text-xs text-gray-500 mb-2">
-                      {isArabicBrowser() 
-                        ? '💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ (اختياري)' 
-                        : '💡 Add an explanation to help students understand the correct answer when they make a mistake (optional)'}
-                    </p>
-                    <SimpleProfessionalMathEditor
-                      value={formData.explanation}
-                      onChange={(content) => setFormData({ ...formData, explanation: content })}
-                      placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا... (اختياري)' : 'Write explanation for the correct answer here... (optional)'}
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-3">
-                      الإجابات / Answers (اختر الإجابة الصحيحة / Select Correct Answer)
-                    </label>
-                    <p className="text-xs text-gray-500 mb-3">
-                      {isArabicBrowser() 
-                        ? '💡 يمكنك إضافة معادلات رياضية وصور في الإجابات أيضاً!' 
-                        : '💡 You can add math equations and images in answers too!'}
-                    </p>
-                    {formData.answers && Array.isArray(formData.answers) ? (
-                      formData.answers.map((answer, index) => (
-                      <div key={answer.id} className="mb-4 p-3 border rounded-lg bg-gray-50">
-                        <div className="flex items-start gap-3">
-                          <div className="flex items-center pt-3">
-                            <input
-                              type="radio"
-                              name="correctAnswer"
-                              checked={answer.isCorrect}
-                              onChange={() => handleCorrectAnswerChange(index)}
-                              className="w-5 h-5 cursor-pointer"
-                              title={isArabicBrowser() ? 'اختر كإجابة صحيحة' : 'Select as correct answer'}
-                            />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex-1">
-                            <label className="block text-xs font-medium text-gray-600 mb-2">
-                              {isArabicBrowser() ? `الإجابة ${String.fromCharCode(65 + index)}` : `Answer ${String.fromCharCode(65 + index)}`}
-                              {answer.isCorrect && (
-                                <span className="ml-2 text-green-600 font-bold">✓ {isArabicBrowser() ? 'صحيحة' : 'Correct'}</span>
-                              )}
-                            </label>
-                            <SimpleProfessionalMathEditor
-                              value={answer.text}
-                              onChange={(content) => handleAnswerChange(index, 'text', content)}
-                              placeholder={isArabicBrowser() ? `اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...` : `Write answer ${String.fromCharCode(65 + index)} here...`}
-                            />
-                          </div>
+                        </ErrorBoundary>
+
+                        <div>
+                          <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                            شرح الإجابة الصحيحة / Explanation <span className="text-gray-500 font-normal">(اختياري / Optional)</span>
+                          </label>
+                          <p className="text-xs text-gray-500 mb-2">
+                            {isArabicBrowser() 
+                              ? '💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ (اختياري)' 
+                              : '💡 Add an explanation to help students understand the correct answer when they make a mistake (optional)'}
+                          </p>
+                          <SimpleProfessionalMathEditor
+                            value={formData.explanation}
+                            onChange={(content) => setFormData({ ...formData, explanation: content })}
+                            placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا... (اختياري)' : 'Write explanation for the correct answer here... (optional)'}
+                          />
                         </div>
-                      </div>
-                      ))
-                    ) : (
-                      <div className="text-gray-500 text-sm py-4">
-                        {isArabicBrowser() ? 'لا توجد إجابات' : 'No answers'}
-                      </div>
+
+                        <div className="mt-6">
+                          <label className="block text-sm md:text-base font-medium text-dark-600 mb-3">
+                            الإجابات / Answers (اختر الإجابة الصحيحة / Select Correct Answer)
+                          </label>
+                          <p className="text-xs text-gray-500 mb-3">
+                            {isArabicBrowser() 
+                              ? '💡 يمكنك إضافة معادلات رياضية وصور في الإجابات أيضاً!' 
+                              : '💡 You can add math equations and images in answers too!'}
+                          </p>
+                          {formData.answers && Array.isArray(formData.answers) ? (
+                            formData.answers.map((answer, index) => (
+                              <div key={answer.id} className="mb-4 p-3 border rounded-lg bg-gray-50">
+                                <div className="flex items-start gap-3">
+                                  <div className="flex items-center pt-3">
+                                    <input
+                                      type="radio"
+                                      name="correctAnswer"
+                                      checked={answer.isCorrect}
+                                      onChange={() => handleCorrectAnswerChange(index)}
+                                      className="w-5 h-5 cursor-pointer"
+                                      title={isArabicBrowser() ? 'اختر كإجابة صحيحة' : 'Select as correct answer'}
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                                      {isArabicBrowser() ? `الإجابة ${String.fromCharCode(65 + index)}` : `Answer ${String.fromCharCode(65 + index)}`}
+                                      {answer.isCorrect && (
+                                        <span className="ml-2 text-green-600 font-bold">✓ {isArabicBrowser() ? 'صحيحة' : 'Correct'}</span>
+                                      )}
+                                    </label>
+                                    <SimpleProfessionalMathEditor
+                                      value={answer.text}
+                                      onChange={(content) => handleAnswerChange(index, 'text', content)}
+                                      placeholder={isArabicBrowser() ? `اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...` : `Write answer ${String.fromCharCode(65 + index)} here...`}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-gray-500 text-sm py-4">
+                              {isArabicBrowser() ? 'لا توجد إجابات' : 'No answers'}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex gap-3">
+                          <button
+                            type="submit"
+                            className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition font-medium"
+                          >
+                            {isArabicBrowser() ? 'حفظ' : 'Save'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowForm(false)}
+                            className="flex-1 bg-gray-400 text-white py-2 rounded-lg hover:bg-gray-500 transition"
+                          >
+                            {isArabicBrowser() ? 'إلغاء' : 'Cancel'}
+                          </button>
+                        </div>
+                      </form>
                     )}
                   </div>
-
-                  <div className="flex gap-3">
-                      <button
-                        type="submit"
-                        className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition font-medium"
-                      >
-                        {isArabicBrowser() ? 'حفظ' : 'Save'}
-                      </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowForm(false)}
-                      className="flex-1 bg-gray-400 text-white py-2 rounded-lg hover:bg-gray-500 transition"
-                    >
-                      {isArabicBrowser() ? 'إلغاء' : 'Cancel'}
-                    </button>
-                  </div>
-                </form>
-                )}
+                </div>
               </div>
-            </div>
-          </div>
             )}
           </div>
         </div>
