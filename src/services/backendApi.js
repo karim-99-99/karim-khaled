@@ -281,23 +281,39 @@ export const getItemById = async (itemId) => {
 };
 
 // ——— Questions ———
-const mapQuestionFromBackend = (q) => ({
-  id: q.id,
-  question: q.question,
-  questionEn: q.question_en,
-  explanation: q.explanation,
-  image: q.question_image_url || q.question_image,
-  imageScale: q.image_scale || 100, // Default to 100% if not set
-  imageAlign: q.image_align || 'center', // Default to center if not set
-  itemId: q.lesson,
-  levelId: q.lesson,
-  answers: (q.answers || []).map((a) => ({
-    id: a.answer_id,
-    key: a.answer_id,
-    text: a.text,
-    isCorrect: !!a.is_correct,
-  })),
-});
+const mapQuestionFromBackend = (q) => {
+  // Load image settings from localStorage if available
+  let imageScale = 100;
+  let imageAlign = 'center';
+  try {
+    const saved = localStorage.getItem(`question_image_settings_${q.id}`);
+    if (saved) {
+      const settings = JSON.parse(saved);
+      imageScale = settings.scale || 100;
+      imageAlign = settings.align || 'center';
+    }
+  } catch (e) {
+    // Ignore errors, use defaults
+  }
+  
+  return {
+    id: q.id,
+    question: q.question,
+    questionEn: q.question_en,
+    explanation: q.explanation,
+    image: q.question_image_url || q.question_image,
+    imageScale: imageScale,
+    imageAlign: imageAlign,
+    itemId: q.lesson,
+    levelId: q.lesson,
+    answers: (q.answers || []).map((a) => ({
+      id: a.answer_id,
+      key: a.answer_id,
+      text: a.text,
+      isCorrect: !!a.is_correct,
+    })),
+  };
+};
 
 export const getQuestions = async (filters = {}) => {
   const params = new URLSearchParams();

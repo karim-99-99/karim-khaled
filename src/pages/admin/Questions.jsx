@@ -70,8 +70,6 @@ const Questions = () => {
     question: '',
     questionEn: '',
     image: null, // base64 encoded image
-    imageAlign: 'center', // Image alignment
-    imageScale: 100, // Image scale
     explanation: '', // Explanation for the correct answer
     answers: [
       { id: 'a', text: '', isCorrect: false },
@@ -585,7 +583,7 @@ const Questions = () => {
         setQuestionImagePreview(base64String);
         setImageScale(100); // Reset scale when new image is uploaded
         setImageAlign('center'); // Reset alignment
-        setFormData({ ...formData, image: base64String, imageScale: 100, imageAlign: 'center' });
+        setFormData({ ...formData, image: base64String });
       };
       reader.readAsDataURL(file);
     }
@@ -594,17 +592,47 @@ const Questions = () => {
   const handleImageZoom = (delta) => {
     const newScale = Math.max(25, Math.min(300, imageScale + delta));
     setImageScale(newScale);
-    setFormData({ ...formData, imageScale: newScale });
+    // Save to localStorage for persistence
+    if (editingQuestion?.id) {
+      try {
+        const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
+        const settings = saved ? JSON.parse(saved) : {};
+        settings.scale = newScale;
+        localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
+      } catch (e) {
+        console.error('Error saving image scale:', e);
+      }
+    }
   };
 
   const handleImageReset = () => {
     setImageScale(100);
-    setFormData({ ...formData, imageScale: 100 });
+    // Save to localStorage for persistence
+    if (editingQuestion?.id) {
+      try {
+        const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
+        const settings = saved ? JSON.parse(saved) : {};
+        settings.scale = 100;
+        localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
+      } catch (e) {
+        console.error('Error saving image scale:', e);
+      }
+    }
   };
 
   const handleImageAlign = (align) => {
     setImageAlign(align);
-    setFormData({ ...formData, imageAlign: align });
+    // Save to localStorage for persistence
+    if (editingQuestion?.id) {
+      try {
+        const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
+        const settings = saved ? JSON.parse(saved) : {};
+        settings.align = align;
+        localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
+      } catch (e) {
+        console.error('Error saving image align:', e);
+      }
+    }
   };
 
   const handleImageMaximize = (imageSrc) => {
@@ -632,8 +660,6 @@ const Questions = () => {
       question: '',
       questionEn: '',
       image: null,
-      imageScale: 100,
-      imageAlign: 'center',
       explanation: '',
       answers: [
         { id: 'a', text: '', isCorrect: false },
@@ -656,46 +682,77 @@ const Questions = () => {
   };
 
   const handleEdit = (question) => {
-    setIsLoadingForm(true);
-    setEditingQuestion(question);
-    
-    // Use setTimeout to show loading state first, then load form
-    setTimeout(() => {
-      const imageScale = question.imageScale || 100;
-      const imageAlign = question.imageAlign || 'center';
+    try {
+      setIsLoadingForm(true);
+      setEditingQuestion(question);
       
-      setFormData({
-        question: question.question || '',
-        questionEn: question.questionEn || '',
-        image: question.image || null,
-        imageScale: imageScale,
-        imageAlign: imageAlign,
-        explanation: question.explanation || '',
-        answers: question.answers ? question.answers.map((ans) => ({ id: ans.id, text: ans.text || '', isCorrect: ans.isCorrect || false })) : [
-          { id: 'a', text: '', isCorrect: false },
-          { id: 'b', text: '', isCorrect: false },
-          { id: 'c', text: '', isCorrect: false },
-          { id: 'd', text: '', isCorrect: false },
-        ],
-      });
-      if (question.image) {
-        setQuestionImagePreview(question.image);
-      } else {
-        setQuestionImagePreview(null);
-      }
-      setQuestionImage(null);
-      setImageScale(imageScale);
-      setImageAlign(imageAlign);
-      if (imageInputRef.current) {
-        imageInputRef.current.value = '';
-      }
-      setShowForm(true);
-      
-      // Delay to allow form to render before showing editors
+      // Use setTimeout to show loading state first, then load form
       setTimeout(() => {
-        setIsLoadingForm(false);
-      }, 300);
-    }, 100);
+        try {
+          // Load image settings from localStorage if available
+          let imageScale = 100;
+          let imageAlign = 'center';
+          try {
+            const saved = localStorage.getItem(`question_image_settings_${question.id}`);
+            if (saved) {
+              const settings = JSON.parse(saved);
+              imageScale = settings.scale || question.imageScale || 100;
+              imageAlign = settings.align || question.imageAlign || 'center';
+            } else {
+              // Fallback to question data if available
+              imageScale = question.imageScale || 100;
+              imageAlign = question.imageAlign || 'center';
+            }
+          } catch (e) {
+            console.error('Error loading image settings:', e);
+            imageScale = question.imageScale || 100;
+            imageAlign = question.imageAlign || 'center';
+          }
+          
+          setFormData({
+            question: question.question || '',
+            questionEn: question.questionEn || '',
+            image: question.image || null,
+            explanation: question.explanation || '',
+            answers: question.answers ? question.answers.map((ans) => ({ 
+              id: ans.id || ans.key || 'a', 
+              text: ans.text || '', 
+              isCorrect: ans.isCorrect || false 
+            })) : [
+              { id: 'a', text: '', isCorrect: false },
+              { id: 'b', text: '', isCorrect: false },
+              { id: 'c', text: '', isCorrect: false },
+              { id: 'd', text: '', isCorrect: false },
+            ],
+          });
+          if (question.image) {
+            setQuestionImagePreview(question.image);
+          } else {
+            setQuestionImagePreview(null);
+          }
+          setQuestionImage(null);
+          setImageScale(imageScale);
+          setImageAlign(imageAlign);
+          if (imageInputRef.current) {
+            imageInputRef.current.value = '';
+          }
+          setShowForm(true);
+          
+          // Delay to allow form to render before showing editors
+          setTimeout(() => {
+            setIsLoadingForm(false);
+          }, 300);
+        } catch (err) {
+          console.error('Error loading question for editing:', err);
+          setIsLoadingForm(false);
+          alert(isArabicBrowser() ? 'حدث خطأ أثناء تحميل السؤال' : 'Error loading question');
+        }
+      }, 100);
+    } catch (err) {
+      console.error('Error in handleEdit:', err);
+      setIsLoadingForm(false);
+      alert(isArabicBrowser() ? 'حدث خطأ غير متوقع' : 'Unexpected error');
+    }
   };
 
   const handleDelete = async (questionId) => {
@@ -747,11 +804,26 @@ const Questions = () => {
 
     if (useBackend) {
       try {
+        let savedQuestion;
         if (editingQuestion) {
-          await backendApi.updateQuestion(editingQuestion.id, payload, imageFile);
+          savedQuestion = await backendApi.updateQuestion(editingQuestion.id, payload, imageFile);
         } else {
-          await backendApi.addQuestion(selectedLevel, payload, imageFile);
+          savedQuestion = await backendApi.addQuestion(selectedLevel, payload, imageFile);
         }
+        
+        // Save image settings to localStorage
+        if (savedQuestion?.id) {
+          try {
+            const settings = {
+              scale: imageScale,
+              align: imageAlign
+            };
+            localStorage.setItem(`question_image_settings_${savedQuestion.id}`, JSON.stringify(settings));
+          } catch (e) {
+            console.error('Error saving image settings:', e);
+          }
+        }
+        
         const list = await backendApi.getQuestionsByLevel(selectedLevel);
         setQuestions(list || []);
       } catch (err) {
@@ -762,11 +834,28 @@ const Questions = () => {
     } else {
       try {
         const questionData = { ...formData, levelId: selectedLevel };
+        let savedQuestion;
         if (editingQuestion) {
           updateQuestion(editingQuestion.id, questionData);
+          savedQuestion = { id: editingQuestion.id };
         } else {
-          addQuestion(questionData);
+          const newQuestion = addQuestion(questionData);
+          savedQuestion = newQuestion;
         }
+        
+        // Save image settings to localStorage
+        if (savedQuestion?.id) {
+          try {
+            const settings = {
+              scale: imageScale,
+              align: imageAlign
+            };
+            localStorage.setItem(`question_image_settings_${savedQuestion.id}`, JSON.stringify(settings));
+          } catch (e) {
+            console.error('Error saving image settings:', e);
+          }
+        }
+        
         setQuestions(getQuestionsByLevel(selectedLevel) || []);
       } catch (err) {
         console.error('Error saving question to local storage:', err);
@@ -785,8 +874,6 @@ const Questions = () => {
       question: '',
       questionEn: '',
       image: null,
-      imageScale: 100,
-      imageAlign: 'center',
       explanation: '',
       answers: [
         { id: 'a', text: '', isCorrect: false },
@@ -1174,7 +1261,17 @@ const Questions = () => {
                                 onChange={(e) => {
                                   const newScale = parseInt(e.target.value);
                                   setImageScale(newScale);
-                                  setFormData({ ...formData, imageScale: newScale });
+                                  // Save to localStorage for persistence
+                                  if (editingQuestion?.id) {
+                                    try {
+                                      const saved = localStorage.getItem(`question_image_settings_${editingQuestion.id}`);
+                                      const settings = saved ? JSON.parse(saved) : {};
+                                      settings.scale = newScale;
+                                      localStorage.setItem(`question_image_settings_${editingQuestion.id}`, JSON.stringify(settings));
+                                    } catch (err) {
+                                      console.error('Error saving image scale:', err);
+                                    }
+                                  }
                                 }}
                                 className="flex-1"
                               />
