@@ -1008,7 +1008,7 @@ const Questions = () => {
         <Header />
         <div className="py-8 px-4">
           <div className="max-w-7xl mx-auto">
-        <div className="mb-6 flex justify-between items-center">
+            <div className="mb-6 flex justify-between items-center">
           <h1 className="text-2xl md:text-3xl font-bold text-dark-600">{isArabicBrowser() ? 'إدارة الأسئلة' : 'Manage Questions'}</h1>
           <button
             onClick={() => {
@@ -1022,9 +1022,9 @@ const Questions = () => {
           >
             ← {isArabicBrowser() ? 'رجوع' : 'Back'}
           </button>
-        </div>
+            </div>
 
-        {/* Filters */}
+            {/* Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
@@ -1118,9 +1118,9 @@ const Questions = () => {
               </select>
             </div>
           </div>
-        </div>
+            </div>
 
-        {/* Questions List */}
+            {/* Questions List */}
         {!selectedLevel ? (
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <p className="text-lg text-gray-500 mb-4">
@@ -1224,9 +1224,9 @@ const Questions = () => {
               )}
             </div>
           </div>
-        )}
+            )}
 
-        {/* Image Maximize Modal */}
+            {/* Image Maximize Modal */}
         {showImageModal && (
           <div 
             className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[60] p-4"
@@ -1255,9 +1255,9 @@ const Questions = () => {
             onInsert={handleInsertMath}
             onClose={() => setShowMathEditor(false)}
           />
-        )}
+            )}
 
-        {/* Add/Edit Form Modal */}
+            {/* Add/Edit Form Modal */}
         {showForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4" onClick={(e) => {
             if (e.target === e.currentTarget) {
@@ -1621,7 +1621,8 @@ const Questions = () => {
               </div>
             </div>
           </div>
-        )}
+            )}
+          </div>
         </div>
       </div>
     </div>
