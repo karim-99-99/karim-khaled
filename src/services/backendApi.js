@@ -44,7 +44,12 @@ const request = async (path, options = {}) => {
   } catch (fetchError) {
     // Network error (CORS, connection failed, etc.)
     if (fetchError.name === 'TypeError' && fetchError.message.includes('fetch')) {
-      throw new Error('فشل الاتصال بالخادم. تحقق من أن الـ Backend يعمل وأن CORS مضبوط بشكل صحيح.');
+      // Check if it's a CORS error or connection error
+      const isCorsError = fetchError.message.includes('CORS') || fetchError.message.includes('cors');
+      const errorMsg = isCorsError
+        ? 'فشل الاتصال بالخادم بسبب CORS. تحقق من إعدادات CORS_ALLOWED_ORIGINS في Render.'
+        : 'فشل الاتصال بالخادم. قد يكون Backend نائماً (في الخطة المجانية). انتظر 30-60 ثانية ثم جرّب مرة أخرى.';
+      throw new Error(errorMsg);
     }
     throw fetchError;
   }

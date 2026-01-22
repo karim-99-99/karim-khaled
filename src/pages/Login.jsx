@@ -28,7 +28,18 @@ const Login = () => {
         if (redirectPath) navigate(redirectPath);
         else navigate(user.role === 'admin' ? '/admin/dashboard' : '/courses');
       } catch (err) {
-        setError(err.message || 'فشل تسجيل الدخول');
+        let errorMessage = err.message || 'فشل تسجيل الدخول';
+        
+        // Provide more helpful error messages
+        if (errorMessage.includes('فشل الاتصال بالخادم')) {
+          errorMessage = 'فشل الاتصال بالخادم. قد يكون Backend نائماً (في الخطة المجانية من Render).\n\n' +
+            'الحلول:\n' +
+            '1. انتظر 30-60 ثانية ثم جرّب مرة أخرى\n' +
+            '2. تحقق من أن Backend يعمل في Render Dashboard\n' +
+            '3. تحقق من إعدادات CORS_ALLOWED_ORIGINS في Render';
+        }
+        
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
