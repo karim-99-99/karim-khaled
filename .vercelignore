@@ -1,0 +1,33 @@
+# Ignore backend files in Vercel deployment
+backend/
+.venv/
+__pycache__/
+*.py
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+.env
+*.log
+db.sqlite3
+*.sqlite3
+media/
+staticfiles/
+
+# Ignore development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Ignore backup files
+_backup_*/
+
+# Ignore large files that aren't needed for frontend build
+*.md
+!README.md

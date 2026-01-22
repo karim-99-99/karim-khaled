@@ -1133,7 +1133,7 @@ const Questions = () => {
           <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
                 <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
-                {isArabicBrowser() ? 'الأسئلة' : 'Questions'} ({questions.length})
+                {isArabicBrowser() ? 'الأسئلة' : 'Questions'} ({questions && Array.isArray(questions) ? questions.length : 0})
               </h2>
               <div className="flex gap-2 flex-wrap">
               <button
@@ -1146,7 +1146,7 @@ const Questions = () => {
             </div>
 
             <div className="space-y-4">
-              {questions.length === 0 ? (
+              {!questions || !Array.isArray(questions) || questions.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <p className="text-lg mb-4">{isArabicBrowser() ? 'لا توجد أسئلة لهذا المستوى' : 'No questions for this level'}</p>
                   <button
@@ -1157,8 +1157,7 @@ const Questions = () => {
                   </button>
                 </div>
               ) : (
-                questions && Array.isArray(questions) ? (
-                  questions.map((question, index) => (
+                questions.map((question, index) => (
                     <div key={question?.id || index} className="border rounded-lg p-3 sm:p-4">
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
                     <div className="flex-1 w-full sm:w-auto">
@@ -1221,12 +1220,7 @@ const Questions = () => {
                     )}
                   </div>
                 </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 text-gray-500">
-                    <p>{isArabicBrowser() ? 'خطأ في تحميل الأسئلة' : 'Error loading questions'}</p>
-                  </div>
-                )
+                ))
               )}
             </div>
           </div>
