@@ -7,6 +7,7 @@ import 'react-quill/dist/quill.snow.css';
 // Get ReactQuill from namespace (react-quill v2.0.0)
 const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
 import Header from '../../components/Header';
+import ErrorBoundary from '../../components/ErrorBoundary';
 import { isArabicBrowser } from '../../utils/language';
 import MathEditor from '../../components/MathEditor';
 import MathRenderer from '../../components/MathRenderer';
@@ -955,11 +956,13 @@ const Questions = () => {
                     </p>
                     
                     {/* Best Working Editor - No waiting, no loading! */}
-                    <SimpleProfessionalMathEditor
-                      value={formData.question}
-                      onChange={handleQuillChange}
-                      placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
-                    />
+                    <ErrorBoundary isArabic={isArabicBrowser()}>
+                      <SimpleProfessionalMathEditor
+                        value={formData.question}
+                        onChange={handleQuillChange}
+                        placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
+                      />
+                    </ErrorBoundary>
                   </div>
 
                   <div>
@@ -971,11 +974,13 @@ const Questions = () => {
                         ? '💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ' 
                         : '💡 Add an explanation to help students understand the correct answer when they make a mistake'}
                     </p>
-                    <SimpleProfessionalMathEditor
-                      value={formData.explanation}
-                      onChange={(content) => setFormData({ ...formData, explanation: content })}
-                      placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا...' : 'Write explanation for the correct answer here...'}
-                    />
+                    <ErrorBoundary isArabic={isArabicBrowser()}>
+                      <SimpleProfessionalMathEditor
+                        value={formData.explanation}
+                        onChange={(content) => setFormData({ ...formData, explanation: content })}
+                        placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا...' : 'Write explanation for the correct answer here...'}
+                      />
+                    </ErrorBoundary>
                   </div>
 
                   <div className="mt-6">
@@ -1007,11 +1012,13 @@ const Questions = () => {
                                 <span className="ml-2 text-green-600 font-bold">✓ {isArabicBrowser() ? 'صحيحة' : 'Correct'}</span>
                               )}
                             </label>
-                            <SimpleProfessionalMathEditor
-                              value={answer.text}
-                              onChange={(content) => handleAnswerChange(index, 'text', content)}
-                              placeholder={isArabicBrowser() ? `اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...` : `Write answer ${String.fromCharCode(65 + index)} here...`}
-                            />
+                            <ErrorBoundary isArabic={isArabicBrowser()}>
+                              <SimpleProfessionalMathEditor
+                                value={answer.text}
+                                onChange={(content) => handleAnswerChange(index, 'text', content)}
+                                placeholder={isArabicBrowser() ? `اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...` : `Write answer ${String.fromCharCode(65 + index)} here...`}
+                              />
+                            </ErrorBoundary>
                           </div>
                         </div>
                       </div>
