@@ -18,23 +18,39 @@ const Quill = ReactQuill.Quill;
 
 // Register Quill modules - don't call this at module level!
 let modulesRegistered = false;
+let blotFormatterAvailable = false;
+let imageDropAvailable = false;
 
 const registerQuillModules = async () => {
   if (modulesRegistered || typeof Quill === 'undefined') return;
   
   try {
-    const BlotFormatterModule = await import('quill-blot-formatter');
-    const ImageDropModule = await import('quill-image-drop-and-paste');
-    
-    const BlotFormatter = BlotFormatterModule.default || BlotFormatterModule;
-    const ImageDrop = ImageDropModule.default || ImageDropModule;
-    
-    if (BlotFormatter && !Quill.imports?.['modules/blotFormatter']) {
-      Quill.register('modules/blotFormatter', BlotFormatter);
+    // Try to load BlotFormatter (optional - for image resize/alignment)
+    try {
+      const BlotFormatterModule = await import('quill-blot-formatter');
+      const BlotFormatter = BlotFormatterModule.default || BlotFormatterModule;
+      if (BlotFormatter && !Quill.imports?.['modules/blotFormatter']) {
+        Quill.register('modules/blotFormatter', BlotFormatter);
+        blotFormatterAvailable = true;
+        console.log('✅ BlotFormatter loaded successfully');
+      }
+    } catch (e) {
+      console.warn('⚠️ BlotFormatter not available (image resize/align disabled):', e.message);
     }
-    if (ImageDrop && !Quill.imports?.['modules/imageDrop']) {
-      Quill.register('modules/imageDrop', ImageDrop);
+    
+    // Try to load ImageDrop (optional - for drag & drop)
+    try {
+      const ImageDropModule = await import('quill-image-drop-and-paste');
+      const ImageDrop = ImageDropModule.default || ImageDropModule;
+      if (ImageDrop && !Quill.imports?.['modules/imageDrop']) {
+        Quill.register('modules/imageDrop', ImageDrop);
+        imageDropAvailable = true;
+        console.log('✅ ImageDrop loaded successfully');
+      }
+    } catch (e) {
+      console.warn('⚠️ ImageDrop not available (drag & drop disabled):', e.message);
     }
+    
     modulesRegistered = true;
   } catch (e) {
     console.warn('Failed to register Quill modules:', e);
@@ -169,53 +185,64 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
   ];
 
   // Quill toolbar with image support
-  const modules = {
-    toolbar: [
-      [{ 'header': [1, 2, 3, false] }],
-      ['bold', 'italic', 'underline', 'strike'],
-      [{ 'color': [] }, { 'background': [] }],
-      [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-      [{ 'align': [] }],
-      [{ 'direction': 'rtl' }],
-      ['link', 'image'],
-      ['clean']
-    ],
-    // Enable image formatter for resize and alignment
-    blotFormatter: {
-      overlay: {
-        style: {
-          border: '2px solid #3b82f6',
-        }
-      },
-      align: {
-        icons: {
-          left: `
-            <svg viewBox="0 0 18 18">
-              <line class="ql-stroke" x1="3" x2="15" y1="9" y2="9"></line>
-              <line class="ql-stroke" x1="3" x2="13" y1="14" y2="14"></line>
-              <line class="ql-stroke" x1="3" x2="9" y1="4" y2="4"></line>
-            </svg>
-          `,
-          center: `
-            <svg viewBox="0 0 18 18">
-              <line class="ql-stroke" x1="15" x2="3" y1="9" y2="9"></line>
-              <line class="ql-stroke" x1="14" x2="4" y1="14" y2="14"></line>
-              <line class="ql-stroke" x1="12" x2="6" y1="4" y2="4"></line>
-            </svg>
-          `,
-          right: `
-            <svg viewBox="0 0 18 18">
-              <line class="ql-stroke" x1="15" x2="3" y1="9" y2="9"></line>
-              <line class="ql-stroke" x1="15" x2="5" y1="14" y2="14"></line>
-              <line class="ql-stroke" x1="15" x2="9" y1="4" y2="4"></line>
-            </svg>
-          `,
+  // Build modules config dynamically based on available features
+  const modules = React.useMemo(() => {
+    const config = {
+      toolbar: [
+        [{ 'header': [1, 2, 3, false] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ 'color': [] }, { 'background': [] }],
+        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+        [{ 'align': [] }],
+        [{ 'direction': 'rtl' }],
+        ['link', 'image'], // ⚠️ زر الصورة موجود هنا / Image button is here
+        ['clean']
+      ],
+    };
+    
+    // Add blotFormatter only if available (for image resize and alignment)
+    if (blotFormatterAvailable) {
+      config.blotFormatter = {
+        overlay: {
+          style: {
+            border: '2px solid #3b82f6',
+          }
         },
-      },
-    },
-    // Enable drag & drop images
-    imageDrop: true,
-  };
+        align: {
+          icons: {
+            left: `
+              <svg viewBox="0 0 18 18">
+                <line class="ql-stroke" x1="3" x2="15" y1="9" y2="9"></line>
+                <line class="ql-stroke" x1="3" x2="13" y1="14" y2="14"></line>
+                <line class="ql-stroke" x1="3" x2="9" y1="4" y2="4"></line>
+              </svg>
+            `,
+            center: `
+              <svg viewBox="0 0 18 18">
+                <line class="ql-stroke" x1="15" x2="3" y1="9" y2="9"></line>
+                <line class="ql-stroke" x1="14" x2="4" y1="14" y2="14"></line>
+                <line class="ql-stroke" x1="12" x2="6" y1="4" y2="4"></line>
+              </svg>
+            `,
+            right: `
+              <svg viewBox="0 0 18 18">
+                <line class="ql-stroke" x1="15" x2="3" y1="9" y2="9"></line>
+                <line class="ql-stroke" x1="15" x2="5" y1="14" y2="14"></line>
+                <line class="ql-stroke" x1="15" x2="9" y1="4" y2="4"></line>
+              </svg>
+            `,
+          },
+        },
+      };
+    }
+    
+    // Add imageDrop only if available (for drag & drop)
+    if (imageDropAvailable) {
+      config.imageDrop = true;
+    }
+    
+    return config;
+  }, []);
 
   const formats = [
     'header', 'bold', 'italic', 'underline', 'strike',
