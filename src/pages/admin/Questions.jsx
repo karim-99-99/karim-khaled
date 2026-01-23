@@ -1624,7 +1624,6 @@ const Questions = () => {
   </div>
 </div>
 </div>
-</div>
     </ErrorBoundary>
   );
 };
