@@ -102,33 +102,48 @@ export default defineConfig({
     },
     // Increase build timeout for large projects
     target: 'esnext',
+    // Ensure proper module format
+    modulePreload: {
+      polyfill: true,
+    },
     // Enable code splitting and optimize chunks
     rollupOptions: {
       output: {
         manualChunks(id) {
           try {
-            // CRITICAL: Process Quill FIRST to avoid circular dependencies
-            // Quill core dependencies must be in same chunk (including parchment!)
+            // CRITICAL: React and React DOM MUST be checked FIRST
+            // This ensures they load before any React-dependent libraries
+            if (id.includes('node_modules/react/') || 
+                id.includes('node_modules/react-dom/') || 
+                id.includes('node_modules/scheduler/')) {
+              return 'react-core';
+            }
+            // React Router after React core
+            if (id.includes('node_modules/react-router') || 
+                id.includes('node_modules/@remix-run/')) {
+              return 'react-router';
+            }
+            // Quill core dependencies
             if (id.includes('node_modules/parchment') || 
                 id.includes('node_modules/quill-delta') ||
                 id.includes('node_modules/eventemitter3') ||
                 id.includes('node_modules/fast-diff') ||
                 id.includes('node_modules/lodash.clonedeep') ||
                 id.includes('node_modules/lodash.isequal')) {
-              return 'quill-vendor';
+              return 'quill-deps';
             }
-            // Quill and react-quill together
-            if (id.includes('node_modules/quill') || id.includes('node_modules/react-quill')) {
-              return 'quill-vendor';
+            // Quill core (not react-quill yet)
+            if (id.includes('node_modules/quill/') && !id.includes('react-quill')) {
+              return 'quill-core';
             }
-            // Quill modules separately to allow lazy loading
+            // React-Quill separately (depends on both React and Quill)
+            if (id.includes('node_modules/react-quill')) {
+              return 'react-quill';
+            }
+            // Quill modules separately
             if (id.includes('node_modules/quill-blot-formatter') || 
                 id.includes('node_modules/quill-image-drop')) {
               return 'quill-modules';
-            }
-            // React and React DOM
-            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router-dom')) {
-              return 'react-vendor';
             }
             // Split KaTeX separately (it's very large)
             if (id.includes('node_modules/katex')) {
