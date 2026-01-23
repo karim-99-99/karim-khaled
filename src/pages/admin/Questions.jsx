@@ -1651,8 +1651,6 @@ import * as backendApi from '../../services/backendApi';
 import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import MathRenderer from '../../components/MathRenderer';
-import ImageCropper from '../../components/ImageCropper';
-import LoadingSpinner from '../../components/LoadingSpinner';
 
 const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
 
