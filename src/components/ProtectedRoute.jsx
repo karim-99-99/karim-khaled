@@ -16,13 +16,8 @@ export const hasSectionAccess = (user, sectionId) => {
     }
   };
 
-  if (sectionId === 'section_tahseel') {
-    return permissions.hasCollectionAccess;
-  }
-  
-  if (sectionId === 'section_qudrat') {
-    return permissions.hasAbilitiesAccess;
-  }
+  // "تحصيلي" removed — only allow abilities section.
+  if (sectionId === 'قسم_قدرات') return permissions.hasAbilitiesAccess;
 
   return false;
 };
@@ -42,18 +37,12 @@ export const hasSubjectAccess = (user, subjectId) => {
     }
   };
 
-  // Check if subject is in abilities section
-  if (subjectId === 'subject_verbal') {
-    return permissions.hasAbilitiesAccess && permissions.abilitiesSubjects?.verbal;
+  // Abilities subjects (Arabic IDs used across the app)
+  if (subjectId === 'مادة_اللفظي') {
+    return permissions.hasAbilitiesAccess && !!permissions.abilitiesSubjects?.verbal;
   }
-  
-  if (subjectId === 'subject_quantitative') {
-    return permissions.hasAbilitiesAccess && permissions.abilitiesSubjects?.quantitative;
-  }
-
-  // For collection section subjects, check if user has collection access
-  if (['subject_math', 'subject_biology', 'subject_physics', 'subject_chemistry'].includes(subjectId)) {
-    return permissions.hasCollectionAccess;
+  if (subjectId === 'مادة_الكمي') {
+    return permissions.hasAbilitiesAccess && !!permissions.abilitiesSubjects?.quantitative;
   }
 
   return false;

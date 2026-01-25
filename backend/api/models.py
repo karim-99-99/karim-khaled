@@ -20,6 +20,13 @@ class User(AbstractUser):
     has_collection_access = models.BooleanField(default=False)
     abilities_subjects_verbal = models.BooleanField(default=False)
     abilities_subjects_quantitative = models.BooleanField(default=False)
+
+    # Profile avatar choice (student can set on first login)
+    AVATAR_CHOICES = [
+        ('male_gulf', 'Male (Gulf)'),
+        ('female_gulf', 'Female (Gulf)'),
+    ]
+    avatar_choice = models.CharField(max_length=20, choices=AVATAR_CHOICES, blank=True, null=True)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -37,7 +44,7 @@ class User(AbstractUser):
 
 
 class Section(models.Model):
-    """Main sections: قدرات (Abilities) and تحصيل (Collection)"""
+    """Main section: قدرات (Abilities). (تحصيلي removed)"""
     id = models.CharField(max_length=50, primary_key=True)
     name = models.CharField(max_length=200)
     name_en = models.CharField(max_length=200, blank=True, null=True)
@@ -184,6 +191,8 @@ class Video(models.Model):
     thumbnail = models.ImageField(upload_to='videos/thumbnails/', blank=True, null=True)
     duration = models.IntegerField(default=0)  # Duration in seconds
     order = models.IntegerField(default=0)
+    # Public/free content (e.g. تأسيس) visible without login
+    is_public = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -211,6 +220,8 @@ class File(models.Model):
     file = models.FileField(upload_to='files/')
     file_type = models.CharField(max_length=50, blank=True, null=True)  # pdf, doc, etc.
     order = models.IntegerField(default=0)
+    # Public/free content (e.g. تأسيس) visible without login
+    is_public = models.BooleanField(default=False)
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

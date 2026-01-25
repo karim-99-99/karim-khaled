@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { initializeDefaultData } from './services/storageService.js';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import AppErrorBoundary from './components/AppErrorBoundary.jsx';
+import AvatarOnboarding from './components/AvatarOnboarding.jsx';
 
 // Eager load only critical pages
 import SinglePage from './pages/SinglePage.jsx';
@@ -20,6 +21,7 @@ const Result = lazy(() => import('./pages/Result.jsx'));
 const Video = lazy(() => import('./pages/Video.jsx'));
 const FileViewer = lazy(() => import('./pages/FileViewer.jsx'));
 const TestMathType = lazy(() => import('./pages/TestMathType.jsx'));
+const Foundation = lazy(() => import('./pages/Foundation.jsx'));
 
 // Lazy load admin pages
 const Dashboard = lazy(() => import('./pages/admin/Dashboard.jsx'));
@@ -56,6 +58,7 @@ function App() {
         }}
       >
         <div className="App" dir="rtl">
+          <AvatarOnboarding />
           <Suspense fallback={<LoadingFallback />}>
             <Routes>
           {/* Public routes */}
@@ -76,6 +79,7 @@ function App() {
           {/* Public browsing routes - accessible without login */}
           {/* Unified courses page - accessible without authentication */}
           <Route path="/courses" element={<Home />} />
+          <Route path="/foundation" element={<Foundation />} />
           
           {/* Subjects page - shows materials (رياضيات, فيزياء, etc.) - public */}
           <Route path="/section/:sectionId/subjects" element={<Subjects />} />

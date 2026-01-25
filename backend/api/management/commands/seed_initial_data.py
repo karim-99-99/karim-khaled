@@ -90,27 +90,6 @@ class Command(BaseCommand):
         else:
             self.stdout.write(f'Student user already exists: student')
 
-        # Section: تحصيلي
-        sec_tahseel, _ = Section.objects.get_or_create(
-            id='قسم_تحصيلي',
-            defaults={'name': 'تحصيلي'}
-        )
-        for sid, sname in [
-            ('مادة_الرياضيات', 'الرياضيات'),
-            ('مادة_الأحياء', 'الأحياء'),
-            ('مادة_الفيزياء', 'الفيزياء'),
-            ('مادة_الكيمياء', 'الكيمياء'),
-        ]:
-            subj, _ = Subject.objects.get_or_create(
-                id=sid,
-                defaults={'section': sec_tahseel, 'name': sname}
-            )
-            for cid, cname in [
-                (f'{sid}_تأسيس', 'التأسيس'),
-                (f'{sid}_تجميعات', 'التجميعات'),
-            ]:
-                create_category(cid, cname, subj, has_tests=True)
-
         # Section: قدرات
         sec_qudrat, _ = Section.objects.get_or_create(
             id='قسم_قدرات',
@@ -131,5 +110,5 @@ class Command(BaseCommand):
                 create_category(cid, cname, subj, has_tests=True)
 
         self.stdout.write(self.style.SUCCESS(
-            'Seeded: 2 sections, 6 subjects, 12 categories, 120 chapters, 2400 lessons.'
+            'Seeded: 1 section (قدرات), 2 subjects, 4 categories, 40 chapters, 800 lessons.'
         ))

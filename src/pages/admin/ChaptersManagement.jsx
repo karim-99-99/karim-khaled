@@ -11,6 +11,7 @@ const ChaptersManagement = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const categoryIdFromUrl = searchParams.get('categoryId');
+  const returnUrl = searchParams.get('returnUrl');
   const useBackend = !!import.meta.env.VITE_API_URL;
   
   const [subjects, setSubjects] = useState([]);
@@ -179,7 +180,7 @@ const ChaptersManagement = () => {
               {isArabicBrowser() ? 'إدارة الفصول' : 'Manage Chapters'}
             </h1>
             <button
-              onClick={() => navigate('/admin/dashboard')}
+              onClick={() => navigate(returnUrl || '/admin/dashboard')}
               className="bg-dark-600 text-white px-4 py-2 rounded-lg hover:bg-dark-700 transition font-medium"
             >
               ← {isArabicBrowser() ? 'رجوع' : 'Back'}

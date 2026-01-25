@@ -46,6 +46,31 @@ export const setCurrentUser = (user) => {
   }
 };
 
+// Set avatar choice for current user (local mode)
+export const setCurrentUserAvatarChoice = (avatarChoice) => {
+  try {
+    const currentUser = getCurrentUser();
+    if (!currentUser) return null;
+    const updated = { ...currentUser, avatarChoice };
+    setCurrentUser(updated);
+
+    // If user exists in USERS list (local auth), update it too
+    try {
+      const users = getUsers();
+      const idx = users.findIndex((u) => u.id === updated.id);
+      if (idx !== -1) {
+        users[idx] = { ...users[idx], avatarChoice };
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+      }
+    } catch (_) {}
+
+    return updated;
+  } catch (e) {
+    console.error('Error setting avatar choice:', e);
+    return null;
+  }
+};
+
 // Logout - remove current user
 export const logout = () => {
   try {
@@ -257,7 +282,8 @@ export const initializeDefaultData = () => {
           isActive: true,
           permissions: {
             hasAbilitiesAccess: true,
-            hasCollectionAccess: true,
+            // "تحصيلي" section removed — keep field for backward compatibility.
+            hasCollectionAccess: false,
             abilitiesSubjects: {
               verbal: true,
               quantitative: true
@@ -322,7 +348,20 @@ export const initializeDefaultData = () => {
     // Check if existing sections have the correct structure (with categories, 10 chapters, 20 lessons each)
     if (existingSections && !shouldInitialize) {
       try {
-        const sections = JSON.parse(existingSections);
+        // Remove "تحصيلي" section entirely (migration for existing users).
+        const parsed = JSON.parse(existingSections);
+        const sections = Array.isArray(parsed)
+          ? parsed.filter((s) => s && s.id !== 'قسم_تحصيلي')
+          : [];
+        if (Array.isArray(parsed) && sections.length !== parsed.length) {
+          localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+        }
+
+        // If after removal we don't have "قدرات", re-initialize.
+        if (!sections.some((s) => s?.id === 'قسم_قدرات')) {
+          shouldInitialize = true;
+        }
+
         // Check if any section has subjects with empty or missing categories
         const needsUpdate = sections.some(section => 
           section.subjects.some(subject => 
@@ -370,45 +409,8 @@ export const initializeDefaultData = () => {
         };
       };
 
+      // Only "قدرات" section remains (تحصيلي removed).
       const defaultSections = [
-        {
-          id: 'قسم_تحصيلي',
-          name: 'تحصيلي',
-          subjects: [
-            {
-              id: 'مادة_الرياضيات',
-              name: 'الرياضيات',
-              categories: [
-                createSampleCategory('مادة_الرياضيات_تأسيس', 'التأسيس', true),
-                createSampleCategory('مادة_الرياضيات_تجميعات', 'التجميعات', true)
-              ]
-            },
-            {
-              id: 'مادة_الأحياء',
-              name: 'الأحياء',
-              categories: [
-                createSampleCategory('مادة_الأحياء_تأسيس', 'التأسيس', true),
-                createSampleCategory('مادة_الأحياء_تجميعات', 'التجميعات', true)
-              ]
-            },
-            {
-              id: 'مادة_الفيزياء',
-              name: 'الفيزياء',
-              categories: [
-                createSampleCategory('مادة_الفيزياء_تأسيس', 'التأسيس', true),
-                createSampleCategory('مادة_الفيزياء_تجميعات', 'التجميعات', true)
-              ]
-            },
-            {
-              id: 'مادة_الكيمياء',
-              name: 'الكيمياء',
-              categories: [
-                createSampleCategory('مادة_الكيمياء_تأسيس', 'التأسيس', true),
-                createSampleCategory('مادة_الكيمياء_تجميعات', 'التجميعات', true)
-              ]
-            }
-          ]
-        },
         {
           id: 'قسم_قدرات',
           name: 'قدرات',
@@ -458,11 +460,12 @@ export const getSections = () => {
   try {
     // Check cache first
     const cached = memoryCache.get(STORAGE_KEYS.SECTIONS);
-    if (cached) return cached;
+    if (cached) return (cached || []).filter((s) => s && s.id !== 'قسم_تحصيلي');
     
     // Load from localStorage
     const sectionsJson = localStorage.getItem(STORAGE_KEYS.SECTIONS);
-    const sections = sectionsJson ? JSON.parse(sectionsJson) : [];
+    const parsed = sectionsJson ? JSON.parse(sectionsJson) : [];
+    const sections = Array.isArray(parsed) ? parsed.filter((s) => s && s.id !== 'قسم_تحصيلي') : [];
     
     // Cache the result
     memoryCache.set(STORAGE_KEYS.SECTIONS, sections);

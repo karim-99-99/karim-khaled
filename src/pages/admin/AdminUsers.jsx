@@ -15,7 +15,7 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState({
     hasAbilitiesAccess: false,
-    hasCollectionAccess: false,
+    // "تحصيلي" section removed — keep only abilities permissions.
     abilitiesSubjects: {
       verbal: false,
       quantitative: false
@@ -122,7 +122,6 @@ const AdminUsers = () => {
     setSelectedUser(user);
     setPermissions(user.permissions || {
       hasAbilitiesAccess: false,
-      hasCollectionAccess: false,
       abilitiesSubjects: {
         verbal: false,
         quantitative: false
@@ -276,12 +275,7 @@ const AdminUsers = () => {
                                 {isArabicBrowser() ? 'قدرات' : 'Abilities'}
                               </span>
                             )}
-                            {user.permissions?.hasCollectionAccess && (
-                              <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
-                                {isArabicBrowser() ? 'تحصيل' : 'Collection'}
-                              </span>
-                            )}
-                            {!user.permissions?.hasAbilitiesAccess && !user.permissions?.hasCollectionAccess && (
+                            {!user.permissions?.hasAbilitiesAccess && (
                               <span className="text-xs text-gray-500">
                                 {isArabicBrowser() ? 'لا توجد صلاحيات' : 'No permissions'}
                               </span>
@@ -390,18 +384,6 @@ const AdminUsers = () => {
                   </h3>
                   
                   <div className="space-y-3">
-                    <label className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={permissions.hasCollectionAccess}
-                        onChange={(e) => handlePermissionChange('hasCollectionAccess', e.target.checked)}
-                        className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
-                      />
-                      <span className="text-dark-600 font-medium">
-                        {isArabicBrowser() ? 'الوصول إلى قسم التحصيل' : 'Access to Collection Section'}
-                      </span>
-                    </label>
-
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
                         type="checkbox"

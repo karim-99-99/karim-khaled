@@ -15,7 +15,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 
                   'phone', 'is_active_account', 'has_abilities_access', 
                   'has_collection_access', 'abilities_subjects_verbal', 
-                  'abilities_subjects_quantitative', 'date_joined']
+                  'abilities_subjects_quantitative', 'avatar_choice', 'date_joined']
         read_only_fields = ['id', 'date_joined']
 
 
@@ -52,7 +52,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         fields = ['username', 'email', 'first_name', 'last_name', 'phone', 
                   'is_active_account', 'has_abilities_access', 
                   'has_collection_access', 'abilities_subjects_verbal', 
-                  'abilities_subjects_quantitative']
+                  'abilities_subjects_quantitative', 'avatar_choice']
 
 
 class LoginSerializer(serializers.Serializer):
@@ -177,6 +177,7 @@ class VideoSerializer(serializers.ModelSerializer):
         fields = ['id', 'lesson', 'chapter', 'category', 'subject', 'section',
                   'title', 'description', 'video_file', 'video_file_url',
                   'video_url', 'thumbnail', 'thumbnail_url', 'duration', 'order',
+                  'is_public',
                   'created_at', 'updated_at', 'created_by']
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
     
@@ -206,6 +207,7 @@ class FileSerializer(serializers.ModelSerializer):
         model = File
         fields = ['id', 'lesson', 'chapter', 'category', 'subject', 'section',
                   'title', 'description', 'file', 'file_url', 'file_type', 'order',
+                  'is_public',
                   'created_at', 'updated_at', 'created_by']
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
     

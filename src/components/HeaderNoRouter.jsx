@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { getCurrentUser, logout } from '../services/storageService';
 import logoimage from '../assets/karim.png';
+import ProfileAvatar from './ProfileAvatar';
 
 const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange }) => {
   const [currentUser, setCurrentUser] = useState(propCurrentUser || getCurrentUser());
@@ -71,6 +72,13 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
             >
               الدورات
             </button>
+            <Link
+              to="/foundation"
+              className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
+              onClick={() => setIsMenuOpen(false)}
+            >
+              تأسيس
+            </Link>
             <button
               onClick={() => handleNavClick('about')}
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
@@ -87,39 +95,114 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
             {/* User Menu - Desktop */}
             {currentUser ? (
               <div className="absolute left-0 relative bg-white">
-                <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors font-medium text-white"
-                >
-                  {currentUser.name}
-                  <span>▼</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Standalone avatar (not inside dropdown) */}
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new Event('open-avatar-picker'))}
+                    className="w-10 h-10 rounded-full bg-white border-2 border-white shadow flex items-center justify-center overflow-hidden"
+                    title="تغيير صورة البروفايل"
+                  >
+                    <ProfileAvatar choice={currentUser?.avatarChoice || 'male_gulf'} size={40} />
+                  </button>
+
+                  {/* Dropdown trigger */}
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors font-medium text-white"
+                  >
+                    {currentUser.name}
+                    <span>▼</span>
+                  </button>
+                </div>
 
                 {isUserMenuOpen && (
                   <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
-                    {currentUser.role === 'admin' ? (
+                    {/* Navigation shortcuts (always visible in user menu) */}
+                    <button
+                      onClick={() => {
+                        handleNavClick('contact');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                    >
+                      تواصل معنا
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleNavClick('about');
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                    >
+                      من نحن
+                    </button>
+                    <Link
+                      to="/foundation"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      تأسيس
+                    </Link>
+                    <Link
+                      to="/courses"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      الدورات
+                    </Link>
+
+                    {currentUser.role === 'admin' && (
                       <>
-                        <button
+                        <div className="border-t border-gray-200" />
+                        <Link
+                          to="/admin/dashboard"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                           onClick={() => {
-                            handleNavClick('admin-dashboard');
                             setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
                           }}
-                          className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
                         >
                           لوحة التحكم
-                        </button>
+                        </Link>
+                        <Link
+                          to="/admin/questions"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          إدارة الاختبار
+                        </Link>
+                        <Link
+                          to="/admin/users"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          إدارة المستخدمين
+                        </Link>
                       </>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          handleNavClick('home');
-                          setIsUserMenuOpen(false);
-                        }}
-                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
-                      >
-                        الصفحة الرئيسية
-                      </button>
                     )}
+                    <Link
+                      to="/register"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors border-t border-gray-200 text-right"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      إنشاء حساب جديد
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
@@ -153,40 +236,115 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
               <>
                 {/* User Menu Selector - always visible for admin and student */}
                 <div className="relative">
-                  <button
-                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors font-medium text-white text-xs sm:text-sm whitespace-nowrap"
-                  >
-                    {currentUser.name}
-                    <span className="text-xs">▼</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Standalone avatar (not inside dropdown) */}
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new Event('open-avatar-picker'))}
+                      className="w-10 h-10 rounded-full bg-white border-2 border-white shadow flex items-center justify-center overflow-hidden"
+                      title="تغيير صورة البروفايل"
+                    >
+                      <ProfileAvatar choice={currentUser?.avatarChoice || 'male_gulf'} size={40} />
+                    </button>
+
+                    {/* Dropdown trigger */}
+                    <button
+                      onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                      className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors font-medium text-white text-xs sm:text-sm whitespace-nowrap"
+                    >
+                      {currentUser.name}
+                      <span className="text-xs">▼</span>
+                    </button>
+                  </div>
                   {isUserMenuOpen && (
                     <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
-                      {currentUser.role === 'admin' ? (
+                      {/* Navigation shortcuts (always visible in user menu) */}
+                      <button
+                        onClick={() => {
+                          handleNavClick('contact');
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      >
+                        تواصل معنا
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleNavClick('about');
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      >
+                        من نحن
+                      </button>
+                      <Link
+                        to="/foundation"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        تأسيس
+                      </Link>
+                      <Link
+                        to="/courses"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        الدورات
+                      </Link>
+
+                      {currentUser.role === 'admin' && (
                         <>
-                          <button
+                          <div className="border-t border-gray-200" />
+                          <Link
+                            to="/admin/dashboard"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                             onClick={() => {
-                              handleNavClick('admin-dashboard');
                               setIsUserMenuOpen(false);
                               setIsMenuOpen(false);
                             }}
-                            className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
                           >
                             لوحة التحكم
-                          </button>
+                          </Link>
+                          <Link
+                            to="/admin/questions"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            إدارة الاختبار
+                          </Link>
+                          <Link
+                            to="/admin/users"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            إدارة المستخدمين
+                          </Link>
                         </>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            handleNavClick('home');
-                            setIsUserMenuOpen(false);
-                            setIsMenuOpen(false);
-                          }}
-                          className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
-                        >
-                          الصفحة الرئيسية
-                        </button>
                       )}
+                      <Link
+                        to="/register"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right border-t border-gray-200"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        إنشاء حساب جديد
+                      </Link>
                       <button
                         onClick={handleLogout}
                         className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
@@ -236,6 +394,13 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
               >
                 الدورات
               </button>
+              <Link
+                to="/foundation"
+                className="text-dark-600 hover:text-primary-500 transition-colors font-medium text-right"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                تأسيس
+              </Link>
               <button
                 onClick={() => handleNavClick('about')}
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium text-right"

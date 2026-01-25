@@ -108,6 +108,7 @@ const mapUserFromBackend = (u) => ({
   phone: u.phone,
   role: u.role,
   isActive: u.is_active_account,
+  avatarChoice: u.avatar_choice || null,
   createdAt: u.date_joined,
   permissions: {
     hasAbilitiesAccess: u.has_abilities_access || false,
@@ -164,6 +165,14 @@ export const updateUser = async (userId, updates) => {
 
 export const deleteUser = async (userId) => {
   await request(`/users/${encodeURIComponent(userId)}/`, { method: 'DELETE' });
+};
+
+export const setMyAvatarChoice = async (avatarChoice) => {
+  const data = await request('/users/set_avatar/', {
+    method: 'POST',
+    body: JSON.stringify({ avatar_choice: avatarChoice }),
+  });
+  return mapUserFromBackend(data);
 };
 
 // ——— Sections & structure (read) ———
@@ -530,6 +539,41 @@ export const getFiles = async (lessonId = null) => {
 export const getFileByLevel = async (levelId) => {
   const arr = await getFiles(levelId);
   return arr[0] || null;
+};
+
+// ——— Public (no-auth) Foundation content ———
+export const getPublicFoundationResources = async (subjectId) => {
+  const params = new URLSearchParams();
+  if (subjectId) params.set('subject_id', subjectId);
+  const qs = params.toString();
+  return request(`/public/foundation/${qs ? `?${qs}` : ''}`, { method: 'GET' });
+};
+
+// Admin-only helpers to upload public foundation content
+export const addPublicFoundationVideo = async (subjectId, payload = {}) => {
+  const fd = new FormData();
+  if (subjectId) fd.append('subject', subjectId);
+  fd.append('is_public', 'true');
+  fd.append('title', payload.title || '');
+  if (payload.description) fd.append('description', payload.description);
+  if (payload.video_file) {
+    fd.append('video_file', payload.video_file);
+    fd.append('video_url', '');
+  } else if (payload.video_url) {
+    fd.append('video_url', payload.video_url);
+  }
+  return request('/videos/', { method: 'POST', body: fd });
+};
+
+export const addPublicFoundationFile = async (subjectId, file, meta = {}) => {
+  const fd = new FormData();
+  if (subjectId) fd.append('subject', subjectId);
+  fd.append('is_public', 'true');
+  fd.append('title', meta.title || file?.name || 'ملف مرفق');
+  if (meta.description) fd.append('description', meta.description);
+  if (meta.file_type) fd.append('file_type', meta.file_type);
+  fd.append('file', file);
+  return request('/files/', { method: 'POST', body: fd });
 };
 
 export const addFile = async (lessonId, file, meta = {}) => {

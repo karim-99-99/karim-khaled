@@ -14,6 +14,13 @@ const Categories = () => {
 
   const useBackend = !!import.meta.env.VITE_API_URL;
 
+  // "تحصيلي" section removed — redirect any old links.
+  useEffect(() => {
+    if (sectionId === 'قسم_تحصيلي') {
+      navigate('/section/قسم_قدرات/subjects', { replace: true });
+    }
+  }, [sectionId, navigate]);
+
   useEffect(() => {
     let c = false;
     async function load() {

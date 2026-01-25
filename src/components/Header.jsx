@@ -4,17 +4,23 @@ import { getCurrentUser, logout } from '../services/storageService';
 import headerimage from '../assets/kareem.jpg';
 import logoimage from '../assets/karim.png';
 import { isArabicBrowser } from '../utils/language';
+import ProfileAvatar from './ProfileAvatar';
 
 const Header = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentUser = getCurrentUser();
+  const [currentUser, setCurrentUserState] = useState(() => getCurrentUser());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   useEffect(() => {
     // Logo loaded
   }, []);
+
+  useEffect(() => {
+    // Update user when route changes (and after avatar saved)
+    setCurrentUserState(getCurrentUser());
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logout();
@@ -66,6 +72,17 @@ const Header = () => {
               الدورات
             </Link>
             <Link
+              to="/foundation"
+              className={`px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
+                location.pathname === '/foundation'
+                  ? 'text-primary-500 border-2 border-primary-500'
+                  : 'text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent'
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              تأسيس
+            </Link>
+            <Link
               to="/about"
               className={`px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
                 location.pathname === '/about' 
@@ -91,18 +108,74 @@ const Header = () => {
             {/* User Menu - Desktop */}
             {currentUser ? (
               <div className="absolute left-0 relative">
-                <button
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors font-medium text-white"
-                >
-                  {currentUser.name}
-                  <span>▼</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Standalone avatar (not inside dropdown) */}
+                  <button
+                    type="button"
+                    onClick={() => window.dispatchEvent(new Event('open-avatar-picker'))}
+                    className="w-10 h-10 rounded-full bg-white border-2 border-white shadow flex items-center justify-center overflow-hidden"
+                    title="تغيير صورة البروفايل"
+                  >
+                    <ProfileAvatar choice={currentUser?.avatarChoice || 'male_gulf'} size={40} />
+                  </button>
+
+                  {/* Dropdown trigger */}
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 rounded-lg transition-colors font-medium text-white"
+                  >
+                    {currentUser.name}
+                    <span>▼</span>
+                  </button>
+                </div>
 
                 {isUserMenuOpen && (
                   <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
-                    {currentUser.role === 'admin' ? (
+                    {/* Navigation shortcuts (always visible in user menu) */}
+                    <Link
+                      to="/contact"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      تواصل معنا
+                    </Link>
+                    <Link
+                      to="/about"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      من نحن
+                    </Link>
+                    <Link
+                      to="/foundation"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      تأسيس
+                    </Link>
+                    <Link
+                      to="/courses"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      {isArabicBrowser() ? 'الدورات' : 'Courses'}
+                    </Link>
+
+                    {currentUser.role === 'admin' && (
                       <>
+                        <div className="border-t border-gray-200" />
                         <Link
                           to="/admin/dashboard"
                           className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
@@ -134,17 +207,6 @@ const Header = () => {
                           {isArabicBrowser() ? 'إدارة المستخدمين' : 'User Management'}
                         </Link>
                       </>
-                    ) : (
-                      <Link
-                        to="/courses"
-                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
-                        onClick={() => {
-                          setIsUserMenuOpen(false);
-                          setIsMenuOpen(false);
-                        }}
-                      >
-                        {isArabicBrowser() ? 'الدورات' : 'Courses'}
-                      </Link>
                     )}
                     <Link
                       to="/register"
@@ -189,17 +251,73 @@ const Header = () => {
               <>
                 {/* User Menu Selector - always visible for admin and student */}
                 <div className="relative">
-                  <button
-                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                    className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-white md:bg-primary-500 hover:bg-gray-100 md:hover:bg-primary-600 rounded-lg transition-colors font-medium text-dark-600 md:text-white text-xs sm:text-sm whitespace-nowrap border border-gray-200 md:border-none"
-                  >
-                    {currentUser.name}
-                    <span className="text-xs">▼</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* Standalone avatar (not inside dropdown) */}
+                    <button
+                      type="button"
+                      onClick={() => window.dispatchEvent(new Event('open-avatar-picker'))}
+                      className="w-10 h-10 rounded-full bg-white border-2 border-white shadow flex items-center justify-center overflow-hidden"
+                      title="تغيير صورة البروفايل"
+                    >
+                      <ProfileAvatar choice={currentUser?.avatarChoice || 'male_gulf'} size={40} />
+                    </button>
+
+                    {/* Dropdown trigger */}
+                    <button
+                      onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                      className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 bg-white md:bg-primary-500 hover:bg-gray-100 md:hover:bg-primary-600 rounded-lg transition-colors font-medium text-dark-600 md:text-white text-xs sm:text-sm whitespace-nowrap border border-gray-200 md:border-none"
+                    >
+                      {currentUser.name}
+                      <span className="text-xs">▼</span>
+                    </button>
+                  </div>
                   {isUserMenuOpen && (
                     <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
-                      {currentUser.role === 'admin' ? (
+                      {/* Navigation shortcuts (always visible in user menu) */}
+                      <Link
+                        to="/contact"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        تواصل معنا
+                      </Link>
+                      <Link
+                        to="/about"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        من نحن
+                      </Link>
+                      <Link
+                        to="/foundation"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        تأسيس
+                      </Link>
+                      <Link
+                        to="/courses"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        الدورات
+                      </Link>
+
+                      {currentUser.role === 'admin' && (
                         <>
+                          <div className="border-t border-gray-200" />
                           <Link
                             to="/admin/dashboard"
                             className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
@@ -231,17 +349,6 @@ const Header = () => {
                             إدارة المستخدمين
                           </Link>
                         </>
-                      ) : (
-                        <Link
-                          to="/courses"
-                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsMenuOpen(false);
-                          }}
-                        >
-                          الدورات
-                        </Link>
                       )}
                       <Link
                         to="/register"
@@ -303,6 +410,13 @@ const Header = () => {
                 onClick={() => setIsMenuOpen(false)}
               >
                 الدورات
+              </Link>
+              <Link
+                to="/foundation"
+                className="text-dark-600 hover:text-primary-500 transition-colors font-medium"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                تأسيس
               </Link>
               <Link
                 to="/about"

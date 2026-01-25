@@ -20,6 +20,9 @@ from .serializers import (
     StudentProgressSerializer, LessonProgressSerializer
 )
 
+DISABLED_SECTION_IDS = ['قسم_تحصيلي']
+PUBLIC_FOUNDATION_SUBJECT_IDS = ['مادة_اللفظي', 'مادة_الكمي']
+
 
 class IsAdminUser(permissions.BasePermission):
     """Permission class to check if user is admin"""
@@ -98,6 +101,45 @@ class LogoutView(APIView):
         return Response({'message': 'Logged out successfully'})
 
 
+class PublicFoundationView(APIView):
+    """
+    Public (no-auth) endpoint for free foundation content.
+    Returns public videos & files for verbal/quantitative subjects.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        subject_id = request.query_params.get('subject_id')
+        kind = (request.query_params.get('kind') or '').strip().lower()  # "video" | "file" | ""
+
+        allowed_subjects = set(PUBLIC_FOUNDATION_SUBJECT_IDS)
+        if subject_id and subject_id not in allowed_subjects:
+            return Response({'videos': [], 'files': []})
+
+        vqs = Video.objects.filter(is_public=True).exclude(section_id__in=DISABLED_SECTION_IDS)
+        fqs = File.objects.filter(is_public=True).exclude(section_id__in=DISABLED_SECTION_IDS)
+
+        # Only allow the two abilities subjects for public تأسيس
+        vqs = vqs.filter(subject_id__in=PUBLIC_FOUNDATION_SUBJECT_IDS)
+        fqs = fqs.filter(subject_id__in=PUBLIC_FOUNDATION_SUBJECT_IDS)
+
+        if subject_id:
+            vqs = vqs.filter(subject_id=subject_id)
+            fqs = fqs.filter(subject_id=subject_id)
+
+        vqs = vqs.order_by('order', '-created_at')
+        fqs = fqs.order_by('order', '-created_at')
+
+        videos = VideoSerializer(vqs, many=True, context={'request': request}).data
+        files = FileSerializer(fqs, many=True, context={'request': request}).data
+
+        if kind == 'video':
+            return Response({'videos': videos, 'files': []})
+        if kind == 'file':
+            return Response({'videos': [], 'files': files})
+        return Response({'videos': videos, 'files': files})
+
+
 class UserViewSet(viewsets.ModelViewSet):
     """User management (admin only for list/update, users can view themselves)"""
     queryset = User.objects.all()
@@ -121,6 +163,19 @@ class UserViewSet(viewsets.ModelViewSet):
         """Get current user profile"""
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def set_avatar(self, request):
+        """Set current user's avatar choice (student onboarding)."""
+        choice = (request.data.get('avatar_choice') or '').strip()
+        allowed = {'male_gulf', 'female_gulf'}
+        if choice not in allowed:
+            return Response({'error': 'Invalid avatar_choice'}, status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        user.avatar_choice = choice
+        user.save(update_fields=['avatar_choice'])
+        serializer = self.get_serializer(user)
+        return Response(serializer.data)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def update_permissions(self, request, pk=None):
@@ -142,6 +197,10 @@ class SectionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Section.objects.prefetch_related('subjects__categories__chapters__items').all()
     serializer_class = SectionSerializer
     permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.exclude(id__in=DISABLED_SECTION_IDS)
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
@@ -154,6 +213,10 @@ class SubjectViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [permissions.IsAuthenticated()]
+    
+    def get_queryset(self):
+        qs = super().get_queryset()
+        return qs.exclude(section_id__in=DISABLED_SECTION_IDS)
 
     def perform_create(self, serializer):
         id_val = self.request.data.get('id') or f"subject_{uuid.uuid4().hex[:12]}"
@@ -171,7 +234,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         sid = self.request.query_params.get('subject_id')
         if sid:
             qs = qs.filter(subject_id=sid)
-        return qs
+        return qs.exclude(subject__section_id__in=DISABLED_SECTION_IDS)
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -198,7 +261,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
         cid = self.request.query_params.get('category_id')
         if cid:
             qs = qs.filter(category_id=cid)
-        return qs
+        return qs.exclude(category__subject__section_id__in=DISABLED_SECTION_IDS)
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -246,7 +309,7 @@ class LessonViewSet(viewsets.ModelViewSet):
         cid = self.request.query_params.get('chapter_id')
         if cid:
             qs = qs.filter(chapter_id=cid)
-        return qs
+        return qs.exclude(chapter__category__subject__section_id__in=DISABLED_SECTION_IDS)
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -292,7 +355,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return QuestionSerializer
     
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().exclude(section_id__in=DISABLED_SECTION_IDS)
         # Filter by level (lesson ID)
         lesson_id = self.request.query_params.get('lesson_id', None)
         if lesson_id:
@@ -355,7 +418,7 @@ class VideoViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().exclude(section_id__in=DISABLED_SECTION_IDS)
         lesson_id = self.request.query_params.get('lesson_id', None)
         if lesson_id:
             queryset = queryset.filter(lesson_id=lesson_id)
@@ -396,7 +459,7 @@ class FileViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = super().get_queryset().exclude(section_id__in=DISABLED_SECTION_IDS)
         lesson_id = self.request.query_params.get('lesson_id', None)
         if lesson_id:
             queryset = queryset.filter(lesson_id=lesson_id)

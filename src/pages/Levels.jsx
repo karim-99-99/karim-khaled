@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getLevelProgress, getCurrentUser, getChapterById, updateItemName, getFileByLevel, getVideoByLevel, getQuestionsByLevel, addItemToChapter, deleteItemFromChapter } from '../services/storageService';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
@@ -8,6 +8,8 @@ import { isBackendOn, getChapterById as getChapterByIdApi, updateLesson, addLess
 const Levels = () => {
   const { sectionId, subjectId, categoryId, chapterId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl');
   const [chapter, setChapter] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -217,7 +219,13 @@ const Levels = () => {
         <div className="mb-8">
           <div className="flex justify-between items-start mb-4">
             <button
-              onClick={() => navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`)}
+              onClick={() => {
+                if (returnUrl) {
+                  navigate(returnUrl);
+                } else {
+                  navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`);
+                }
+              }}
               className="text-primary-600 hover:text-primary-700 flex items-center gap-2 font-medium"
             >
               ← رجوع
