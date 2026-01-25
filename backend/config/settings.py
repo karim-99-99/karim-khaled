@@ -149,6 +149,15 @@ else:
         "http://127.0.0.1:3000",
     ]
 
+# Allow all Vercel preview/prod domains without manual updates.
+# This fixes CORS failures on Vercel preview URLs like:
+# https://<random>-<project>.vercel.app
+#
+# Note: `django-cors-headers` matches regexes against the Origin header.
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
+
 # Allow all origins in development if DEBUG is True
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
@@ -161,6 +170,17 @@ else:
         CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
+
+# If you ever switch to cookie-based auth, CSRF must trust the frontend origin.
+# Even with Token auth, this is harmless and prevents CSRF issues if SessionAuth is used.
+CSRF_TRUSTED_ORIGINS = list(set(
+    (os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if os.environ.get('CSRF_TRUSTED_ORIGINS') else [])
+    + [
+        "https://*.vercel.app",
+        "https://karim-khaled.vercel.app",
+    ]
+))
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in CSRF_TRUSTED_ORIGINS if o.strip()]
 
 # File upload settings
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800  # 50MB
