@@ -101,11 +101,16 @@ const request = async (path, options = {}) => {
 
 export const isBackendOn = () => !!(import.meta.env.VITE_API_URL && getToken());
 
+/** Build URL for GET /api/files/<id>/content/ (auth-only, no X-Frame-Options issues). */
+export const getFileContentApiUrl = (fileId) => {
+  const base = getBase();
+  if (!base) return "";
+  return `${base}/files/${encodeURIComponent(String(fileId))}/content/`;
+};
+
 /**
- * Fetch file from our API (e.g. /media/...) with auth and return a blob URL
- * for use in iframe. Use when file URL is on API host; iframe does not send
- * Authorization so direct src would fail when auth is required.
- * Returns null if URL is external or fetch fails; caller should use original URL.
+ * Fetch file from our API with auth and return a blob URL for iframe.
+ * Prefer getFileContentApiUrl(id) for backend files to avoid embed/CORS issues.
  */
 export const fetchFileAsBlobUrlForViewer = async (fileUrl) => {
   if (!fileUrl || typeof fileUrl !== "string") return null;
@@ -623,6 +628,8 @@ export const addPassage = async (lessonId, { passageText, questions }) => {
   const body = {
     lesson: lessonId,
     question_type: "passage",
+    question: "(قطعة)",
+    answers: [],
     passage_text: passageText || "",
     passage_questions: (questions || []).map((q) => ({
       question: q.question || "",
@@ -644,6 +651,8 @@ export const addPassage = async (lessonId, { passageText, questions }) => {
 export const updatePassage = async (passageId, { passageText, questions }) => {
   const body = {
     question_type: "passage",
+    question: "(قطعة)",
+    answers: [],
     passage_text: passageText || "",
     passage_questions: (questions || []).map((q) => ({
       question: q.question || "",

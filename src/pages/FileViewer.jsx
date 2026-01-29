@@ -13,6 +13,7 @@ import {
   isBackendOn,
   getFileByLevel as getFileByLevelApi,
   getItemById as getItemByIdApi,
+  getFileContentApiUrl,
   fetchFileAsBlobUrlForViewer,
 } from "../services/backendApi";
 
@@ -65,7 +66,10 @@ const FileViewer = () => {
           } catch (_) {}
         }
         if (isBackendOn() && file.url) {
-          const blobUrl = await fetchFileAsBlobUrlForViewer(file.url);
+          const contentUrl = getFileContentApiUrl(file.id);
+          const blobUrl = contentUrl
+            ? await fetchFileAsBlobUrlForViewer(contentUrl)
+            : null;
           if (blobUrl) {
             currentFileUrl = blobUrl;
             setFileUrl(blobUrl);

@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login, logout
 from django.db.models import Q, Count, Avg
+from django.http import HttpResponse
 from django.utils import timezone
 
 from .models import (
@@ -525,6 +526,28 @@ class FileViewSet(viewsets.ModelViewSet):
         
         # Update serializer instance for response
         serializer.instance = file_obj
+
+    @action(detail=True, methods=['get'], url_path='content')
+    def content(self, request, pk=None):
+        """Stream file content for embedding (e.g. PDF viewer). Auth required."""
+        f = self.get_object()
+        if not f.file:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        try:
+            f.file.open('rb')
+            data = f.file.read()
+        finally:
+            f.file.close()
+        ct = 'application/octet-stream'
+        if (f.file_type or '').lower() == 'application/pdf':
+            ct = 'application/pdf'
+        elif (f.title or '').lower().endswith('.pdf'):
+            ct = 'application/pdf'
+        elif (f.file_type or '').lower() in ('application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'):
+            ct = (f.file_type or '').lower()
+        resp = HttpResponse(data, content_type=ct)
+        resp['Content-Disposition'] = 'inline; filename="%s"' % (f.title or 'file')
+        return resp
 
 
 class StudentProgressViewSet(viewsets.ModelViewSet):
