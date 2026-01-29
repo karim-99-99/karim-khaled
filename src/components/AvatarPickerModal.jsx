@@ -3,7 +3,7 @@ import ProfileAvatar from './ProfileAvatar';
 
 export const AVATAR_OPTIONS = [
   { id: 'male_gulf', label: 'رجل' },
-  { id: 'female_gulf', label: 'امرأة خليجية' },
+  { id: 'female_gulf', label: 'امرأة' },
 ];
 
 const AvatarPickerModal = ({ open, selected, onSelect, onClose, onSave, saving = false }) => {
@@ -27,10 +27,6 @@ const AvatarPickerModal = ({ open, selected, onSelect, onClose, onSave, saving =
             </button>
           </div>
 
-          <p className="text-sm text-dark-600 mb-5">
-            اختر الشكل اللي تحب يظهر أعلى اليسار داخل الموقع.
-          </p>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {AVATAR_OPTIONS.map((opt) => {
               const active = selected === opt.id;
@@ -48,9 +44,6 @@ const AvatarPickerModal = ({ open, selected, onSelect, onClose, onSave, saving =
                   </div>
                   <div className="flex-1">
                     <div className="font-extrabold text-dark-900">{opt.label}</div>
-                    <div className="text-xs text-dark-600 mt-1">
-                      {opt.id === 'male_gulf' ? 'بالزي الخليجي' : 'بالزي الخليجي'}
-                    </div>
                   </div>
                 </button>
               );

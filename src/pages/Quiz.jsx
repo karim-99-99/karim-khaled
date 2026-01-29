@@ -7,6 +7,7 @@ import ProgressBar from '../components/ProgressBar';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
 import MathRenderer from '../components/MathRenderer';
+import { hasCategoryAccess } from '../components/ProtectedRoute';
 import { isBackendOn, getQuestionsByLevel as getQuestionsByLevelApi, getVideoByLevel as getVideoByLevelApi, getItemById as getItemByIdApi } from '../services/backendApi';
 
 const Quiz = () => {
@@ -25,6 +26,9 @@ const Quiz = () => {
   const currentUser = getCurrentUser();
   const actualItemId = itemId || levelId;
   const progressKey = `quiz_progress_${actualItemId}_${currentUser?.id || 'guest'}`;
+  const isAdmin = currentUser?.role === 'admin';
+  const categoryName = (categoryId || '').includes('تأسيس') ? 'التأسيس' : 'التجميعات';
+  const canAccessMedia = isAdmin || (currentUser && hasCategoryAccess(currentUser, categoryName));
   
   useEffect(() => {
     const savedProgress = localStorage.getItem(progressKey);
@@ -398,12 +402,14 @@ const Quiz = () => {
               <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
                 {level?.name || 'المستوى'}
               </h1>
-              <button
-                onClick={() => setShowVideo(true)}
-                className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition flex items-center gap-2"
-              >
-                🎥 {isArabicBrowser() ? 'مشاهدة الفيديو' : ' '}
-              </button>
+              {video && canAccessMedia && (
+                <button
+                  onClick={() => setShowVideo(true)}
+                  className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition flex items-center gap-2"
+                >
+                  🎥 {isArabicBrowser() ? 'مشاهدة الفيديو' : ' '}
+                </button>
+              )}
             </div>
             <ProgressBar
               current={currentIndex + 1}

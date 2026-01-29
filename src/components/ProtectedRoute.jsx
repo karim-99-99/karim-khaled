@@ -34,6 +34,10 @@ export const hasSubjectAccess = (user, subjectId) => {
     abilitiesSubjects: {
       verbal: false,
       quantitative: false
+    },
+    abilitiesCategories: {
+      foundation: false,
+      collections: false
     }
   };
 
@@ -44,6 +48,44 @@ export const hasSubjectAccess = (user, subjectId) => {
   if (subjectId === 'مادة_الكمي') {
     return permissions.hasAbilitiesAccess && !!permissions.abilitiesSubjects?.quantitative;
   }
+
+  return false;
+};
+
+// Helper function to check if user has access to a category
+export const hasCategoryAccess = (user, categoryName) => {
+  if (!user || user.role === 'admin') return true; // Admins have full access
+  
+  const isActive = user.isActive ?? user.is_active_account;
+  if (!isActive) return false;
+
+  // دعم المستخدم المخزن بالشكل الخام من API (قبل mapUserFromBackend)
+  let permissions = user.permissions;
+  if (!permissions && (user.has_abilities_access !== undefined || user.abilities_categories_foundation !== undefined)) {
+    permissions = {
+      hasAbilitiesAccess: !!user.has_abilities_access,
+      hasCollectionAccess: !!user.has_collection_access,
+      abilitiesSubjects: {
+        verbal: !!user.abilities_subjects_verbal,
+        quantitative: !!user.abilities_subjects_quantitative,
+      },
+      abilitiesCategories: {
+        foundation: !!user.abilities_categories_foundation,
+        collections: !!user.abilities_categories_collections,
+      },
+    };
+  }
+  permissions = permissions || {
+    hasAbilitiesAccess: false,
+    hasCollectionAccess: false,
+    abilitiesSubjects: { verbal: false, quantitative: false },
+    abilitiesCategories: { foundation: false, collections: false },
+  };
+
+  if (!permissions.hasAbilitiesAccess) return false;
+
+  if (categoryName === 'التأسيس') return !!permissions.abilitiesCategories?.foundation;
+  if (categoryName === 'التجميعات') return !!permissions.abilitiesCategories?.collections;
 
   return false;
 };

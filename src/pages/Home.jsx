@@ -72,6 +72,7 @@ const Home = () => {
 
   const selectedSubject = subjects.find((s) => s?.id === selectedSubjectId) || null;
   const categories = (selectedSubject?.categories || []).map((c) => ({ ...c, hasTests: c.has_tests ?? c.hasTests }));
+  
   const isAdmin = currentUser?.role === 'admin';
   const isStudent = currentUser?.role === 'student';
   const selectedCategory = categories.find((c) => c?.id === selectedCategoryId) || null;
@@ -377,6 +378,17 @@ const Home = () => {
                     </div>
                   </button>
                 ))}
+              </div>
+
+              {/* زر الدروس المجانية */}
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => navigate('/foundation')}
+                  className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-extrabold text-base md:text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105"
+                >
+                  الدروس المجانية
+                </button>
               </div>
 
               {/* الفصول تظهر داخل نفس الصفحة (طالب + أدمن) */}

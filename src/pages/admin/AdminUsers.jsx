@@ -19,6 +19,10 @@ const AdminUsers = () => {
     abilitiesSubjects: {
       verbal: false,
       quantitative: false
+    },
+    abilitiesCategories: {
+      foundation: false,
+      collections: false
     }
   });
   const navigate = useNavigate();
@@ -125,6 +129,10 @@ const AdminUsers = () => {
       abilitiesSubjects: {
         verbal: false,
         quantitative: false
+      },
+      abilitiesCategories: {
+        foundation: false,
+        collections: false
       }
     });
     setShowPermissionsModal(true);
@@ -138,11 +146,24 @@ const AdminUsers = () => {
   const handleSavePermissions = async () => {
     if (!selectedUser) return;
 
+    const merged = {
+      ...(selectedUser.permissions || {}),
+      ...permissions,
+      abilitiesSubjects: {
+        ...(selectedUser.permissions?.abilitiesSubjects || {}),
+        ...permissions.abilitiesSubjects,
+      },
+      abilitiesCategories: {
+        ...(selectedUser.permissions?.abilitiesCategories || {}),
+        ...permissions.abilitiesCategories,
+      },
+    };
+
     try {
       if (useBackend) {
-        await backendApi.updateUser(selectedUser.id, { permissions });
+        await backendApi.updateUser(selectedUser.id, { permissions: merged });
       } else {
-        updateUserLocal(selectedUser.id, { permissions });
+        updateUserLocal(selectedUser.id, { permissions: merged });
       }
       await loadUsers();
       handleClosePermissions();
@@ -158,6 +179,14 @@ const AdminUsers = () => {
         ...permissions,
         abilitiesSubjects: {
           ...permissions.abilitiesSubjects,
+          [field]: value
+        }
+      });
+    } else if (field === 'foundation' || field === 'collections') {
+      setPermissions({
+        ...permissions,
+        abilitiesCategories: {
+          ...permissions.abilitiesCategories || { foundation: false, collections: false },
           [field]: value
         }
       });
@@ -400,37 +429,72 @@ const AdminUsers = () => {
 
                 {/* Abilities Subjects (only show if abilities access is enabled) */}
                 {permissions.hasAbilitiesAccess && (
-                  <div className="border-b pb-4">
-                    <h3 className="text-lg font-semibold text-dark-600 mb-3">
-                      {isArabicBrowser() ? 'المواد في قسم القدرات' : 'Abilities Section Subjects'}
-                    </h3>
-                    
-                    <div className="space-y-3 pr-6">
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={permissions.abilitiesSubjects.verbal}
-                          onChange={(e) => handlePermissionChange('verbal', e.target.checked)}
-                          className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
-                        />
-                        <span className="text-dark-600 font-medium">
-                          {isArabicBrowser() ? 'اللفظي' : 'Verbal'}
-                        </span>
-                      </label>
+                  <>
+                    <div className="border-b pb-4">
+                      <h3 className="text-lg font-semibold text-dark-600 mb-3">
+                        {isArabicBrowser() ? 'المواد في قسم القدرات' : 'Abilities Section Subjects'}
+                      </h3>
+                      
+                      <div className="space-y-3 pr-6">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={permissions.abilitiesSubjects.verbal}
+                            onChange={(e) => handlePermissionChange('verbal', e.target.checked)}
+                            className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                          />
+                          <span className="text-dark-600 font-medium">
+                            {isArabicBrowser() ? 'اللفظي' : 'Verbal'}
+                          </span>
+                        </label>
 
-                      <label className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={permissions.abilitiesSubjects.quantitative}
-                          onChange={(e) => handlePermissionChange('quantitative', e.target.checked)}
-                          className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
-                        />
-                        <span className="text-dark-600 font-medium">
-                          {isArabicBrowser() ? 'الكمي' : 'Quantitative'}
-                        </span>
-                      </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={permissions.abilitiesSubjects.quantitative}
+                            onChange={(e) => handlePermissionChange('quantitative', e.target.checked)}
+                            className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                          />
+                          <span className="text-dark-600 font-medium">
+                            {isArabicBrowser() ? 'الكمي' : 'Quantitative'}
+                          </span>
+                        </label>
+                      </div>
                     </div>
-                  </div>
+
+                    {/* Abilities Categories (only show if abilities access is enabled) */}
+                    <div className="border-b pb-4">
+                      <h3 className="text-lg font-semibold text-dark-600 mb-3">
+                        {isArabicBrowser() ? 'التصنيفات في قسم القدرات' : 'Abilities Section Categories'}
+                      </h3>
+                      
+                      <div className="space-y-3 pr-6">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={permissions.abilitiesCategories?.foundation || false}
+                            onChange={(e) => handlePermissionChange('foundation', e.target.checked)}
+                            className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                          />
+                          <span className="text-dark-600 font-medium">
+                            {isArabicBrowser() ? 'التأسيس' : 'Foundation'}
+                          </span>
+                        </label>
+
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={permissions.abilitiesCategories?.collections || false}
+                            onChange={(e) => handlePermissionChange('collections', e.target.checked)}
+                            className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                          />
+                          <span className="text-dark-600 font-medium">
+                            {isArabicBrowser() ? 'التجميعات' : 'Collections'}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
 

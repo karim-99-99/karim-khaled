@@ -62,7 +62,7 @@ const Dashboard = () => {
             className="bg-primary-500 hover:bg-primary-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >
             <span className="text-2xl">🎓</span>
-            <span>إدارة دروس التأسيس</span>
+            <span>إدارة الدروس المجانية</span>
           </button>
         </div>
       </div>

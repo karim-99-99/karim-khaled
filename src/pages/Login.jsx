@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { getUserByEmail, setCurrentUser } from '../services/storageService';
-import { login as backendLogin, isBackendOn } from '../services/backendApi';
+import { login as backendLogin, isBackendOn, mapUserFromBackend } from '../services/backendApi';
 import Header from '../components/Header';
 import backgroundImage from '../assets/kareem.jpg';
 import { isArabicBrowser } from '../utils/language';
@@ -23,10 +23,11 @@ const Login = () => {
       setLoading(true);
       try {
         const { token, user } = await backendLogin(email.trim(), password);
-        setCurrentUser({ ...user, token, isActive: user.is_active_account });
+        const mapped = mapUserFromBackend(user);
+        setCurrentUser({ ...mapped, token });
         const redirectPath = searchParams.get('redirect');
         if (redirectPath) navigate(redirectPath);
-        else navigate(user.role === 'admin' ? '/admin/dashboard' : '/courses');
+        else navigate(mapped.role === 'admin' ? '/admin/dashboard' : '/courses');
       } catch (err) {
         let errorMessage = err.message || 'فشل تسجيل الدخول';
         

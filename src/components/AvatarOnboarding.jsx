@@ -4,8 +4,6 @@ import AvatarPickerModal, { AVATAR_OPTIONS } from './AvatarPickerModal';
 import * as backendApi from '../services/backendApi';
 import { getCurrentUser, setCurrentUser, setCurrentUserAvatarChoice } from '../services/storageService';
 
-const OPEN_EVENT = 'open-avatar-picker';
-
 const AvatarOnboarding = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
@@ -31,16 +29,7 @@ const AvatarOnboarding = () => {
     }
   }, [shouldAutoOpen]);
 
-  useEffect(() => {
-    const handler = () => {
-      const u = getCurrentUser();
-      if (!u || u.role !== 'student') return;
-      setSelected(u.avatarChoice || AVATAR_OPTIONS[0]?.id || 'male_gulf');
-      setOpen(true);
-    };
-    window.addEventListener(OPEN_EVENT, handler);
-    return () => window.removeEventListener(OPEN_EVENT, handler);
-  }, []);
+  // لا نفتح منتقى البروفايل من حدث خارجي — الطالب يختار مرة واحدة فقط عند أول تسجيل
 
   const close = () => setOpen(false);
 

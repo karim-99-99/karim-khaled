@@ -161,6 +161,10 @@ export const addUser = (userData) => {
         abilitiesSubjects: {
           verbal: false,
           quantitative: false
+        },
+        abilitiesCategories: {
+          foundation: false,
+          collections: false
         }
       },
       createdAt: new Date().toISOString(),
@@ -199,11 +203,22 @@ export const updateUser = (userId, updates) => {
       }
     }
     
-    users[index] = {
-      ...users[index],
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
+    const next = { ...users[index], ...updates, updatedAt: new Date().toISOString() };
+    if (updates.permissions) {
+      next.permissions = {
+        ...(users[index].permissions || {}),
+        ...updates.permissions,
+        abilitiesSubjects: {
+          ...(users[index].permissions?.abilitiesSubjects || {}),
+          ...(updates.permissions.abilitiesSubjects || {}),
+        },
+        abilitiesCategories: {
+          ...(users[index].permissions?.abilitiesCategories || {}),
+          ...(updates.permissions.abilitiesCategories || {}),
+        },
+      };
+    }
+    users[index] = next;
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     
     // If updating current user, update it in localStorage as well
@@ -327,6 +342,10 @@ export const initializeDefaultData = () => {
             abilitiesSubjects: {
               verbal: false,
               quantitative: false
+            },
+            abilitiesCategories: {
+              foundation: false,
+              collections: false
             }
           };
         }

@@ -230,7 +230,7 @@ const Foundation = () => {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-6">
             <h1 className="text-3xl md:text-4xl font-extrabold text-dark-900 mb-2">
-              دروس التأسيس
+              الدروس المجانية
             </h1>
             <p className="text-sm md:text-base text-dark-600 font-medium">
               ابدأ رحلتك في تعلم أساسيات اختبار القدرات

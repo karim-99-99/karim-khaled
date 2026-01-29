@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getFileByLevel, getItemById } from '../services/storageService';
+import { getFileByLevel, getItemById, getCurrentUser } from '../services/storageService';
 import { getFileAttachment } from '../services/fileStorage';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { hasCategoryAccess } from '../components/ProtectedRoute';
 import { isBackendOn, getFileByLevel as getFileByLevelApi } from '../services/backendApi';
 
 const FileViewer = () => {
@@ -14,6 +15,19 @@ const FileViewer = () => {
   const [loading, setLoading] = useState(true);
   const actualItemId = itemId || levelId;
   const [item, setItem] = useState(null);
+
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
+  const categoryName = (categoryId || '').includes('تأسيس') ? 'التأسيس' : 'التجميعات';
+  const canAccessMedia = isAdmin || (currentUser && hasCategoryAccess(currentUser, categoryName));
+
+  const handleBack = () => {
+    if (sectionId && categoryId && itemId) {
+      navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
+    } else {
+      navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);
+    }
+  };
 
   useEffect(() => {
     let currentFileUrl = null;
@@ -58,14 +72,6 @@ const FileViewer = () => {
     };
   }, [actualItemId]);
 
-  const handleBack = () => {
-    if (sectionId && categoryId && itemId) {
-      navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
-    } else {
-      navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);
-    }
-  };
-
   const handleDownload = () => {
     if (fileUrl) {
       const link = document.createElement('a');
@@ -83,6 +89,29 @@ const FileViewer = () => {
         <p className="text-lg md:text-xl lg:text-2xl text-dark-600 font-medium">
           {isArabicBrowser() ? 'جاري التحميل...' : 'Loading...'}
         </p>
+      </div>
+    );
+  }
+
+  if (!canAccessMedia) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="py-12 px-4">
+          <div className="max-w-4xl mx-auto">
+            <button
+              onClick={handleBack}
+              className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
+            >
+              ← رجوع
+            </button>
+            <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+              <p className="text-xl text-gray-600">
+                ليست لديك صلاحية لعرض المواد العلمية في هذا التصنيف. تواصل مع المدير.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

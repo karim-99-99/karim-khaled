@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getSubjects, getQuestions, getQuestionsByLevel, addQuestion, updateQuestion, deleteQuestion, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory, getItemById, getChapterById, getCategoryById, getSections } from '../../services/storageService';
+import * as backendApi from '../../services/backendApi';
 import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 
@@ -25,6 +26,11 @@ const Questions = () => {
   const [searchParams] = useSearchParams();
   const itemIdFromUrl = searchParams.get('itemId');
   const returnUrl = searchParams.get('returnUrl');
+  const subjectIdFromUrl = searchParams.get('subjectId');
+  const categoryIdFromUrl = searchParams.get('categoryId');
+  const chapterIdFromUrl = searchParams.get('chapterId');
+  
+  const useBackend = !!import.meta.env.VITE_API_URL;
   
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState('');
@@ -32,6 +38,7 @@ const Questions = () => {
   const [selectedChapter, setSelectedChapter] = useState('');
   const [selectedLevel, setSelectedLevel] = useState('');
   const [questions, setQuestions] = useState([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState(null);
   const [questionImage, setQuestionImage] = useState(null);
@@ -42,6 +49,8 @@ const Questions = () => {
   const [modalImageSrc, setModalImageSrc] = useState(null);
   const [showMathEditor, setShowMathEditor] = useState(false);
   const [isLoadingForm, setIsLoadingForm] = useState(false);
+  const [showPassageForm, setShowPassageForm] = useState(false);
+  const [editingPassage, setEditingPassage] = useState(null);
   // Using the best working editor - SimpleProfessionalMathEditor with RTL/LTR button!
   const imageInputRef = useRef(null);
   const quillRef = useRef(null);
@@ -56,6 +65,21 @@ const Questions = () => {
       { id: 'b', text: '', isCorrect: false },
       { id: 'c', text: '', isCorrect: false },
       { id: 'd', text: '', isCorrect: false },
+    ],
+  });
+  const [passageFormData, setPassageFormData] = useState({
+    passageText: '',
+    questions: [
+      {
+        id: `q_${Date.now()}_1`,
+        question: '',
+        answers: [
+          { id: 'a', text: '', isCorrect: false },
+          { id: 'b', text: '', isCorrect: false },
+          { id: 'c', text: '', isCorrect: false },
+          { id: 'd', text: '', isCorrect: false },
+        ],
+      },
     ],
   });
 
@@ -408,41 +432,81 @@ const Questions = () => {
   useEffect(() => {
     try {
       const allSubjects = getSubjects();
-      if (allSubjects && allSubjects.length > 0) {
-        setSubjects(allSubjects);
-      }
-      
-      // If itemId is in URL, auto-select the appropriate dropdowns
+      const allowed = (allSubjects || []).filter(
+        (s) => s?.id === 'مادة_اللفظي' || s?.id === 'مادة_الكمي'
+      );
+      if (allowed.length > 0) setSubjects(allowed);
+
       if (itemIdFromUrl) {
-        const parents = findItemParents(itemIdFromUrl);
-        if (parents) {
-          setSelectedSubject(parents.subject.id);
-          setSelectedCategory(parents.category.id);
-          setSelectedChapter(parents.chapter.id);
+        if (subjectIdFromUrl && categoryIdFromUrl && chapterIdFromUrl) {
+          setSelectedSubject(subjectIdFromUrl);
+          setSelectedCategory(categoryIdFromUrl);
+          setSelectedChapter(chapterIdFromUrl);
           setSelectedLevel(itemIdFromUrl);
+        } else {
+          const parents = findItemParents(itemIdFromUrl);
+          if (parents) {
+            setSelectedSubject(parents.subject.id);
+            setSelectedCategory(parents.category.id);
+            setSelectedChapter(parents.chapter.id);
+            setSelectedLevel(itemIdFromUrl);
+          }
         }
       }
     } catch (error) {
       console.error('Error loading initial data:', error);
-      // Ensure subjects is at least an empty array to prevent crashes
       setSubjects([]);
     }
-  }, [itemIdFromUrl]);
+  }, [itemIdFromUrl, subjectIdFromUrl, categoryIdFromUrl, chapterIdFromUrl]);
 
   useEffect(() => {
-    try {
-      if (selectedLevel) {
-        const levelQuestions = getQuestionsByLevel(selectedLevel);
-        setQuestions(levelQuestions || []);
-      } else {
-        // If no level selected, show empty array
-        setQuestions([]);
+    let alive = true;
+    const loadQuestions = async () => {
+      try {
+        if (!selectedLevel) {
+          setQuestions([]);
+          return;
+        }
+
+        setLoadingQuestions(true);
+        let levelQuestions = [];
+        
+        if (useBackend && backendApi.isBackendOn()) {
+          try {
+            levelQuestions = await backendApi.getQuestionsByLevel(selectedLevel);
+          } catch (err) {
+            console.error('Error loading questions from backend:', err);
+            // Fallback to local storage
+            levelQuestions = getQuestionsByLevel(selectedLevel);
+          }
+        } else {
+          levelQuestions = getQuestionsByLevel(selectedLevel);
+        }
+        
+        if (!alive) return;
+        
+        // Sort questions by createdAt to maintain order
+        const sortedQuestions = (levelQuestions || []).sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return dateA - dateB;
+        });
+        setQuestions(sortedQuestions);
+      } catch (error) {
+        console.error('Error loading questions:', error);
+        if (alive) {
+          setQuestions([]);
+        }
+      } finally {
+        if (alive) {
+          setLoadingQuestions(false);
+        }
       }
-    } catch (error) {
-      console.error('Error loading questions:', error);
-      setQuestions([]);
-    }
-  }, [selectedLevel]);
+    };
+    
+    loadQuestions();
+    return () => { alive = false; };
+  }, [selectedLevel, useBackend]);
 
   // OLD REACTQUILL HANDLER REMOVED - Now using WordLikeEditor which handles its own events
   // The WordLikeEditor component manages its own Quill instance and event handlers
@@ -476,7 +540,7 @@ const Questions = () => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert(isArabicBrowser() ? 'حجم الصورة كبير جداً. الحد الأقصى 5 ميجابايت' : 'Image size too large. Maximum 5MB');
+        alert('حجم الصورة كبير جداً. الحد الأقصى 5 ميجابايت');
         return;
       }
       
@@ -569,6 +633,249 @@ const Questions = () => {
     }, 100);
   };
 
+  const handleAddPassage = () => {
+    setEditingPassage(null);
+    setPassageFormData({
+      passageText: '',
+      questions: [
+        {
+          id: `q_${Date.now()}_1`,
+          question: '',
+          answers: [
+            { id: 'a', text: '', isCorrect: false },
+            { id: 'b', text: '', isCorrect: false },
+            { id: 'c', text: '', isCorrect: false },
+            { id: 'd', text: '', isCorrect: false },
+          ],
+        },
+      ],
+    });
+    setShowPassageForm(true);
+  };
+
+  const handleAddQuestionToPassage = () => {
+    const newQuestion = {
+      id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      question: '',
+      answers: [
+        { id: 'a', text: '', isCorrect: false },
+        { id: 'b', text: '', isCorrect: false },
+        { id: 'c', text: '', isCorrect: false },
+        { id: 'd', text: '', isCorrect: false },
+      ],
+    };
+    setPassageFormData({
+      ...passageFormData,
+      questions: [...passageFormData.questions, newQuestion],
+    });
+  };
+
+  const handleRemoveQuestionFromPassage = (questionId) => {
+    if (passageFormData.questions.length <= 1) {
+      alert('يجب أن تحتوي القطعة على سؤال واحد على الأقل');
+      return;
+    }
+    setPassageFormData({
+      ...passageFormData,
+      questions: passageFormData.questions.filter(q => q.id !== questionId),
+    });
+  };
+
+  const handlePassageQuestionChange = (questionId, field, value) => {
+    setPassageFormData({
+      ...passageFormData,
+      questions: passageFormData.questions.map(q =>
+        q.id === questionId ? { ...q, [field]: value } : q
+      ),
+    });
+  };
+
+  const handlePassageAnswerChange = (questionId, answerIndex, field, value) => {
+    setPassageFormData({
+      ...passageFormData,
+      questions: passageFormData.questions.map(q =>
+        q.id === questionId
+          ? {
+              ...q,
+              answers: q.answers.map((ans, idx) =>
+                idx === answerIndex ? { ...ans, [field]: value } : ans
+              ),
+            }
+          : q
+      ),
+    });
+  };
+
+  const handlePassageCorrectAnswerChange = (questionId, answerIndex) => {
+    setPassageFormData({
+      ...passageFormData,
+      questions: passageFormData.questions.map(q =>
+        q.id === questionId
+          ? {
+              ...q,
+              answers: q.answers.map((ans, idx) => ({
+                ...ans,
+                isCorrect: idx === answerIndex,
+              })),
+            }
+          : q
+      ),
+    });
+  };
+
+  const handlePassageSubmit = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!selectedLevel) {
+      alert('يرجى اختيار المستوى أولاً');
+      return;
+    }
+
+    if (!passageFormData.passageText.trim()) {
+      alert('يرجى إدخال نص القطعة');
+      return;
+    }
+
+    if (passageFormData.questions.length === 0) {
+      alert('يرجى إضافة سؤال واحد على الأقل للقطعة');
+      return;
+    }
+
+    // Validate all questions
+    for (const q of passageFormData.questions) {
+      if (!q.question.trim()) {
+        alert('يرجى إدخال نص جميع الأسئلة');
+        return;
+      }
+      const hasCorrectAnswer = q.answers.some(ans => ans.isCorrect);
+      if (!hasCorrectAnswer) {
+        alert('يرجى اختيار إجابة صحيحة لكل سؤال');
+        return;
+      }
+      for (const ans of q.answers) {
+        if (!ans.text.trim()) {
+          alert('يرجى إدخال نص جميع الاختيارات');
+          return;
+        }
+      }
+    }
+
+    try {
+      if (useBackend && backendApi.isBackendOn()) {
+        // Use backend API
+        if (editingPassage) {
+          await backendApi.updatePassage(editingPassage.id, {
+            passageText: passageFormData.passageText,
+            questions: passageFormData.questions,
+          });
+        } else {
+          await backendApi.addPassage(selectedLevel, {
+            passageText: passageFormData.passageText,
+            questions: passageFormData.questions,
+          });
+        }
+      } else {
+        // Use local storage
+        const passageData = {
+          type: 'passage',
+          passageText: passageFormData.passageText,
+          questions: passageFormData.questions,
+          levelId: selectedLevel,
+        };
+
+        if (editingPassage) {
+          updateQuestion(editingPassage.id, passageData);
+        } else {
+          addQuestion(passageData);
+        }
+      }
+
+      // Reload questions
+      if (useBackend && backendApi.isBackendOn()) {
+        const levelQuestions = await backendApi.getQuestionsByLevel(selectedLevel);
+        const sortedQuestions = (levelQuestions || []).sort((a, b) => {
+          const dateA = new Date(a.createdAt || 0);
+          const dateB = new Date(b.createdAt || 0);
+          return dateA - dateB;
+        });
+        setQuestions(sortedQuestions);
+      } else {
+        setQuestions(getQuestionsByLevel(selectedLevel));
+      }
+
+      setShowPassageForm(false);
+      setEditingPassage(null);
+      setPassageFormData({
+        passageText: '',
+        questions: [
+          {
+            id: `q_${Date.now()}_1`,
+            question: '',
+            answers: [
+              { id: 'a', text: '', isCorrect: false },
+              { id: 'b', text: '', isCorrect: false },
+              { id: 'c', text: '', isCorrect: false },
+              { id: 'd', text: '', isCorrect: false },
+            ],
+          },
+        ],
+      });
+
+      if (returnUrl && itemIdFromUrl && e.target.type === 'submit') {
+        setTimeout(() => {
+          navigate(returnUrl);
+        }, 500);
+      }
+    } catch (error) {
+      console.error('Error saving passage:', error);
+      alert('حدث خطأ أثناء حفظ القطعة. يرجى المحاولة مرة أخرى.');
+    }
+  };
+
+  const handleEditPassage = (passage) => {
+    setEditingPassage(passage);
+    setPassageFormData({
+      passageText: passage.passageText || '',
+      questions: passage.questions || [
+        {
+          id: `q_${Date.now()}_1`,
+          question: '',
+          answers: [
+            { id: 'a', text: '', isCorrect: false },
+            { id: 'b', text: '', isCorrect: false },
+            { id: 'c', text: '', isCorrect: false },
+            { id: 'd', text: '', isCorrect: false },
+          ],
+        },
+      ],
+    });
+    setShowPassageForm(true);
+  };
+
+  const handleDeletePassage = async (passageId) => {
+    if (window.confirm('هل أنت متأكد من حذف هذه القطعة وجميع أسئلتها؟')) {
+      try {
+        if (useBackend && backendApi.isBackendOn()) {
+          await backendApi.deleteQuestion(passageId);
+          const levelQuestions = await backendApi.getQuestionsByLevel(selectedLevel);
+          const sortedQuestions = (levelQuestions || []).sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateA - dateB;
+          });
+          setQuestions(sortedQuestions);
+        } else {
+          deleteQuestion(passageId);
+          setQuestions(getQuestionsByLevel(selectedLevel));
+        }
+      } catch (error) {
+        console.error('Error deleting passage:', error);
+        alert('حدث خطأ أثناء حذف القطعة. يرجى المحاولة مرة أخرى.');
+      }
+    }
+  };
+
   const handleEdit = (question) => {
     setIsLoadingForm(true);
     setEditingQuestion(question);
@@ -611,7 +918,7 @@ const Questions = () => {
   };
 
   const handleDelete = (questionId) => {
-    if (window.confirm(isArabicBrowser() ? 'هل أنت متأكد من حذف هذا السؤال؟' : 'Are you sure?')) {
+    if (window.confirm('هل أنت متأكد من حذف هذا السؤال؟')) {
       deleteQuestion(questionId);
       setQuestions(getQuestionsByLevel(selectedLevel));
     }
@@ -636,7 +943,7 @@ const Questions = () => {
     e.stopPropagation();
 
     if (!selectedLevel) {
-      alert(isArabicBrowser() ? 'يرجى اختيار المستوى أولاً' : 'Please select a level first');
+      alert('يرجى اختيار المستوى أولاً');
       return;
     }
 
@@ -690,7 +997,7 @@ const Questions = () => {
       <div className="py-8 px-4">
         <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-center">
-          <h1 className="text-2xl md:text-3xl font-bold text-dark-600">{isArabicBrowser() ? 'إدارة الأسئلة' : 'Manage Questions'}</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-dark-600">إدارة الأسئلة</h1>
           <button
             onClick={() => {
               if (returnUrl) {
@@ -701,7 +1008,7 @@ const Questions = () => {
             }}
             className="bg-dark-600 text-white px-4 py-2 rounded-lg hover:bg-dark-700 transition font-medium"
           >
-            ← {isArabicBrowser() ? 'رجوع' : 'Back'}
+            ← رجوع
           </button>
         </div>
 
@@ -710,14 +1017,14 @@ const Questions = () => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                المادة / Subject
+                المادة
               </label>
               <select
                 value={selectedSubject}
                 onChange={(e) => handleSubjectChange(e.target.value)}
                 className="w-full px-4 py-2 border rounded-lg"
               >
-                <option value="">اختر المادة / Select Subject</option>
+                <option value="">اختر المادة</option>
                 {subjects && subjects.length > 0 ? (
                   subjects.map(subject => (
                     <option key={subject.id} value={subject.id}>
@@ -725,14 +1032,14 @@ const Questions = () => {
                     </option>
                   ))
                 ) : (
-                  <option disabled>لا توجد مواد / No subjects available</option>
+                  <option disabled>لا توجد مواد</option>
                 )}
               </select>
             </div>
 
             <div>
               <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                التصنيف / Category
+                التصنيف
               </label>
               <select
                 value={selectedCategory}
@@ -740,7 +1047,7 @@ const Questions = () => {
                 disabled={!selectedSubject}
                 className="w-full px-4 py-2 border rounded-lg"
               >
-                <option value="">اختر التصنيف / Select Category</option>
+                <option value="">اختر التصنيف</option>
                 {selectedSubjectObj?.categories?.map(category => (
                   <option key={category.id} value={category.id}>
                     {category.name}
@@ -751,7 +1058,7 @@ const Questions = () => {
 
             <div>
               <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                الفصل / Chapter
+                الفصل
               </label>
               <select
                 value={selectedChapter}
@@ -759,7 +1066,7 @@ const Questions = () => {
                 disabled={!selectedCategory}
                 className="w-full px-4 py-2 border rounded-lg"
               >
-                <option value="">اختر الفصل / Select Chapter</option>
+                <option value="">اختر الفصل</option>
                 {getChaptersByCategory(selectedCategory).map(chapter => (
                   <option key={chapter.id} value={chapter.id}>
                     {chapter.name}
@@ -770,7 +1077,7 @@ const Questions = () => {
 
             <div>
               <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                المستوى / Level
+                المستوى
               </label>
               <select
                 value={selectedLevel}
@@ -778,7 +1085,7 @@ const Questions = () => {
                 disabled={!selectedChapter}
                 className="w-full px-4 py-2 border rounded-lg"
               >
-                <option value="">اختر المستوى / Select Level</option>
+                <option value="">اختر المستوى</option>
                 {levels.map(level => (
                   <option key={level.id} value={level.id}>
                     {level.name}
@@ -793,23 +1100,27 @@ const Questions = () => {
         {!selectedLevel ? (
           <div className="bg-white rounded-lg shadow p-6 text-center">
             <p className="text-lg text-gray-500 mb-4">
-              {isArabicBrowser() 
-                ? 'يرجى اختيار المادة، التصنيف، الفصل، والمستوى لعرض الأسئلة' 
-                : 'Please select Subject, Category, Chapter, and Level to view questions'}
+              يرجى اختيار المادة، التصنيف، الفصل، والمستوى لعرض الأسئلة
             </p>
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4">
                 <h2 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
-                {isArabicBrowser() ? 'الأسئلة' : 'Questions'} ({questions.length})
+                الأسئلة ({questions.length})
               </h2>
               <div className="flex gap-2 flex-wrap">
               <button
                 onClick={handleAddNew}
                 className="bg-primary-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-primary-600 transition font-medium text-sm sm:text-base w-full sm:w-auto"
               >
-                + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add Question'}
+                + إضافة سؤال جديد
+              </button>
+              <button
+                onClick={handleAddPassage}
+                className="bg-green-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm sm:text-base w-full sm:w-auto"
+              >
+                + إضافة قطعة
               </button>
               </div>
             </div>
@@ -817,84 +1128,161 @@ const Questions = () => {
             <div className="space-y-4">
               {questions.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <p className="text-lg mb-4">{isArabicBrowser() ? 'لا توجد أسئلة لهذا المستوى' : 'No questions for this level'}</p>
-                  <button
-                    onClick={handleAddNew}
-                    className="bg-primary-500 text-white px-6 py-2 rounded-lg hover:bg-primary-600 transition font-medium"
-                  >
-                    + {isArabicBrowser() ? 'إضافة سؤال جديد' : 'Add New Question'}
-                  </button>
+                  <p className="text-lg mb-4">لا توجد أسئلة لهذا المستوى</p>
+                  <div className="flex gap-3 justify-center">
+                    <button
+                      onClick={handleAddNew}
+                      className="bg-primary-500 text-white px-6 py-2 rounded-lg hover:bg-primary-600 transition font-medium"
+                    >
+                      + إضافة سؤال جديد
+                    </button>
+                    <button
+                      onClick={handleAddPassage}
+                      className="bg-green-500 text-white px-6 py-2 rounded-lg hover:bg-green-600 transition font-medium"
+                    >
+                      + إضافة قطعة
+                    </button>
+                  </div>
                 </div>
               ) : (
-                questions.map((question, index) => (
-                <div key={question.id} className="border rounded-lg p-3 sm:p-4">
-                  <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
-                    <div className="flex-1 w-full sm:w-auto">
-                      {/* Question with inline images */}
-                      <div className="font-semibold text-sm sm:text-base md:text-lg text-dark-600 mb-2 break-words">
-                        <span>{index + 1}. </span>
-                        <MathRenderer html={question.question || ''} inline={false} />
-                      </div>
-                      
-                      {/* Separator */}
-                      <div className="border-t border-gray-300 my-2"></div>
-                      {question.questionEn && (
-                        <div className="text-xs sm:text-sm md:text-base text-dark-500 mb-2 break-words" dangerouslySetInnerHTML={{ __html: question.questionEn }} />
-                      )}
-                      {question.image && (
-                        <div 
-                          className={`mt-2 flex ${
-                            question.imageAlign === 'right' ? 'justify-end' : 
-                            question.imageAlign === 'left' ? 'justify-start' : 
-                            'justify-center'
-                          }`}
-                        >
-                          <img
-                            src={question.image}
-                            alt="Question"
-                            style={{
-                              width: question.imageScale ? `${question.imageScale}%` : '100%',
-                              maxWidth: '100%',
-                              height: 'auto'
-                            }}
-                            className="max-h-48 sm:max-h-64 rounded-lg border object-contain cursor-pointer hover:opacity-90 transition shadow-sm"
-                            onClick={() => handleImageMaximize(question.image)}
-                          />
+                questions.map((question, index) => {
+                  // Check if this is a passage type
+                  if (question.type === 'passage') {
+                    return (
+                      <div key={question.id} className="border-2 border-green-500 rounded-lg p-4 sm:p-6 bg-green-50">
+                        <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-4">
+                          <div className="flex-1 w-full">
+                            <div className="mb-3">
+                              <span className="inline-block bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold mb-2">
+                                قطعة
+                              </span>
+                            </div>
+                            {/* Passage Text */}
+                            <div className="bg-white rounded-lg p-4 mb-4 border border-green-200">
+                              <div className="text-sm sm:text-base md:text-lg text-dark-700 leading-relaxed">
+                                <MathRenderer html={question.passageText || ''} inline={false} />
+                              </div>
+                            </div>
+                            
+                            {/* Questions in Passage */}
+                            <div className="space-y-4">
+                              {question.questions && question.questions.map((q, qIndex) => (
+                                <div key={q.id || qIndex} className="bg-white rounded-lg p-3 sm:p-4 border border-gray-200">
+                                  <div className="font-semibold text-sm sm:text-base text-dark-600 mb-3">
+                                    <span className="text-green-600 font-bold">السؤال {qIndex + 1}:</span>
+                                    <div className="mt-2">
+                                      <MathRenderer html={q.question || ''} inline={false} />
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                    {q.answers && q.answers.map((answer) => (
+                                      <div
+                                        key={answer.id}
+                                        className={`p-2 rounded ${
+                                          answer.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
+                                        }`}
+                                      >
+                                        <div className="text-dark-600 text-sm">
+                                          <MathRenderer html={answer.text} inline={true} />
+                                        </div>
+                                        {answer.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 w-full sm:w-auto">
+                            <button
+                              onClick={() => handleEditPassage(question)}
+                              className="flex-1 sm:flex-none bg-yellow-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-yellow-600 text-sm sm:text-base transition"
+                            >
+                              تعديل
+                            </button>
+                            <button
+                              onClick={() => handleDeletePassage(question.id)}
+                              className="flex-1 sm:flex-none bg-red-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-red-600 text-sm sm:text-base transition"
+                            >
+                              حذف
+                            </button>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2 w-full sm:w-auto">
-                      <button
-                        onClick={() => handleEdit(question)}
-                        className="flex-1 sm:flex-none bg-yellow-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-yellow-600 text-sm sm:text-base transition"
-                      >
-                        {isArabicBrowser() ? 'تعديل' : 'Edit'}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(question.id)}
-                        className="flex-1 sm:flex-none bg-red-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-red-600 text-sm sm:text-base transition"
-                      >
-                        {isArabicBrowser() ? 'حذف' : 'Delete'}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
-                    {question.answers.map((answer) => (
-                      <div
-                        key={answer.id}
-                        className={`p-2 rounded ${
-                          answer.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
-                        }`}
-                      >
-                        <div className="text-dark-600">
-                          <MathRenderer html={answer.text} inline={true} />
-                        </div>
-                        {answer.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
                       </div>
-                    ))}
-                  </div>
-                </div>
-                ))
+                    );
+                  }
+                  
+                  // Regular question
+                  return (
+                    <div key={question.id} className="border rounded-lg p-3 sm:p-4">
+                      <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-2">
+                        <div className="flex-1 w-full sm:w-auto">
+                          {/* Question with inline images */}
+                          <div className="font-semibold text-sm sm:text-base md:text-lg text-dark-600 mb-2 break-words">
+                            <span>{index + 1}. </span>
+                            <MathRenderer html={question.question || ''} inline={false} />
+                          </div>
+                          
+                          {/* Separator */}
+                          <div className="border-t border-gray-300 my-2"></div>
+                          {question.questionEn && (
+                            <div className="text-xs sm:text-sm md:text-base text-dark-500 mb-2 break-words" dangerouslySetInnerHTML={{ __html: question.questionEn }} />
+                          )}
+                          {question.image && (
+                            <div 
+                              className={`mt-2 flex ${
+                                question.imageAlign === 'right' ? 'justify-end' : 
+                                question.imageAlign === 'left' ? 'justify-start' : 
+                                'justify-center'
+                              }`}
+                            >
+                              <img
+                                src={question.image}
+                                alt="Question"
+                                style={{
+                                  width: question.imageScale ? `${question.imageScale}%` : '100%',
+                                  maxWidth: '100%',
+                                  height: 'auto'
+                                }}
+                                className="max-h-48 sm:max-h-64 rounded-lg border object-contain cursor-pointer hover:opacity-90 transition shadow-sm"
+                                onClick={() => handleImageMaximize(question.image)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <button
+                            onClick={() => handleEdit(question)}
+                            className="flex-1 sm:flex-none bg-yellow-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-yellow-600 text-sm sm:text-base transition"
+                          >
+                            تعديل
+                          </button>
+                          <button
+                            onClick={() => handleDelete(question.id)}
+                            className="flex-1 sm:flex-none bg-red-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-red-600 text-sm sm:text-base transition"
+                          >
+                            حذف
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 mt-3">
+                        {question.answers.map((answer) => (
+                          <div
+                            key={answer.id}
+                            className={`p-2 rounded ${
+                              answer.isCorrect ? 'bg-yellow-100 border-2 border-yellow-500' : 'bg-gray-100 border border-gray-300'
+                            }`}
+                          >
+                            <div className="text-dark-600">
+                              <MathRenderer html={answer.text} inline={true} />
+                            </div>
+                            {answer.isCorrect && <span className="text-yellow-500 ml-1 font-bold">✓</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -931,6 +1319,149 @@ const Questions = () => {
           />
         )}
 
+        {/* Add/Edit Passage Form Modal */}
+        {showPassageForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4" onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowPassageForm(false);
+              setEditingPassage(null);
+            }
+          }}>
+            <div className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-4xl lg:max-w-6xl w-full max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="p-6">
+                <h2 className="text-2xl font-bold mb-4">
+                  {editingPassage ? 'تعديل قطعة' : 'إضافة قطعة جديدة'}
+                </h2>
+
+                <form onSubmit={handlePassageSubmit} className="space-y-6">
+                  {/* Passage Text */}
+                  <div>
+                    <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                      نص القطعة
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2">
+                      💡 اكتب نص القطعة هنا. يمكنك استخدام شريط الأدوات لإضافة تنسيقات ومعادلات رياضية
+                    </p>
+                    <ErrorBoundary isArabic={isArabicBrowser()}>
+                      <SimpleProfessionalMathEditor
+                        value={passageFormData.passageText}
+                        onChange={(content) => setPassageFormData({ ...passageFormData, passageText: content })}
+                        placeholder="اكتب نص القطعة هنا..."
+                      />
+                    </ErrorBoundary>
+                  </div>
+
+                  {/* Questions in Passage */}
+                  <div>
+                    <div className="flex justify-between items-center mb-4">
+                      <label className="block text-sm md:text-base font-medium text-dark-600">
+                        أسئلة القطعة
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleAddQuestionToPassage}
+                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm"
+                      >
+                        + إضافة سؤال
+                      </button>
+                    </div>
+
+                    <div className="space-y-6">
+                      {passageFormData.questions.map((q, qIndex) => (
+                        <div key={q.id} className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50">
+                          <div className="flex justify-between items-center mb-3">
+                            <h3 className="font-bold text-dark-600">السؤال {qIndex + 1}</h3>
+                            {passageFormData.questions.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveQuestionFromPassage(q.id)}
+                                className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm"
+                              >
+                                حذف السؤال
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Question Text */}
+                          <div className="mb-4">
+                            <label className="block text-xs font-medium text-gray-700 mb-2">
+                              نص السؤال
+                            </label>
+                            <ErrorBoundary isArabic={isArabicBrowser()}>
+                              <SimpleProfessionalMathEditor
+                                value={q.question}
+                                onChange={(content) => handlePassageQuestionChange(q.id, 'question', content)}
+                                placeholder={`اكتب نص السؤال ${qIndex + 1} هنا...`}
+                              />
+                            </ErrorBoundary>
+                          </div>
+
+                          {/* Answers */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-2">
+                              الاختيارات (اختر الإجابة الصحيحة)
+                            </label>
+                            <div className="space-y-3">
+                              {q.answers.map((answer, ansIndex) => (
+                                <div key={answer.id} className="flex items-start gap-3 bg-white p-3 rounded border">
+                                  <div className="flex items-center pt-2">
+                                    <input
+                                      type="radio"
+                                      name={`correctAnswer_${q.id}`}
+                                      checked={answer.isCorrect}
+                                      onChange={() => handlePassageCorrectAnswerChange(q.id, ansIndex)}
+                                      className="w-5 h-5 cursor-pointer"
+                                      title="اختر كإجابة صحيحة"
+                                    />
+                                  </div>
+                                  <div className="flex-1">
+                                    <label className="block text-xs font-medium text-gray-600 mb-2">
+                                      {String.fromCharCode(65 + ansIndex)}
+                                      {answer.isCorrect && (
+                                        <span className="ml-2 text-green-600 font-bold">✓ صحيحة</span>
+                                      )}
+                                    </label>
+                                    <ErrorBoundary isArabic={isArabicBrowser()}>
+                                      <SimpleProfessionalMathEditor
+                                        value={answer.text}
+                                        onChange={(content) => handlePassageAnswerChange(q.id, ansIndex, 'text', content)}
+                                        placeholder={`اكتب الاختيار ${String.fromCharCode(65 + ansIndex)} هنا...`}
+                                      />
+                                    </ErrorBoundary>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      type="submit"
+                      className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition font-medium"
+                    >
+                      حفظ
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPassageForm(false);
+                        setEditingPassage(null);
+                      }}
+                      className="flex-1 bg-gray-400 text-white py-2 rounded-lg hover:bg-gray-500 transition"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Add/Edit Form Modal */}
         {showForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4" onClick={(e) => {
@@ -942,7 +1473,7 @@ const Questions = () => {
             <div className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-2xl lg:max-w-4xl w-full max-h-[95vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="p-6">
                 <h2 className="text-2xl font-bold mb-4">
-                  {editingQuestion ? 'تعديل سؤال / Edit Question' : 'إضافة سؤال جديد / Add Question'}
+                  {editingQuestion ? 'تعديل سؤال' : 'إضافة سؤال جديد'}
                 </h2>
                 
                 {/* Loading State */}
@@ -951,7 +1482,7 @@ const Questions = () => {
                     <div className="text-center">
                       <div className="inline-block animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary-500 mb-4"></div>
                       <p className="text-lg font-medium text-gray-600">
-                        {isArabicBrowser() ? 'جاري التحميل...' : 'Loading...'}
+                        جاري التحميل...
                       </p>
                     </div>
                   </div>
@@ -963,37 +1494,10 @@ const Questions = () => {
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      السؤال / Question
+                      السؤال
                     </label>
-                    <div className="mb-2 flex flex-wrap gap-2">
-                      <span className="text-xs md:text-sm text-gray-600 font-medium self-center">
-                        {isArabicBrowser() ? 'إدراج أرقام عربية:' : 'Insert Arabic Numbers:'}
-                      </span>
-                      {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                        <button
-                          key={num}
-                          type="button"
-                          onClick={() => insertArabicNumeral(num)}
-                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm md:text-base font-medium transition min-w-[35px]"
-                          title={`${isArabicBrowser() ? 'إدراج' : 'Insert'} ${convertToArabicNumerals(String(num))}`}
-                        >
-                          {convertToArabicNumerals(String(num))}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
-                        onClick={convertSelectionToArabic}
-                        className="bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded text-xs md:text-sm font-medium transition"
-                        title={isArabicBrowser() ? 'تحويل الأرقام المحددة إلى أرقام عربية' : 'Convert selected numbers to Arabic'}
-                      >
-                        {isArabicBrowser() ? 'تحويل المحدد' : 'Convert Selected'}
-                      </button>
-                    </div>
-
                     <p className="text-xs text-gray-500 mb-2">
-                      {isArabicBrowser() 
-                        ? '💡 ملاحظة: استخدم شريط أدوات المعادلات لإدراج المعادلات والرموز الرياضية' 
-                        : '💡 Note: Use the equation toolbar to insert equations and math symbols'}
+                      💡 ملاحظة: استخدم شريط أدوات المعادلات لإدراج المعادلات والرموز الرياضية
                     </p>
                     
                     {/* Best Working Editor - No waiting, no loading! */}
@@ -1001,7 +1505,7 @@ const Questions = () => {
                       <SimpleProfessionalMathEditor
                         value={formData.question}
                         onChange={handleQuillChange}
-                        placeholder={isArabicBrowser() ? 'اكتب السؤال هنا...' : 'Write question here...'}
+                        placeholder="اكتب السؤال هنا..."
                       />
                     </ErrorBoundary>
                   </div>
@@ -1009,12 +1513,10 @@ const Questions = () => {
                   {/* Image Upload Section */}
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 bg-gray-50">
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      📷 إضافة صورة للسؤال / Add Question Image (اختياري / Optional)
+                      📷 إضافة صورة للسؤال (اختياري)
                     </label>
                     <p className="text-xs text-gray-500 mb-3">
-                      {isArabicBrowser() 
-                        ? 'يمكنك رفع صورة توضيحية للسؤال (الحد الأقصى 5 ميجابايت)' 
-                        : 'You can upload an illustrative image for the question (Max 5MB)'}
+                      يمكنك رفع صورة توضيحية للسؤال (الحد الأقصى 5 ميجابايت)
                     </p>
 
                     {/* File Input */}
@@ -1050,32 +1552,32 @@ const Questions = () => {
                           {/* Size Controls */}
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-2">
-                              📏 {isArabicBrowser() ? 'حجم الصورة' : 'Image Size'}: {imageScale}%
+                              📏 حجم الصورة: {imageScale}%
                             </label>
                             <div className="flex gap-2 items-center">
                               <button
                                 type="button"
                                 onClick={() => handleImageZoom(-10)}
                                 className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 transition text-sm font-medium"
-                                title={isArabicBrowser() ? 'تصغير' : 'Zoom Out'}
+                                title="تصغير"
                               >
-                                ➖ {isArabicBrowser() ? 'تصغير' : 'Smaller'}
+                                ➖ تصغير
                               </button>
                               <button
                                 type="button"
                                 onClick={() => handleImageZoom(10)}
                                 className="px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 transition text-sm font-medium"
-                                title={isArabicBrowser() ? 'تكبير' : 'Zoom In'}
+                                title="تكبير"
                               >
-                                ➕ {isArabicBrowser() ? 'تكبير' : 'Larger'}
+                                ➕ تكبير
                               </button>
                               <button
                                 type="button"
                                 onClick={handleImageReset}
                                 className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 transition text-sm font-medium"
-                                title={isArabicBrowser() ? 'إعادة تعيين' : 'Reset'}
+                                title="إعادة تعيين"
                               >
-                                🔄 {isArabicBrowser() ? 'إعادة تعيين' : 'Reset'}
+                                🔄 إعادة تعيين
                               </button>
                             </div>
                           </div>
@@ -1083,7 +1585,7 @@ const Questions = () => {
                           {/* Alignment Controls */}
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-2">
-                              📍 {isArabicBrowser() ? 'موضع الصورة' : 'Image Position'}
+                              📍 موضع الصورة
                             </label>
                             <div className="flex gap-2">
                               <button
@@ -1095,7 +1597,7 @@ const Questions = () => {
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                               >
-                                ← {isArabicBrowser() ? 'يسار' : 'Left'}
+                                ← يسار
                               </button>
                               <button
                                 type="button"
@@ -1106,7 +1608,7 @@ const Questions = () => {
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                               >
-                                ↔ {isArabicBrowser() ? 'وسط' : 'Center'}
+                                ↔ وسط
                               </button>
                               <button
                                 type="button"
@@ -1117,7 +1619,7 @@ const Questions = () => {
                                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                                 }`}
                               >
-                                {isArabicBrowser() ? 'يمين' : 'Right'} →
+                                يمين →
                               </button>
                             </div>
                           </div>
@@ -1128,7 +1630,7 @@ const Questions = () => {
                             onClick={handleRemoveImage}
                             className="w-full bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition font-medium text-sm"
                           >
-                            🗑️ {isArabicBrowser() ? 'حذف الصورة' : 'Remove Image'}
+                            🗑️ حذف الصورة
                           </button>
                         </div>
                       </div>
@@ -1137,30 +1639,26 @@ const Questions = () => {
 
                   <div>
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                      شرح الإجابة الصحيحة / Explanation (يظهر عند الإجابة الخاطئة)
+                      شرح الإجابة الصحيحة (يظهر عند الإجابة الخاطئة)
                     </label>
                     <p className="text-xs text-gray-500 mb-2">
-                      {isArabicBrowser() 
-                        ? '💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ' 
-                        : '💡 Add an explanation to help students understand the correct answer when they make a mistake'}
+                      💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند الخطأ
                     </p>
                     <ErrorBoundary isArabic={isArabicBrowser()}>
                       <SimpleProfessionalMathEditor
                         value={formData.explanation}
                         onChange={(content) => setFormData({ ...formData, explanation: content })}
-                        placeholder={isArabicBrowser() ? 'اكتب شرح الإجابة الصحيحة هنا...' : 'Write explanation for the correct answer here...'}
+                        placeholder="اكتب شرح الإجابة الصحيحة هنا..."
                       />
                     </ErrorBoundary>
                   </div>
 
                   <div className="mt-6">
                     <label className="block text-sm md:text-base font-medium text-dark-600 mb-3">
-                      الإجابات / Answers (اختر الإجابة الصحيحة / Select Correct Answer)
+                      الإجابات (اختر الإجابة الصحيحة)
                     </label>
                     <p className="text-xs text-gray-500 mb-3">
-                      {isArabicBrowser() 
-                        ? '💡 يمكنك إضافة معادلات رياضية وصور في الإجابات أيضاً!' 
-                        : '💡 You can add math equations and images in answers too!'}
+                      💡 يمكنك إضافة معادلات رياضية وصور في الإجابات أيضاً!
                     </p>
                     {formData.answers.map((answer, index) => (
                       <div key={answer.id} className="mb-4 p-3 border rounded-lg bg-gray-50">
@@ -1172,21 +1670,21 @@ const Questions = () => {
                               checked={answer.isCorrect}
                               onChange={() => handleCorrectAnswerChange(index)}
                               className="w-5 h-5 cursor-pointer"
-                              title={isArabicBrowser() ? 'اختر كإجابة صحيحة' : 'Select as correct answer'}
+                              title="اختر كإجابة صحيحة"
                             />
                           </div>
                           <div className="flex-1">
                             <label className="block text-xs font-medium text-gray-600 mb-2">
-                              {isArabicBrowser() ? `الإجابة ${String.fromCharCode(65 + index)}` : `Answer ${String.fromCharCode(65 + index)}`}
+                              الإجابة {String.fromCharCode(65 + index)}
                               {answer.isCorrect && (
-                                <span className="ml-2 text-green-600 font-bold">✓ {isArabicBrowser() ? 'صحيحة' : 'Correct'}</span>
+                                <span className="ml-2 text-green-600 font-bold">✓ صحيحة</span>
                               )}
                             </label>
                             <ErrorBoundary isArabic={isArabicBrowser()}>
                               <SimpleProfessionalMathEditor
                                 value={answer.text}
                                 onChange={(content) => handleAnswerChange(index, 'text', content)}
-                                placeholder={isArabicBrowser() ? `اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...` : `Write answer ${String.fromCharCode(65 + index)} here...`}
+                                placeholder={`اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...`}
                               />
                             </ErrorBoundary>
                           </div>
@@ -1200,14 +1698,14 @@ const Questions = () => {
                         type="submit"
                         className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition font-medium"
                       >
-                        {isArabicBrowser() ? 'حفظ' : 'Save'}
+                        حفظ
                       </button>
                     <button
                       type="button"
                       onClick={() => setShowForm(false)}
                       className="flex-1 bg-gray-400 text-white py-2 rounded-lg hover:bg-gray-500 transition"
                     >
-                      {isArabicBrowser() ? 'إلغاء' : 'Cancel'}
+                      إلغاء
                     </button>
                   </div>
                 </form>

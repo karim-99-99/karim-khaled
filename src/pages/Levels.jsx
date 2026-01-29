@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getLevelProgress, getCurrentUser, getChapterById, updateItemName, getFileByLevel, getVideoByLevel, getQuestionsByLevel, addItemToChapter, deleteItemFromChapter } from '../services/storageService';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { hasCategoryAccess } from '../components/ProtectedRoute';
 import { isBackendOn, getChapterById as getChapterByIdApi, updateLesson, addLesson, deleteLesson, getVideos, getFiles, getQuestions } from '../services/backendApi';
 
 const Levels = () => {
@@ -26,6 +27,9 @@ const Levels = () => {
   const useBackend = !!import.meta.env.VITE_API_URL;
 
   const items = (chapter?.items || []).map(i => ({ ...i, hasTest: i.has_test ?? i.hasTest }));
+
+  const categoryName = (categoryId || '').includes('تأسيس') ? 'التأسيس' : 'التجميعات';
+  const canAccessMedia = isAdmin || (currentUser && hasCategoryAccess(currentUser, categoryName));
 
   useEffect(() => {
     let c = false;
@@ -101,10 +105,15 @@ const Levels = () => {
       return;
     }
     if (isAdmin) {
-      // For admin: navigate to questions management page with itemId and return URL
       const returnUrl = `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`;
-        const url = `/admin/questions?itemId=${itemId}&returnUrl=${encodeURIComponent(returnUrl)}`;
-        navigate(url);
+      const params = new URLSearchParams({
+        itemId,
+        returnUrl,
+        subjectId: subjectId || '',
+        categoryId: categoryId || '',
+        chapterId: chapterId || '',
+      });
+      navigate(`/admin/questions?${params.toString()}`);
       return;
     }
     navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`);
@@ -359,15 +368,13 @@ const Levels = () => {
                         📄 {isArabicBrowser() ? 'رفع ملف مرفق' : 'Upload File'}
                       </button>
                       
-                      {item.hasTest && (
-                        <button
-                          type="button"
-                          onClick={(e) => handleQuizClick(item.id, e)}
-                          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
-                        >
-                          📝 {isArabicBrowser() ? 'إدارة الاختبار' : 'Manage Quiz'}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => handleQuizClick(item.id, e)}
+                        className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
+                      >
+                        📝 {isArabicBrowser() ? 'إدارة الاختبار' : 'Manage Quiz'}
+                      </button>
                     </>
                   ) : (
                     <>
@@ -375,17 +382,18 @@ const Levels = () => {
                         const video = getVideoForItem(item.id);
                         const file = getFileForItem(item.id);
                         const qs = getQuestionsForItem(item.id);
-                        const hasExam = item.hasTest && qs && qs.length > 0;
+                        const hasExam = qs && qs.length > 0;
                         
-                        // Don't show any buttons if no content exists
-                        if (!video && !file && !hasExam) {
+                        const showVideo = video && canAccessMedia;
+                        const showFile = file && canAccessMedia;
+                        
+                        if (!showVideo && !showFile && !hasExam) {
                           return null;
                         }
                         
                         return (
                           <>
-                            {/* Show video button only if video exists */}
-                            {video && (
+                            {showVideo && (
                               <button
                                 onClick={() => handleVideoClick(item.id)}
                                 className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2"
@@ -394,8 +402,7 @@ const Levels = () => {
                               </button>
                             )}
                             
-                            {/* Show file button only if file exists */}
-                            {file && (
+                            {showFile && (
                               <button
                                 onClick={() => handleFileClick(item.id)}
                                 className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition font-medium flex items-center justify-center gap-2"
@@ -404,7 +411,6 @@ const Levels = () => {
                               </button>
                             )}
                             
-                            {/* Show exam button only if exam exists (hasTest flag is true AND questions exist) */}
                             {hasExam && (
                               <button
                                 type="button"

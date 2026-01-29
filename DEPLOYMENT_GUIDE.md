@@ -1,5 +1,17 @@
 # دليل النشر - Deployment Guide
 
+## ⚠️ مهم: قاعدة البيانات وتخزين الملفات في الإنتاج
+
+النشر الحالي يستخدم **SQLite** وقائمة **محلية** (`media/`) على قرص Render. عند أي إعادة نشر أو إعادة تشغيل، **يُفقد كل من قاعدة البيانات والملفات (فيديوهات، PDF، صور)**.
+
+- **تفاصيل وتشخيص:** [`docs/ARCHITECTURE_AUDIT.md`](docs/ARCHITECTURE_AUDIT.md)
+- **خطة نقل DB + الملفات للسحابة:** [`docs/MIGRATION_PLAN.md`](docs/MIGRATION_PLAN.md)
+- **متغيرات البيئة المطلوبة على Render بعد التنفيذ:** [`docs/RENDER_ENV_VARS.md`](docs/RENDER_ENV_VARS.md)
+
+قبل الاعتماد على المنصة للإنتاج: انقل **قاعدة البيانات** إلى Postgres سحابي، وال**ملفات** إلى Cloudinary (تمت إضافتهما في الإعدادات)، ثم ضع المتغيرات في Render كما في `RENDER_ENV_VARS.md` وفعّل النسخ الاحتياطي التلقائي.
+
+---
+
 ## الخطوات الكاملة لنشر Frontend و Backend
 
 ### الخطوة 1: إعداد Backend للنشر على Render.com

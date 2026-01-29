@@ -80,7 +80,7 @@ const Header = () => {
               }`}
               onClick={() => setIsMenuOpen(false)}
             >
-              تأسيس
+              دروس مجانية
             </Link>
             <Link
               to="/about"
@@ -109,15 +109,13 @@ const Header = () => {
             {currentUser ? (
               <div className="absolute left-0 relative">
                 <div className="flex items-center gap-2">
-                  {/* Standalone avatar (not inside dropdown) */}
-                  <button
-                    type="button"
-                    onClick={() => window.dispatchEvent(new Event('open-avatar-picker'))}
+                  {/* Standalone avatar (not inside dropdown). الطالب يختار مرة واحدة فقط عند التسجيل. */}
+                  <div
                     className="w-10 h-10 rounded-full bg-white border-2 border-white shadow flex items-center justify-center overflow-hidden"
-                    title="تغيير صورة البروفايل"
+                    title={currentUser?.role === 'student' && currentUser?.avatarChoice ? undefined : 'تغيير صورة البروفايل'}
                   >
                     <ProfileAvatar choice={currentUser?.avatarChoice || 'male_gulf'} size={40} />
-                  </button>
+                  </div>
 
                   {/* Dropdown trigger */}
                   <button
@@ -160,7 +158,7 @@ const Header = () => {
                         setIsMenuOpen(false);
                       }}
                     >
-                      تأسيس
+                      دروس مجانية
                     </Link>
                     <Link
                       to="/courses"
@@ -252,15 +250,13 @@ const Header = () => {
                 {/* User Menu Selector - always visible for admin and student */}
                 <div className="relative">
                   <div className="flex items-center gap-2">
-                    {/* Standalone avatar (not inside dropdown) */}
-                    <button
-                      type="button"
-                      onClick={() => window.dispatchEvent(new Event('open-avatar-picker'))}
+                    {/* Standalone avatar. الطالب يختار مرة واحدة فقط عند التسجيل. */}
+                    <div
                       className="w-10 h-10 rounded-full bg-white border-2 border-white shadow flex items-center justify-center overflow-hidden"
-                      title="تغيير صورة البروفايل"
+                      title={currentUser?.role === 'student' && currentUser?.avatarChoice ? undefined : 'تغيير صورة البروفايل'}
                     >
                       <ProfileAvatar choice={currentUser?.avatarChoice || 'male_gulf'} size={40} />
-                    </button>
+                    </div>
 
                     {/* Dropdown trigger */}
                     <button
@@ -302,7 +298,7 @@ const Header = () => {
                           setIsMenuOpen(false);
                         }}
                       >
-                        تأسيس
+                        دروس مجانية
                       </Link>
                       <Link
                         to="/courses"
@@ -416,7 +412,7 @@ const Header = () => {
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
-                تأسيس
+                دروس مجانية
               </Link>
               <Link
                 to="/about"

@@ -98,7 +98,7 @@ export const logout = async () => {
 };
 
 // ——— Users ———
-const mapUserFromBackend = (u) => ({
+export const mapUserFromBackend = (u) => ({
   id: u.id,
   username: u.username,
   email: u.email,
@@ -116,6 +116,10 @@ const mapUserFromBackend = (u) => ({
     abilitiesSubjects: {
       verbal: u.abilities_subjects_verbal || false,
       quantitative: u.abilities_subjects_quantitative || false,
+    },
+    abilitiesCategories: {
+      foundation: u.abilities_categories_foundation || false,
+      collections: u.abilities_categories_collections || false,
     }
   }
 });
@@ -153,6 +157,10 @@ export const updateUser = async (userId, updates) => {
     if (p.abilitiesSubjects) {
       if (p.abilitiesSubjects.verbal !== undefined) backendUpdates.abilities_subjects_verbal = p.abilitiesSubjects.verbal;
       if (p.abilitiesSubjects.quantitative !== undefined) backendUpdates.abilities_subjects_quantitative = p.abilitiesSubjects.quantitative;
+    }
+    if (p.abilitiesCategories) {
+      if (p.abilitiesCategories.foundation !== undefined) backendUpdates.abilities_categories_foundation = p.abilitiesCategories.foundation;
+      if (p.abilitiesCategories.collections !== undefined) backendUpdates.abilities_categories_collections = p.abilitiesCategories.collections;
     }
   }
   
@@ -324,7 +332,30 @@ const mapQuestionFromBackend = (q) => {
     console.warn('Error loading image settings for question:', q.id, e);
   }
   
+  const lessonId = (q.lesson != null && typeof q.lesson === 'object')
+    ? (q.lesson.id || q.lesson.pk || null)
+    : (q.lesson || null);
+
   try {
+    if (q.question_type === 'passage' || q.type === 'passage' || q.passage_text) {
+      return {
+        id: q.id || '',
+        type: 'passage',
+        passageText: q.passage_text || q.passageText || '',
+        questions: (q.passage_questions || q.questions || []).map((pq) => ({
+          id: pq.id || `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          question: pq.question || '',
+          answers: (pq.answers || []).map((a) => ({
+            id: a.answer_id || 'a',
+            text: a.text || '',
+            isCorrect: !!a.is_correct,
+          })),
+        })),
+        itemId: lessonId,
+        levelId: lessonId,
+      };
+    }
+
     return {
       id: q.id || '',
       question: q.question || '',
@@ -333,8 +364,8 @@ const mapQuestionFromBackend = (q) => {
       image: q.question_image_url || q.question_image || null,
       imageScale: imageScale,
       imageAlign: imageAlign,
-      itemId: q.lesson || null,
-      levelId: q.lesson || null,
+      itemId: lessonId,
+      levelId: lessonId,
       answers: (q.answers || []).map((a) => ({
         id: a.answer_id || 'a',
         key: a.answer_id || 'a',
@@ -353,8 +384,8 @@ const mapQuestionFromBackend = (q) => {
       image: null,
       imageScale: 100,
       imageAlign: 'center',
-      itemId: q.lesson || null,
-      levelId: q.lesson || null,
+      itemId: lessonId,
+      levelId: lessonId,
       answers: [],
     };
   }
@@ -452,6 +483,46 @@ export const updateQuestion = async (questionId, { question, questionEn, explana
 
 export const deleteQuestion = async (questionId) => {
   await request(`/questions/${encodeURIComponent(questionId)}/`, { method: 'DELETE' });
+};
+
+// Add passage (special type of question with passage_text and nested questions)
+export const addPassage = async (lessonId, { passageText, questions }) => {
+  const body = {
+    lesson: lessonId,
+    question_type: 'passage',
+    passage_text: passageText || '',
+    passage_questions: (questions || []).map((q) => ({
+      question: q.question || '',
+      answers: (q.answers || []).map((a) => ({
+        answer_id: (a.id || 'a').toString().toLowerCase().slice(0, 1),
+        text: a.text || '',
+        is_correct: !!a.isCorrect,
+      })),
+    })),
+  };
+  const data = await request('/questions/', { method: 'POST', body: JSON.stringify(body) });
+  return mapQuestionFromBackend(data);
+};
+
+// Update passage
+export const updatePassage = async (passageId, { passageText, questions }) => {
+  const body = {
+    question_type: 'passage',
+    passage_text: passageText || '',
+    passage_questions: (questions || []).map((q) => ({
+      question: q.question || '',
+      answers: (q.answers || []).map((a) => ({
+        answer_id: (a.id || 'a').toString().toLowerCase().slice(0, 1),
+        text: a.text || '',
+        is_correct: !!a.isCorrect,
+      })),
+    })),
+  };
+  await request(`/questions/${encodeURIComponent(passageId)}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+  return mapQuestionFromBackend(await request(`/questions/${encodeURIComponent(passageId)}/`));
 };
 
 // ——— Videos (file upload and URL-based videos) ———

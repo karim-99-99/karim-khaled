@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getVideoByLevel, getItemById } from '../services/storageService';
+import { getVideoByLevel, getItemById, getCurrentUser } from '../services/storageService';
 import { getVideoFile } from '../services/videoStorage';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { hasCategoryAccess } from '../components/ProtectedRoute';
 import { isBackendOn, getVideoByLevel as getVideoByLevelApi, getItemById as getItemByIdApi } from '../services/backendApi';
 
 const Video = () => {
@@ -16,6 +17,10 @@ const Video = () => {
   const videoRef = useRef(null);
   
   const actualItemId = itemId || levelId;
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.role === 'admin';
+  const categoryName = (categoryId || '').includes('تأسيس') ? 'التأسيس' : 'التجميعات';
+  const canAccessMedia = isAdmin || (currentUser && hasCategoryAccess(currentUser, categoryName));
 
   useEffect(() => {
     let c = false;
@@ -82,6 +87,29 @@ const Video = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-lg md:text-xl lg:text-2xl text-dark-600 font-medium">جاري التحميل...</p>
+      </div>
+    );
+  }
+
+  if (!canAccessMedia) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <div className="py-12 px-4">
+          <div className="max-w-4xl mx-auto">
+            <button
+              onClick={handleBack}
+              className="text-primary-600 hover:text-primary-700 mb-4 flex items-center gap-2 font-medium"
+            >
+              ← رجوع
+            </button>
+            <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
+              <p className="text-xl text-gray-600">
+                ليست لديك صلاحية لمشاهدة الفيديوهات في هذا التصنيف. تواصل مع المدير.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
