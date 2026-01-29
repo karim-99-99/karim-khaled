@@ -10,6 +10,39 @@ import MathRenderer from '../components/MathRenderer';
 import { hasCategoryAccess } from '../components/ProtectedRoute';
 import { isBackendOn, getQuestionsByLevel as getQuestionsByLevelApi, getVideoByLevel as getVideoByLevelApi, getItemById as getItemByIdApi } from '../services/backendApi';
 
+/**
+ * Flatten passage questions into single-question format for Quiz.
+ * Each passage sub-question becomes one quiz item (passage text + sub-question + answers).
+ */
+function flattenQuestionsForQuiz(raw) {
+  const out = [];
+  for (const q of raw || []) {
+    if (q.type === 'passage' && Array.isArray(q.questions) && q.questions.length > 0) {
+      const passageText = (q.passageText || '').trim();
+      q.questions.forEach((pq, idx) => {
+        const sid = pq.id || `passage_${q.id}_${idx}`;
+        const subHtml = (pq.question || '').trim();
+        const combined = passageText
+          ? `<div class="mb-4 text-dark-600 leading-relaxed">${passageText}</div><div class="font-semibold text-primary-600 mb-2">السؤال ${idx + 1}:</div><div>${subHtml}</div>`
+          : subHtml;
+        out.push({
+          id: sid,
+          question: combined,
+          questionEn: null,
+          explanation: pq.explanation || null,
+          image: null,
+          answers: Array.isArray(pq.answers) ? pq.answers : [],
+          itemId: q.itemId,
+          levelId: q.levelId,
+        });
+      });
+    } else {
+      out.push(q);
+    }
+  }
+  return out;
+}
+
 const Quiz = () => {
   const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } = useParams();
   const navigate = useNavigate();
@@ -85,7 +118,8 @@ const Quiz = () => {
         }
         setQuestions(sampleQuestions);
       } else {
-        setQuestions(quizQuestions.slice(0, 50));
+        const flattened = flattenQuestionsForQuiz(quizQuestions);
+        setQuestions(flattened.slice(0, 50));
       }
       if (levelVideo && !isBackendOn() && levelVideo.isFileUpload && levelVideo.url?.startsWith('indexeddb://')) {
         try {
@@ -123,8 +157,9 @@ const Quiz = () => {
   
   // Check if user's answer is correct
   const isUserAnswerCorrect = () => {
-    const userAnswer = answers[currentQuestion.id] || selectedAnswer;
-    const correctAnswer = currentQuestion.answers.find(a => a.isCorrect);
+    const userAnswer = answers[currentQuestion?.id] || selectedAnswer;
+    const ans = currentQuestion?.answers || [];
+    const correctAnswer = ans.find(a => a.isCorrect);
     return userAnswer === correctAnswer?.id;
   };
   
@@ -181,11 +216,11 @@ const Quiz = () => {
 
   const calculateScore = () => {
     let correctCount = 0;
-    
+    const ans = answers || {};
     questions.forEach((question) => {
-      const userAnswer = answers[question.id];
-      const correctAnswer = question.answers.find(a => a.isCorrect);
-      
+      const userAnswer = ans[question.id];
+      const qa = question.answers || [];
+      const correctAnswer = qa.find(a => a.isCorrect);
       if (userAnswer === correctAnswer?.id) {
         correctCount++;
       }
@@ -238,7 +273,7 @@ const Quiz = () => {
     }
 
     // After result is shown
-    const userAnswer = answers[currentQuestion.id] || selectedAnswer;
+    const userAnswer = answers[currentQuestion?.id] || selectedAnswer;
     const isUserAnswer = userAnswer === answer.id;
     const isCorrectAnswer = answer.isCorrect;
 
@@ -459,7 +494,7 @@ const Quiz = () => {
           <div className="border-t-2 border-gray-200 my-4"></div>
 
           <div className="space-y-3 answers-container" style={{ position: 'relative', zIndex: 20, backgroundColor: 'white' }}>
-            {currentQuestion?.answers.map((answer) => (
+            {(currentQuestion?.answers || []).map((answer) => (
               <button
                 key={answer.id}
                 onClick={() => handleAnswerSelect(answer.id)}
