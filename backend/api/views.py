@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login, logout
+from django.shortcuts import redirect
 from django.db.models import Q, Count, Avg
 from django.http import HttpResponse
 from django.utils import timezone
@@ -533,6 +534,12 @@ class FileViewSet(viewsets.ModelViewSet):
         f = self.get_object()
         if not f.file:
             return Response(status=status.HTTP_404_NOT_FOUND)
+        
+        # If the file is stored on Cloudinary (external URL), redirect to it
+        if hasattr(f.file, 'url') and (f.file.url.startswith('http://') or f.file.url.startswith('https://')):
+            return redirect(f.file.url)
+        
+        # Otherwise, stream the file content
         try:
             f.file.open('rb')
             data = f.file.read()

@@ -66,7 +66,7 @@ const FileViewer = () => {
           } catch (_) {}
         }
         if (isBackendOn() && file.url) {
-          const contentUrl = getFileContentApiUrl(file.id);
+          const contentUrl = file.id ? getFileContentApiUrl(file.id) : null;
           const blobUrl = contentUrl
             ? await fetchFileAsBlobUrlForViewer(contentUrl)
             : null;
