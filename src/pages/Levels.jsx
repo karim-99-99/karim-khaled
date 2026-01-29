@@ -73,8 +73,8 @@ const Levels = () => {
           if (!c) setChapter(ch || null);
           if (user) {
             const [v, f, q] = await Promise.all([
-              getVideos(),
-              getFiles(),
+              getVideos({ chapter_id: chapterId }),
+              getFiles({ chapter_id: chapterId }),
               getQuestions({ chapter_id: chapterId }),
             ]);
             if (!c) {

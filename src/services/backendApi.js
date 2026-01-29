@@ -638,20 +638,33 @@ export const updatePassage = async (passageId, { passageText, questions }) => {
 };
 
 // ——— Videos (file upload and URL-based videos) ———
-const mapVideoFromBackend = (v) => ({
-  id: v.id,
-  title: v.title,
-  titleEn: v.description,
-  url: v.video_url || v.video_file_url || v.video_file,
-  levelId: v.lesson,
-  itemId: v.lesson,
-  isFileUpload: !!v.video_file, // true if video_file exists, false if video_url
-});
+const videoLessonId = (v) =>
+  v.lesson != null && typeof v.lesson === "object"
+    ? (v.lesson?.id ?? v.lesson?.pk ?? null)
+    : v.lesson;
 
-export const getVideos = async (lessonId = null) => {
-  const path = lessonId
-    ? `/videos/?lesson_id=${encodeURIComponent(lessonId)}`
-    : "/videos/";
+const mapVideoFromBackend = (v) => {
+  const lid = videoLessonId(v);
+  return {
+    id: v.id,
+    title: v.title,
+    titleEn: v.description,
+    url: v.video_url || v.video_file_url || v.video_file,
+    levelId: lid,
+    itemId: lid,
+    isFileUpload: !!v.video_file,
+  };
+};
+
+export const getVideos = async (opts = null) => {
+  const lessonId = typeof opts === "string" ? opts : (opts?.lesson_id ?? null);
+  const chapterId =
+    typeof opts === "object" && opts != null ? opts.chapter_id : null;
+  const params = new URLSearchParams();
+  if (lessonId) params.set("lesson_id", lessonId);
+  if (chapterId) params.set("chapter_id", chapterId);
+  const qs = params.toString();
+  const path = qs ? `/videos/?${qs}` : "/videos/";
   const list = await request(path);
   const arr = Array.isArray(list) ? list : list?.results || [];
   return arr.map(mapVideoFromBackend);
@@ -706,21 +719,34 @@ export const deleteVideo = async (videoId) => {
 };
 
 // ——— Files ———
-const mapFileFromBackend = (f) => ({
-  id: f.id,
-  title: f.title,
-  fileName: f.title,
-  fileType: f.file_type,
-  url: f.file_url || f.file,
-  levelId: f.lesson,
-  itemId: f.lesson,
-  isFileUpload: true,
-});
+const lessonIdFrom = (f) =>
+  f.lesson != null && typeof f.lesson === "object"
+    ? (f.lesson?.id ?? f.lesson?.pk ?? null)
+    : f.lesson;
 
-export const getFiles = async (lessonId = null) => {
-  const path = lessonId
-    ? `/files/?lesson_id=${encodeURIComponent(lessonId)}`
-    : "/files/";
+const mapFileFromBackend = (f) => {
+  const lid = lessonIdFrom(f);
+  return {
+    id: f.id,
+    title: f.title,
+    fileName: f.title,
+    fileType: f.file_type,
+    url: f.file_url || f.file,
+    levelId: lid,
+    itemId: lid,
+    isFileUpload: true,
+  };
+};
+
+export const getFiles = async (opts = null) => {
+  const lessonId = typeof opts === "string" ? opts : (opts?.lesson_id ?? null);
+  const chapterId =
+    typeof opts === "object" && opts != null ? opts.chapter_id : null;
+  const params = new URLSearchParams();
+  if (lessonId) params.set("lesson_id", lessonId);
+  if (chapterId) params.set("chapter_id", chapterId);
+  const qs = params.toString();
+  const path = qs ? `/files/?${qs}` : "/files/";
   const list = await request(path);
   const arr = Array.isArray(list) ? list : list?.results || [];
   return arr.map(mapFileFromBackend);

@@ -133,7 +133,14 @@ class Lesson(models.Model):
 
 
 class Question(models.Model):
-    """Questions with multiple choice answers"""
+    """Questions with multiple choice answers; passage type has passage_text + passage_questions."""
+    QUESTION_TYPE_SINGLE = 'single'
+    QUESTION_TYPE_PASSAGE = 'passage'
+    QUESTION_TYPE_CHOICES = [
+        (QUESTION_TYPE_SINGLE, 'Single'),
+        (QUESTION_TYPE_PASSAGE, 'Passage'),
+    ]
+
     id = models.CharField(max_length=100, primary_key=True)
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='questions', null=True, blank=True)
     # Also store references for easy filtering
@@ -141,12 +148,18 @@ class Question(models.Model):
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='questions', null=True, blank=True)
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='questions', null=True, blank=True)
     section = models.ForeignKey(Section, on_delete=models.CASCADE, related_name='questions', null=True, blank=True)
-    
-    question = models.TextField()  # HTML content with math
+
+    question_type = models.CharField(
+        max_length=20, choices=QUESTION_TYPE_CHOICES, default=QUESTION_TYPE_SINGLE
+    )
+    question = models.TextField()  # HTML content with math; placeholder for passage type
     question_en = models.TextField(blank=True, null=True)
     question_image = models.ImageField(upload_to='questions/', blank=True, null=True)
     explanation = models.TextField(blank=True, null=True)  # Explanation for correct answer
-    
+
+    passage_text = models.TextField(blank=True, null=True)
+    passage_questions = models.JSONField(default=list, blank=True)  # [{"question":"...","answers":[...]}]
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_questions')

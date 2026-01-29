@@ -448,8 +448,11 @@ class VideoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset().exclude(section_id__in=DISABLED_SECTION_IDS)
         lesson_id = self.request.query_params.get('lesson_id', None)
+        chapter_id = self.request.query_params.get('chapter_id', None)
         if lesson_id:
             queryset = queryset.filter(lesson_id=lesson_id)
+        if chapter_id:
+            queryset = queryset.filter(chapter_id=chapter_id)
         return queryset
     
     def get_permissions(self):
@@ -489,8 +492,11 @@ class FileViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset().exclude(section_id__in=DISABLED_SECTION_IDS)
         lesson_id = self.request.query_params.get('lesson_id', None)
+        chapter_id = self.request.query_params.get('chapter_id', None)
         if lesson_id:
             queryset = queryset.filter(lesson_id=lesson_id)
+        if chapter_id:
+            queryset = queryset.filter(chapter_id=chapter_id)
         return queryset
     
     def get_permissions(self):

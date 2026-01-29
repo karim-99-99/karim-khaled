@@ -81,17 +81,19 @@ class AnswerSerializer(serializers.ModelSerializer):
 
 
 class QuestionSerializer(serializers.ModelSerializer):
-    """Question serializer with answers"""
+    """Question serializer with answers; includes passage fields for passage type."""
     answers = AnswerSerializer(many=True, read_only=True)
     question_image_url = serializers.SerializerMethodField()
-    
+    passage_questions = serializers.JSONField(required=False, default=list)
+
     class Meta:
         model = Question
         fields = ['id', 'lesson', 'chapter', 'category', 'subject', 'section',
-                  'question', 'question_en', 'question_image', 'question_image_url',
-                  'explanation', 'answers', 'created_at', 'updated_at', 'created_by']
+                  'question_type', 'question', 'question_en', 'question_image', 'question_image_url',
+                  'explanation', 'answers', 'passage_text', 'passage_questions',
+                  'created_at', 'updated_at', 'created_by']
         read_only_fields = ['created_at', 'updated_at', 'created_by']
-    
+
     def get_question_image_url(self, obj):
         if obj.question_image:
             request = self.context.get('request')
@@ -101,34 +103,57 @@ class QuestionSerializer(serializers.ModelSerializer):
 
 
 class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for creating/updating questions with answers"""
-    answers = AnswerSerializer(many=True)
-    
+    """Serializer for creating/updating questions (single or passage)."""
+    answers = AnswerSerializer(many=True, required=False)
+    question_type = serializers.CharField(required=False, default=Question.QUESTION_TYPE_SINGLE)
+    passage_text = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    passage_questions = serializers.ListField(required=False, allow_empty=True, default=list)
+
     class Meta:
         model = Question
-        fields = ['id', 'lesson', 'question', 'question_en', 'question_image',
-                  'explanation', 'answers']
+        fields = ['id', 'lesson', 'question_type', 'question', 'question_en', 'question_image',
+                  'explanation', 'answers', 'passage_text', 'passage_questions']
         read_only_fields = ['id']
-    
+        extra_kwargs = {'question': {'required': False}}
+
+    def validate(self, attrs):
+        qtype = (attrs.get('question_type') or '').strip() or Question.QUESTION_TYPE_SINGLE
+        if qtype == Question.QUESTION_TYPE_PASSAGE:
+            pt = (attrs.get('passage_text') or '').strip()
+            if not pt:
+                raise serializers.ValidationError({'passage_text': 'مطلوب لنوع القطعة.'})
+            pq = attrs.get('passage_questions') or []
+            if not pq:
+                raise serializers.ValidationError({'passage_questions': 'يجب إضافة سؤال واحد على الأقل للقطعة.'})
+            attrs['question'] = attrs.get('question') or '(قطعة)'
+            attrs['answers'] = attrs.get('answers') or []
+            return attrs
+        # single
+        q = (attrs.get('question') or '').strip()
+        if not q:
+            raise serializers.ValidationError({'question': 'مطلوب للسؤال العادي.'})
+        ans = attrs.get('answers') or []
+        if not ans:
+            raise serializers.ValidationError({'answers': 'يجب إضافة إجابة واحدة على الأقل.'})
+        return attrs
+
     def create(self, validated_data):
-        answers_data = validated_data.pop('answers')
+        # create() is overridden by perform_create in view; kept for consistency
+        answers_data = validated_data.pop('answers', [])
         question = Question.objects.create(**validated_data, created_by=self.context['request'].user)
         for answer_data in answers_data:
             Answer.objects.create(question=question, **answer_data)
         return question
-    
+
     def update(self, instance, validated_data):
         answers_data = validated_data.pop('answers', None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
-        
-        if answers_data:
-            # Update answers
+        if answers_data is not None and getattr(instance, 'question_type', None) != Question.QUESTION_TYPE_PASSAGE:
             instance.answers.all().delete()
             for answer_data in answers_data:
                 Answer.objects.create(question=instance, **answer_data)
-        
         return instance
 
 
