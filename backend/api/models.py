@@ -20,6 +20,8 @@ class User(AbstractUser):
     has_collection_access = models.BooleanField(default=False)
     abilities_subjects_verbal = models.BooleanField(default=False)
     abilities_subjects_quantitative = models.BooleanField(default=False)
+    abilities_categories_foundation = models.BooleanField(default=False)
+    abilities_categories_collections = models.BooleanField(default=False)
 
     # Profile avatar choice (student can set on first login)
     AVATAR_CHOICES = [

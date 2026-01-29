@@ -14,14 +14,16 @@ class UserAdmin(BaseUserAdmin):
         ('Role & Permissions', {
             'fields': ('role', 'phone', 'is_active_account',
                       'has_abilities_access', 'has_collection_access',
-                      'abilities_subjects_verbal', 'abilities_subjects_quantitative')
+                      'abilities_subjects_verbal', 'abilities_subjects_quantitative',
+                      'abilities_categories_foundation', 'abilities_categories_collections')
         }),
     )
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ('Role & Permissions', {
             'fields': ('role', 'phone', 'is_active_account',
                       'has_abilities_access', 'has_collection_access',
-                      'abilities_subjects_verbal', 'abilities_subjects_quantitative')
+                      'abilities_subjects_verbal', 'abilities_subjects_quantitative',
+                      'abilities_categories_foundation', 'abilities_categories_collections')
         }),
     )
 
