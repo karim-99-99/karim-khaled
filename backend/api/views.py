@@ -5,7 +5,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login, logout
-from django.shortcuts import redirect
 from django.db.models import Q, Count, Avg
 from django.http import HttpResponse
 from django.utils import timezone
@@ -530,21 +529,12 @@ class FileViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='content')
     def content(self, request, pk=None):
-        """Stream file content for embedding (e.g. PDF viewer). Auth required."""
+        """Stream file content for embedding (e.g. PDF viewer). Auth required. Proxies Cloudinary."""
+        import urllib.request
         f = self.get_object()
         if not f.file:
             return Response(status=status.HTTP_404_NOT_FOUND)
-        
-        # If the file is stored on Cloudinary (external URL), redirect to it
-        if hasattr(f.file, 'url') and (f.file.url.startswith('http://') or f.file.url.startswith('https://')):
-            return redirect(f.file.url)
-        
-        # Otherwise, stream the file content
-        try:
-            f.file.open('rb')
-            data = f.file.read()
-        finally:
-            f.file.close()
+
         ct = 'application/octet-stream'
         if (f.file_type or '').lower() == 'application/pdf':
             ct = 'application/pdf'
@@ -552,6 +542,25 @@ class FileViewSet(viewsets.ModelViewSet):
             ct = 'application/pdf'
         elif (f.file_type or '').lower() in ('application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'):
             ct = (f.file_type or '').lower()
+
+        file_url = getattr(f.file, 'url', None) or ''
+        if isinstance(file_url, str) and (file_url.startswith('http://') or file_url.startswith('https://')):
+            try:
+                req = urllib.request.Request(file_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=30) as r:
+                    data = r.read()
+            except Exception as e:
+                return Response(
+                    {'detail': 'Failed to fetch file from storage.'},
+                    status=status.HTTP_502_BAD_GATEWAY
+                )
+        else:
+            try:
+                f.file.open('rb')
+                data = f.file.read()
+            finally:
+                f.file.close()
+
         resp = HttpResponse(data, content_type=ct)
         resp['Content-Disposition'] = 'inline; filename="%s"' % (f.title or 'file')
         return resp
