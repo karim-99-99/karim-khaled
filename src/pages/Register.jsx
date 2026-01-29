@@ -1,22 +1,33 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { addUser, getUserByEmail, getUserByUsername } from '../services/storageService';
-import { register as backendRegister } from '../services/backendApi';
-import Header from '../components/Header';
-import backgroundImage from '../assets/kareem.jpg';
-import { isArabicBrowser } from '../utils/language';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import {
+  addUser,
+  getUserByEmail,
+  getUserByUsername,
+} from "../services/storageService";
+import { register as backendRegister } from "../services/backendApi";
+import Header from "../components/Header";
+import ProfileAvatar from "../components/ProfileAvatar";
+import backgroundImage from "../assets/kareem.jpg";
+import { isArabicBrowser } from "../utils/language";
 
 const useBackend = () => !!import.meta.env.VITE_API_URL;
 
+const AVATAR_CHOICES = [
+  { id: "male_gulf", label: "طالب" },
+  { id: "female_gulf", label: "طالبة" },
+];
+
 const Register = () => {
   const [formData, setFormData] = useState({
-    username: '',
-    email: '',
-    password: '',
-    phone: '',
-    name: ''
+    username: "",
+    email: "",
+    password: "",
+    phone: "",
+    name: "",
+    avatarChoice: "male_gulf",
   });
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -24,30 +35,35 @@ const Register = () => {
   const handleChange = (e) => {
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     });
-    setError('');
+    setError("");
+  };
+
+  const setAvatarChoice = (id) => {
+    setFormData({ ...formData, avatarChoice: id });
+    setError("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
+    setError("");
     setSuccess(false);
 
     if (!formData.username.trim()) {
-      setError('يرجى إدخال اسم المستخدم');
+      setError("يرجى إدخال اسم المستخدم");
       return;
     }
     if (!formData.email.trim()) {
-      setError('يرجى إدخال البريد الإلكتروني');
+      setError("يرجى إدخال البريد الإلكتروني");
       return;
     }
     if (!formData.password || formData.password.length < 6) {
-      setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
+      setError("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       return;
     }
     if (!formData.name.trim()) {
-      setError('يرجى إدخال الاسم');
+      setError("يرجى إدخال الاسم");
       return;
     }
 
@@ -60,14 +76,15 @@ const Register = () => {
           password: formData.password,
           password2: formData.password,
           first_name: formData.name.trim(),
-          last_name: '',
-          phone: formData.phone.trim() || '',
-          role: 'student',
+          last_name: "",
+          phone: formData.phone.trim() || "",
+          role: "student",
+          avatar_choice: formData.avatarChoice || "male_gulf",
         });
         setSuccess(true);
-        setTimeout(() => navigate('/login'), 2000);
+        setTimeout(() => navigate("/login"), 2000);
       } catch (err) {
-        setError(err.message || 'حدث خطأ أثناء التسجيل');
+        setError(err.message || "حدث خطأ أثناء التسجيل");
       } finally {
         setLoading(false);
       }
@@ -75,11 +92,11 @@ const Register = () => {
     }
 
     if (getUserByEmail(formData.email)) {
-      setError('البريد الإلكتروني مستخدم بالفعل');
+      setError("البريد الإلكتروني مستخدم بالفعل");
       return;
     }
     if (getUserByUsername(formData.username)) {
-      setError('اسم المستخدم مستخدم بالفعل');
+      setError("اسم المستخدم مستخدم بالفعل");
       return;
     }
 
@@ -90,12 +107,13 @@ const Register = () => {
         password: formData.password,
         phone: formData.phone.trim(),
         name: formData.name.trim(),
-        role: 'student'
+        role: "student",
+        avatarChoice: formData.avatarChoice || "male_gulf",
       });
       setSuccess(true);
-      setTimeout(() => navigate('/login'), 2000);
+      setTimeout(() => navigate("/login"), 2000);
     } catch (err) {
-      setError(err.message || 'حدث خطأ أثناء التسجيل');
+      setError(err.message || "حدث خطأ أثناء التسجيل");
     }
   };
 
@@ -110,8 +128,12 @@ const Register = () => {
               alt="Logo"
               className="h-28 w-32 mx-auto mb-4 object-contain rounded-3xl"
             />
-            <h1 className="text-2xl md:text-3xl font-bold text-dark-600 mb-2">نظام التعليم</h1>
-            <p className="text-base md:text-lg text-dark-600 font-medium">إنشاء حساب جديد</p>
+            <h1 className="text-2xl md:text-3xl font-bold text-dark-600 mb-2">
+              نظام التعليم
+            </h1>
+            <p className="text-base md:text-lg text-dark-600 font-medium">
+              إنشاء حساب جديد
+            </p>
           </div>
 
           {success ? (
@@ -119,13 +141,15 @@ const Register = () => {
               <div className="bg-green-50 border border-green-300 text-green-800 px-4 py-3 rounded-lg font-medium">
                 تم إنشاء الحساب بنجاح! سيتم تفعيل حسابك من قبل المدير قريباً.
               </div>
-              <p className="text-sm text-dark-600">سيتم توجيهك إلى صفحة تسجيل الدخول...</p>
+              <p className="text-sm text-dark-600">
+                سيتم توجيهك إلى صفحة تسجيل الدخول...
+              </p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                  {isArabicBrowser() ? 'الاسم الكامل' : 'Full Name'}
+                  {isArabicBrowser() ? "الاسم الكامل" : "Full Name"}
                 </label>
                 <input
                   type="text"
@@ -134,14 +158,18 @@ const Register = () => {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                  placeholder={isArabicBrowser() ? 'أدخل اسمك الكامل' : 'Enter your full name'}
+                  placeholder={
+                    isArabicBrowser()
+                      ? "أدخل اسمك الكامل"
+                      : "Enter your full name"
+                  }
                   dir="rtl"
                 />
               </div>
 
               <div>
                 <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                  {isArabicBrowser() ? 'اسم المستخدم' : 'Username'}
+                  {isArabicBrowser() ? "اسم المستخدم" : "Username"}
                 </label>
                 <input
                   type="text"
@@ -150,14 +178,16 @@ const Register = () => {
                   onChange={handleChange}
                   required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                  placeholder={isArabicBrowser() ? 'أدخل اسم المستخدم' : 'Enter username'}
+                  placeholder={
+                    isArabicBrowser() ? "أدخل اسم المستخدم" : "Enter username"
+                  }
                   dir="ltr"
                 />
               </div>
 
               <div>
                 <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                  {isArabicBrowser() ? 'البريد الإلكتروني' : 'Email'}
+                  {isArabicBrowser() ? "البريد الإلكتروني" : "Email"}
                 </label>
                 <input
                   type="email"
@@ -173,7 +203,7 @@ const Register = () => {
 
               <div>
                 <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                  {isArabicBrowser() ? 'رقم الهاتف' : 'Phone Number'}
+                  {isArabicBrowser() ? "رقم الهاتف" : "Phone Number"}
                 </label>
                 <input
                   type="tel"
@@ -181,14 +211,44 @@ const Register = () => {
                   value={formData.phone}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                  placeholder={isArabicBrowser() ? '05xxxxxxxx' : '05xxxxxxxx'}
+                  placeholder={isArabicBrowser() ? "05xxxxxxxx" : "05xxxxxxxx"}
                   dir="ltr"
                 />
               </div>
 
               <div>
                 <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                  {isArabicBrowser() ? 'كلمة المرور' : 'Password'}
+                  {isArabicBrowser() ? "اختر الأفاتار" : "Choose avatar"}
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {AVATAR_CHOICES.map((opt) => {
+                    const active = formData.avatarChoice === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setAvatarChoice(opt.id)}
+                        className={`flex items-center gap-3 p-3 rounded-xl border-2 transition text-right ${
+                          active
+                            ? "border-primary-500 bg-primary-50"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
+                          <ProfileAvatar choice={opt.id} size={40} />
+                        </div>
+                        <span className="font-semibold text-dark-800">
+                          {opt.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                  {isArabicBrowser() ? "كلمة المرور" : "Password"}
                 </label>
                 <input
                   type="password"
@@ -198,7 +258,11 @@ const Register = () => {
                   required
                   minLength={6}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
-                  placeholder={isArabicBrowser() ? '6 أحرف على الأقل' : 'At least 6 characters'}
+                  placeholder={
+                    isArabicBrowser()
+                      ? "6 أحرف على الأقل"
+                      : "At least 6 characters"
+                  }
                 />
               </div>
 
@@ -213,16 +277,27 @@ const Register = () => {
                 disabled={loading}
                 className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition shadow-lg hover:shadow-xl disabled:opacity-70"
               >
-                {loading ? (isArabicBrowser() ? 'جاري الإنشاء...' : 'Creating...') : (isArabicBrowser() ? 'إنشاء الحساب' : 'Create Account')}
+                {loading
+                  ? isArabicBrowser()
+                    ? "جاري الإنشاء..."
+                    : "Creating..."
+                  : isArabicBrowser()
+                    ? "إنشاء الحساب"
+                    : "Create Account"}
               </button>
             </form>
           )}
 
           <div className="mt-6 text-center">
             <p className="text-sm text-dark-600">
-              {isArabicBrowser() ? 'لديك حساب بالفعل؟' : 'Already have an account?'}{' '}
-              <Link to="/login" className="text-primary-500 font-semibold hover:underline">
-                {isArabicBrowser() ? 'تسجيل الدخول' : 'Login'}
+              {isArabicBrowser()
+                ? "لديك حساب بالفعل؟"
+                : "Already have an account?"}{" "}
+              <Link
+                to="/login"
+                className="text-primary-500 font-semibold hover:underline"
+              >
+                {isArabicBrowser() ? "تسجيل الدخول" : "Login"}
               </Link>
             </p>
           </div>
@@ -233,15 +308,3 @@ const Register = () => {
 };
 
 export default Register;
-
-
-
-
-
-
-
-
-
-
-
-

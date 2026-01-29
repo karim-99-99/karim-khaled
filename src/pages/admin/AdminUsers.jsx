@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getUsers as getUsersLocal, updateUser as updateUserLocal, deleteUser as deleteUserLocal, getCurrentUser } from '../../services/storageService';
-import * as backendApi from '../../services/backendApi';
-import Header from '../../components/Header';
-import { isArabicBrowser } from '../../utils/language';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  getUsers as getUsersLocal,
+  updateUser as updateUserLocal,
+  deleteUser as deleteUserLocal,
+  getCurrentUser,
+} from "../../services/storageService";
+import * as backendApi from "../../services/backendApi";
+import Header from "../../components/Header";
+import { isArabicBrowser } from "../../utils/language";
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all"); // all, active, inactive
   const [selectedUser, setSelectedUser] = useState(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -18,20 +23,20 @@ const AdminUsers = () => {
     // "تحصيلي" section removed — keep only abilities permissions.
     abilitiesSubjects: {
       verbal: false,
-      quantitative: false
+      quantitative: false,
     },
     abilitiesCategories: {
       foundation: false,
-      collections: false
-    }
+      collections: false,
+    },
   });
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
   const useBackend = backendApi.isBackendOn();
 
   useEffect(() => {
-    if (!currentUser || currentUser.role !== 'admin') {
-      navigate('/');
+    if (!currentUser || currentUser.role !== "admin") {
+      navigate("/");
       return;
     }
     loadUsers();
@@ -47,16 +52,16 @@ const AdminUsers = () => {
       if (useBackend) {
         const allUsers = await backendApi.getUsers();
         // Filter out admin users, show only students
-        const studentUsers = allUsers.filter(u => u.role === 'student');
+        const studentUsers = allUsers.filter((u) => u.role === "student");
         setUsers(studentUsers);
       } else {
         const allUsers = getUsersLocal();
-        const studentUsers = allUsers.filter(u => u.role === 'student');
+        const studentUsers = allUsers.filter((u) => u.role === "student");
         setUsers(studentUsers);
       }
     } catch (error) {
-      console.error('Error loading users:', error);
-      alert(error.message || 'حدث خطأ أثناء تحميل المستخدمين');
+      console.error("Error loading users:", error);
+      alert(error.message || "حدث خطأ أثناء تحميل المستخدمين");
       setUsers([]);
     } finally {
       setLoading(false);
@@ -67,20 +72,21 @@ const AdminUsers = () => {
     let filtered = users;
 
     // Filter by status
-    if (filterStatus === 'active') {
-      filtered = filtered.filter(u => u.isActive === true);
-    } else if (filterStatus === 'inactive') {
-      filtered = filtered.filter(u => u.isActive !== true);
+    if (filterStatus === "active") {
+      filtered = filtered.filter((u) => u.isActive === true);
+    } else if (filterStatus === "inactive") {
+      filtered = filtered.filter((u) => u.isActive !== true);
     }
 
     // Filter by search term
     if (searchTerm.trim()) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(u => 
-        (u.name && u.name.toLowerCase().includes(term)) ||
-        (u.email && u.email.toLowerCase().includes(term)) ||
-        (u.username && u.username.toLowerCase().includes(term)) ||
-        (u.phone && u.phone.includes(term))
+      filtered = filtered.filter(
+        (u) =>
+          (u.name && u.name.toLowerCase().includes(term)) ||
+          (u.email && u.email.toLowerCase().includes(term)) ||
+          (u.username && u.username.toLowerCase().includes(term)) ||
+          (u.phone && u.phone.includes(term)),
       );
     }
 
@@ -89,7 +95,7 @@ const AdminUsers = () => {
 
   const handleToggleActive = async (userId) => {
     try {
-      const user = users.find(u => u.id === userId);
+      const user = users.find((u) => u.id === userId);
       if (!user) return;
 
       if (useBackend) {
@@ -99,13 +105,17 @@ const AdminUsers = () => {
       }
       await loadUsers();
     } catch (error) {
-      console.error('Error toggling user status:', error);
-      alert(error.message || 'حدث خطأ أثناء تحديث حالة المستخدم');
+      console.error("Error toggling user status:", error);
+      alert(error.message || "حدث خطأ أثناء تحديث حالة المستخدم");
     }
   };
 
   const handleDelete = async (userId, userName) => {
-    if (!window.confirm(`هل أنت متأكد من حذف المستخدم "${userName}"؟\nهذا الإجراء لا يمكن التراجع عنه.`)) {
+    if (
+      !window.confirm(
+        `هل أنت متأكد من حذف المستخدم "${userName}"؟\nهذا الإجراء لا يمكن التراجع عنه.`,
+      )
+    ) {
       return;
     }
 
@@ -117,23 +127,24 @@ const AdminUsers = () => {
       }
       await loadUsers();
     } catch (error) {
-      console.error('Error deleting user:', error);
-      alert(error.message || 'حدث خطأ أثناء حذف المستخدم');
+      console.error("Error deleting user:", error);
+      alert(error.message || "حدث خطأ أثناء حذف المستخدم");
     }
   };
 
   const handleOpenPermissions = (user) => {
     setSelectedUser(user);
-    setPermissions(user.permissions || {
-      hasAbilitiesAccess: false,
+    const p = user.permissions || {};
+    setPermissions({
+      hasAbilitiesAccess: !!p.hasAbilitiesAccess,
       abilitiesSubjects: {
-        verbal: false,
-        quantitative: false
+        verbal: !!p.abilitiesSubjects?.verbal,
+        quantitative: !!p.abilitiesSubjects?.quantitative,
       },
       abilitiesCategories: {
-        foundation: false,
-        collections: false
-      }
+        foundation: !!p.abilitiesCategories?.foundation,
+        collections: !!p.abilitiesCategories?.collections,
+      },
     });
     setShowPermissionsModal(true);
   };
@@ -146,18 +157,34 @@ const AdminUsers = () => {
   const handleSavePermissions = async () => {
     if (!selectedUser) return;
 
-    const merged = {
-      ...(selectedUser.permissions || {}),
-      ...permissions,
-      abilitiesSubjects: {
-        ...(selectedUser.permissions?.abilitiesSubjects || {}),
-        ...permissions.abilitiesSubjects,
-      },
-      abilitiesCategories: {
-        ...(selectedUser.permissions?.abilitiesCategories || {}),
-        ...permissions.abilitiesCategories,
-      },
+    const base = selectedUser.permissions || {
+      hasAbilitiesAccess: false,
+      abilitiesSubjects: { verbal: false, quantitative: false },
+      abilitiesCategories: { foundation: false, collections: false },
     };
+    const subj = {
+      ...(base.abilitiesSubjects || {}),
+      ...(permissions.abilitiesSubjects || {}),
+    };
+    const cats = {
+      ...(base.abilitiesCategories || {}),
+      ...(permissions.abilitiesCategories || {}),
+    };
+
+    const merged = {
+      ...base,
+      ...permissions,
+      abilitiesSubjects: subj,
+      abilitiesCategories: cats,
+    };
+
+    // عند منح التأسيس أو التجميعات، تفعيل وصول قسم القدرات تلقائياً حتى تطبق الصلاحيات
+    if (
+      merged.abilitiesCategories?.foundation ||
+      merged.abilitiesCategories?.collections
+    ) {
+      merged.hasAbilitiesAccess = true;
+    }
 
     try {
       if (useBackend) {
@@ -168,32 +195,35 @@ const AdminUsers = () => {
       await loadUsers();
       handleClosePermissions();
     } catch (error) {
-      console.error('Error updating permissions:', error);
-      alert(error.message || 'حدث خطأ أثناء تحديث الصلاحيات');
+      console.error("Error updating permissions:", error);
+      alert(error.message || "حدث خطأ أثناء تحديث الصلاحيات");
     }
   };
 
   const handlePermissionChange = (field, value) => {
-    if (field === 'verbal' || field === 'quantitative') {
+    if (field === "verbal" || field === "quantitative") {
       setPermissions({
         ...permissions,
         abilitiesSubjects: {
           ...permissions.abilitiesSubjects,
-          [field]: value
-        }
+          [field]: value,
+        },
       });
-    } else if (field === 'foundation' || field === 'collections') {
+    } else if (field === "foundation" || field === "collections") {
       setPermissions({
         ...permissions,
         abilitiesCategories: {
-          ...permissions.abilitiesCategories || { foundation: false, collections: false },
-          [field]: value
-        }
+          ...(permissions.abilitiesCategories || {
+            foundation: false,
+            collections: false,
+          }),
+          [field]: value,
+        },
       });
     } else {
       setPermissions({
         ...permissions,
-        [field]: value
+        [field]: value,
       });
     }
   };
@@ -205,13 +235,13 @@ const AdminUsers = () => {
         <div className="max-w-7xl mx-auto">
           <div className="mb-6 flex justify-between items-center">
             <h1 className="text-2xl md:text-3xl font-bold text-dark-600">
-              {isArabicBrowser() ? 'إدارة المستخدمين' : 'User Management'}
+              {isArabicBrowser() ? "إدارة المستخدمين" : "User Management"}
             </h1>
             <button
-              onClick={() => navigate('/admin/dashboard')}
+              onClick={() => navigate("/admin/dashboard")}
               className="bg-dark-600 text-white px-4 py-2 rounded-lg hover:bg-dark-700 transition font-medium"
             >
-              ← {isArabicBrowser() ? 'رجوع' : 'Back'}
+              ← {isArabicBrowser() ? "رجوع" : "Back"}
             </button>
           </div>
 
@@ -220,20 +250,24 @@ const AdminUsers = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-dark-600 mb-2">
-                  {isArabicBrowser() ? 'البحث' : 'Search'}
+                  {isArabicBrowser() ? "البحث" : "Search"}
                 </label>
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={isArabicBrowser() ? 'ابحث بالاسم، البريد، اسم المستخدم، أو الهاتف' : 'Search by name, email, username, or phone'}
+                  placeholder={
+                    isArabicBrowser()
+                      ? "ابحث بالاسم، البريد، اسم المستخدم، أو الهاتف"
+                      : "Search by name, email, username, or phone"
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   dir="rtl"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-dark-600 mb-2">
-                  {isArabicBrowser() ? 'الحالة' : 'Status'}
+                  {isArabicBrowser() ? "الحالة" : "Status"}
                 </label>
                 <select
                   value={filterStatus}
@@ -241,9 +275,15 @@ const AdminUsers = () => {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
                   dir="rtl"
                 >
-                  <option value="all">{isArabicBrowser() ? 'الكل' : 'All'}</option>
-                  <option value="active">{isArabicBrowser() ? 'مفعّل' : 'Active'}</option>
-                  <option value="inactive">{isArabicBrowser() ? 'غير مفعّل' : 'Inactive'}</option>
+                  <option value="all">
+                    {isArabicBrowser() ? "الكل" : "All"}
+                  </option>
+                  <option value="active">
+                    {isArabicBrowser() ? "مفعّل" : "Active"}
+                  </option>
+                  <option value="inactive">
+                    {isArabicBrowser() ? "غير مفعّل" : "Inactive"}
+                  </option>
                 </select>
               </div>
             </div>
@@ -253,129 +293,196 @@ const AdminUsers = () => {
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
             {loading ? (
               <div className="p-8 text-center text-dark-600">
-                {isArabicBrowser() ? 'جاري التحميل...' : 'Loading...'}
+                {isArabicBrowser() ? "جاري التحميل..." : "Loading..."}
               </div>
             ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-primary-500 text-white">
-                  <tr>
-                    <th className="px-4 py-3 text-right font-semibold">{isArabicBrowser() ? 'الاسم' : 'Name'}</th>
-                    <th className="px-4 py-3 text-right font-semibold">{isArabicBrowser() ? 'اسم المستخدم' : 'Username'}</th>
-                    <th className="px-4 py-3 text-right font-semibold">{isArabicBrowser() ? 'البريد الإلكتروني' : 'Email'}</th>
-                    <th className="px-4 py-3 text-right font-semibold">{isArabicBrowser() ? 'الهاتف' : 'Phone'}</th>
-                    <th className="px-4 py-3 text-center font-semibold">{isArabicBrowser() ? 'الحالة' : 'Status'}</th>
-                    <th className="px-4 py-3 text-center font-semibold">{isArabicBrowser() ? 'الصلاحيات' : 'Permissions'}</th>
-                    <th className="px-4 py-3 text-center font-semibold">{isArabicBrowser() ? 'تاريخ التسجيل' : 'Registered'}</th>
-                    <th className="px-4 py-3 text-center font-semibold">{isArabicBrowser() ? 'الإجراءات' : 'Actions'}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {filteredUsers.length === 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-primary-500 text-white">
                     <tr>
-                      <td colSpan="8" className="px-4 py-8 text-center text-dark-600">
-                        {isArabicBrowser() ? 'لا توجد حسابات مسجلة' : 'No registered accounts'}
-                      </td>
+                      <th className="px-4 py-3 text-right font-semibold">
+                        {isArabicBrowser() ? "الاسم" : "Name"}
+                      </th>
+                      <th className="px-4 py-3 text-right font-semibold">
+                        {isArabicBrowser() ? "اسم المستخدم" : "Username"}
+                      </th>
+                      <th className="px-4 py-3 text-right font-semibold">
+                        {isArabicBrowser() ? "البريد الإلكتروني" : "Email"}
+                      </th>
+                      <th className="px-4 py-3 text-right font-semibold">
+                        {isArabicBrowser() ? "الهاتف" : "Phone"}
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold">
+                        {isArabicBrowser() ? "الحالة" : "Status"}
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold">
+                        {isArabicBrowser() ? "الصلاحيات" : "Permissions"}
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold">
+                        {isArabicBrowser() ? "تاريخ التسجيل" : "Registered"}
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold">
+                        {isArabicBrowser() ? "الإجراءات" : "Actions"}
+                      </th>
                     </tr>
-                  ) : (
-                    filteredUsers.map((user) => (
-                      <tr key={user.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-dark-600">{user.name || '-'}</td>
-                        <td className="px-4 py-3 text-dark-600 font-mono text-sm">{user.username || '-'}</td>
-                        <td className="px-4 py-3 text-dark-600">{user.email}</td>
-                        <td className="px-4 py-3 text-dark-600">{user.phone || '-'}</td>
-                        <td className="px-4 py-3 text-center">
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              user.isActive
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}
-                          >
-                            {user.isActive
-                              ? (isArabicBrowser() ? 'مفعّل' : 'Active')
-                              : (isArabicBrowser() ? 'غير مفعّل' : 'Inactive')}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex flex-col gap-1 items-center">
-                            {user.permissions?.hasAbilitiesAccess && (
-                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                                {isArabicBrowser() ? 'قدرات' : 'Abilities'}
-                              </span>
-                            )}
-                            {!user.permissions?.hasAbilitiesAccess && (
-                              <span className="text-xs text-gray-500">
-                                {isArabicBrowser() ? 'لا توجد صلاحيات' : 'No permissions'}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-center text-sm text-dark-600">
-                          {user.createdAt
-                            ? new Date(user.createdAt).toLocaleDateString('ar-SA', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                              })
-                            : '-'}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-2 flex-wrap">
-                            <button
-                              onClick={() => handleOpenPermissions(user)}
-                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-200 transition"
-                              title={isArabicBrowser() ? 'إدارة الصلاحيات' : 'Manage Permissions'}
-                            >
-                              {isArabicBrowser() ? 'صلاحيات' : 'Permissions'}
-                            </button>
-                            <button
-                              onClick={() => handleToggleActive(user.id)}
-                              className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
-                                user.isActive
-                                  ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                                  : 'bg-green-100 text-green-800 hover:bg-green-200'
-                              }`}
-                              title={user.isActive ? (isArabicBrowser() ? 'تعطيل' : 'Deactivate') : (isArabicBrowser() ? 'تفعيل' : 'Activate')}
-                            >
-                              {user.isActive
-                                ? (isArabicBrowser() ? 'تعطيل' : 'Deactivate')
-                                : (isArabicBrowser() ? 'تفعيل' : 'Activate')}
-                            </button>
-                            <button
-                              onClick={() => handleDelete(user.id, user.name || user.username)}
-                              className="px-3 py-1 bg-red-100 text-red-800 rounded-lg text-sm font-medium hover:bg-red-200 transition"
-                              title={isArabicBrowser() ? 'حذف' : 'Delete'}
-                            >
-                              {isArabicBrowser() ? 'حذف' : 'Delete'}
-                            </button>
-                          </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {filteredUsers.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan="8"
+                          className="px-4 py-8 text-center text-dark-600"
+                        >
+                          {isArabicBrowser()
+                            ? "لا توجد حسابات مسجلة"
+                            : "No registered accounts"}
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 text-dark-600">
+                            {user.name || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-dark-600 font-mono text-sm">
+                            {user.username || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-dark-600">
+                            {user.email}
+                          </td>
+                          <td className="px-4 py-3 text-dark-600">
+                            {user.phone || "-"}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                                user.isActive
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-red-100 text-red-800"
+                              }`}
+                            >
+                              {user.isActive
+                                ? isArabicBrowser()
+                                  ? "مفعّل"
+                                  : "Active"
+                                : isArabicBrowser()
+                                  ? "غير مفعّل"
+                                  : "Inactive"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex flex-col gap-1 items-center">
+                              {user.permissions?.hasAbilitiesAccess && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                  {isArabicBrowser() ? "قدرات" : "Abilities"}
+                                </span>
+                              )}
+                              {!user.permissions?.hasAbilitiesAccess && (
+                                <span className="text-xs text-gray-500">
+                                  {isArabicBrowser()
+                                    ? "لا توجد صلاحيات"
+                                    : "No permissions"}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center text-sm text-dark-600">
+                            {user.createdAt
+                              ? new Date(user.createdAt).toLocaleDateString(
+                                  "ar-SA",
+                                  {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  },
+                                )
+                              : "-"}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-2 flex-wrap">
+                              <button
+                                onClick={() => handleOpenPermissions(user)}
+                                className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-200 transition"
+                                title={
+                                  isArabicBrowser()
+                                    ? "إدارة الصلاحيات"
+                                    : "Manage Permissions"
+                                }
+                              >
+                                {isArabicBrowser() ? "صلاحيات" : "Permissions"}
+                              </button>
+                              <button
+                                onClick={() => handleToggleActive(user.id)}
+                                className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
+                                  user.isActive
+                                    ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200"
+                                    : "bg-green-100 text-green-800 hover:bg-green-200"
+                                }`}
+                                title={
+                                  user.isActive
+                                    ? isArabicBrowser()
+                                      ? "تعطيل"
+                                      : "Deactivate"
+                                    : isArabicBrowser()
+                                      ? "تفعيل"
+                                      : "Activate"
+                                }
+                              >
+                                {user.isActive
+                                  ? isArabicBrowser()
+                                    ? "تعطيل"
+                                    : "Deactivate"
+                                  : isArabicBrowser()
+                                    ? "تفعيل"
+                                    : "Activate"}
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDelete(
+                                    user.id,
+                                    user.name || user.username,
+                                  )
+                                }
+                                className="px-3 py-1 bg-red-100 text-red-800 rounded-lg text-sm font-medium hover:bg-red-200 transition"
+                                title={isArabicBrowser() ? "حذف" : "Delete"}
+                              >
+                                {isArabicBrowser() ? "حذف" : "Delete"}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
 
           {/* Stats */}
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-white rounded-lg shadow-md p-4">
-              <div className="text-sm text-dark-600 mb-1">{isArabicBrowser() ? 'إجمالي المستخدمين' : 'Total Users'}</div>
-              <div className="text-2xl font-bold text-primary-500">{users.length}</div>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-4">
-              <div className="text-sm text-dark-600 mb-1">{isArabicBrowser() ? 'مفعّل' : 'Active'}</div>
-              <div className="text-2xl font-bold text-green-500">
-                {users.filter(u => u.isActive === true).length}
+              <div className="text-sm text-dark-600 mb-1">
+                {isArabicBrowser() ? "إجمالي المستخدمين" : "Total Users"}
+              </div>
+              <div className="text-2xl font-bold text-primary-500">
+                {users.length}
               </div>
             </div>
             <div className="bg-white rounded-lg shadow-md p-4">
-              <div className="text-sm text-dark-600 mb-1">{isArabicBrowser() ? 'غير مفعّل' : 'Inactive'}</div>
+              <div className="text-sm text-dark-600 mb-1">
+                {isArabicBrowser() ? "مفعّل" : "Active"}
+              </div>
+              <div className="text-2xl font-bold text-green-500">
+                {users.filter((u) => u.isActive === true).length}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="text-sm text-dark-600 mb-1">
+                {isArabicBrowser() ? "غير مفعّل" : "Inactive"}
+              </div>
               <div className="text-2xl font-bold text-red-500">
-                {users.filter(u => u.isActive !== true).length}
+                {users.filter((u) => u.isActive !== true).length}
               </div>
             </div>
           </div>
@@ -389,7 +496,7 @@ const AdminUsers = () => {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-dark-600">
-                  {isArabicBrowser() ? 'إدارة الصلاحيات' : 'Manage Permissions'}
+                  {isArabicBrowser() ? "إدارة الصلاحيات" : "Manage Permissions"}
                 </h2>
                 <button
                   onClick={handleClosePermissions}
@@ -401,7 +508,10 @@ const AdminUsers = () => {
 
               <div className="mb-4">
                 <p className="text-dark-600 font-medium mb-2">
-                  {isArabicBrowser() ? 'المستخدم:' : 'User:'} {selectedUser.name || selectedUser.username || selectedUser.email}
+                  {isArabicBrowser() ? "المستخدم:" : "User:"}{" "}
+                  {selectedUser.name ||
+                    selectedUser.username ||
+                    selectedUser.email}
                 </p>
               </div>
 
@@ -409,19 +519,28 @@ const AdminUsers = () => {
               <div className="space-y-4 mb-6">
                 <div className="border-b pb-4">
                   <h3 className="text-lg font-semibold text-dark-600 mb-3">
-                    {isArabicBrowser() ? 'الوصول إلى الأقسام' : 'Section Access'}
+                    {isArabicBrowser()
+                      ? "الوصول إلى الأقسام"
+                      : "Section Access"}
                   </h3>
-                  
+
                   <div className="space-y-3">
                     <label className="flex items-center gap-3 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={permissions.hasAbilitiesAccess}
-                        onChange={(e) => handlePermissionChange('hasAbilitiesAccess', e.target.checked)}
+                        onChange={(e) =>
+                          handlePermissionChange(
+                            "hasAbilitiesAccess",
+                            e.target.checked,
+                          )
+                        }
                         className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
                       />
                       <span className="text-dark-600 font-medium">
-                        {isArabicBrowser() ? 'الوصول إلى قسم القدرات' : 'Access to Abilities Section'}
+                        {isArabicBrowser()
+                          ? "الوصول إلى قسم القدرات"
+                          : "Access to Abilities Section"}
                       </span>
                     </label>
                   </div>
@@ -432,19 +551,23 @@ const AdminUsers = () => {
                   <>
                     <div className="border-b pb-4">
                       <h3 className="text-lg font-semibold text-dark-600 mb-3">
-                        {isArabicBrowser() ? 'المواد في قسم القدرات' : 'Abilities Section Subjects'}
+                        {isArabicBrowser()
+                          ? "المواد في قسم القدرات"
+                          : "Abilities Section Subjects"}
                       </h3>
-                      
+
                       <div className="space-y-3 pr-6">
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={permissions.abilitiesSubjects.verbal}
-                            onChange={(e) => handlePermissionChange('verbal', e.target.checked)}
+                            onChange={(e) =>
+                              handlePermissionChange("verbal", e.target.checked)
+                            }
                             className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
                           />
                           <span className="text-dark-600 font-medium">
-                            {isArabicBrowser() ? 'اللفظي' : 'Verbal'}
+                            {isArabicBrowser() ? "اللفظي" : "Verbal"}
                           </span>
                         </label>
 
@@ -452,11 +575,16 @@ const AdminUsers = () => {
                           <input
                             type="checkbox"
                             checked={permissions.abilitiesSubjects.quantitative}
-                            onChange={(e) => handlePermissionChange('quantitative', e.target.checked)}
+                            onChange={(e) =>
+                              handlePermissionChange(
+                                "quantitative",
+                                e.target.checked,
+                              )
+                            }
                             className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
                           />
                           <span className="text-dark-600 font-medium">
-                            {isArabicBrowser() ? 'الكمي' : 'Quantitative'}
+                            {isArabicBrowser() ? "الكمي" : "Quantitative"}
                           </span>
                         </label>
                       </div>
@@ -465,31 +593,49 @@ const AdminUsers = () => {
                     {/* Abilities Categories (only show if abilities access is enabled) */}
                     <div className="border-b pb-4">
                       <h3 className="text-lg font-semibold text-dark-600 mb-3">
-                        {isArabicBrowser() ? 'التصنيفات في قسم القدرات' : 'Abilities Section Categories'}
+                        {isArabicBrowser()
+                          ? "التصنيفات في قسم القدرات"
+                          : "Abilities Section Categories"}
                       </h3>
-                      
+
                       <div className="space-y-3 pr-6">
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={permissions.abilitiesCategories?.foundation || false}
-                            onChange={(e) => handlePermissionChange('foundation', e.target.checked)}
+                            checked={
+                              permissions.abilitiesCategories?.foundation ||
+                              false
+                            }
+                            onChange={(e) =>
+                              handlePermissionChange(
+                                "foundation",
+                                e.target.checked,
+                              )
+                            }
                             className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
                           />
                           <span className="text-dark-600 font-medium">
-                            {isArabicBrowser() ? 'التأسيس' : 'Foundation'}
+                            {isArabicBrowser() ? "التأسيس" : "Foundation"}
                           </span>
                         </label>
 
                         <label className="flex items-center gap-3 cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={permissions.abilitiesCategories?.collections || false}
-                            onChange={(e) => handlePermissionChange('collections', e.target.checked)}
+                            checked={
+                              permissions.abilitiesCategories?.collections ||
+                              false
+                            }
+                            onChange={(e) =>
+                              handlePermissionChange(
+                                "collections",
+                                e.target.checked,
+                              )
+                            }
                             className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
                           />
                           <span className="text-dark-600 font-medium">
-                            {isArabicBrowser() ? 'التجميعات' : 'Collections'}
+                            {isArabicBrowser() ? "التجميعات" : "Collections"}
                           </span>
                         </label>
                       </div>
@@ -504,13 +650,13 @@ const AdminUsers = () => {
                   onClick={handleClosePermissions}
                   className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
                 >
-                  {isArabicBrowser() ? 'إلغاء' : 'Cancel'}
+                  {isArabicBrowser() ? "إلغاء" : "Cancel"}
                 </button>
                 <button
                   onClick={handleSavePermissions}
                   className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition font-medium"
                 >
-                  {isArabicBrowser() ? 'حفظ' : 'Save'}
+                  {isArabicBrowser() ? "حفظ" : "Save"}
                 </button>
               </div>
             </div>
@@ -522,6 +668,3 @@ const AdminUsers = () => {
 };
 
 export default AdminUsers;
-
-
-

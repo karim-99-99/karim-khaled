@@ -24,24 +24,32 @@ class UserCreateSerializer(serializers.ModelSerializer):
     """Serializer for user registration"""
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
-    
+    avatar_choice = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'password2', 'first_name', 
-                  'last_name', 'phone', 'role']
+        fields = ['username', 'email', 'password', 'password2', 'first_name',
+                  'last_name', 'phone', 'role', 'avatar_choice']
         extra_kwargs = {
             'password': {'write_only': True},
         }
-    
+
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
+        ac = attrs.get('avatar_choice') or ''
+        if ac and ac.strip() and ac.strip() not in ('male_gulf', 'female_gulf'):
+            raise serializers.ValidationError({"avatar_choice": "Invalid avatar_choice."})
         return attrs
-    
+
     def create(self, validated_data):
         validated_data.pop('password2')
         password = validated_data.pop('password')
+        avatar_choice = (validated_data.pop('avatar_choice', None) or '').strip() or None
         user = User.objects.create_user(**validated_data, password=password)
+        if avatar_choice:
+            user.avatar_choice = avatar_choice
+            user.save(update_fields=['avatar_choice'])
         return user
 
 

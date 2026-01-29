@@ -1,12 +1,19 @@
-import React from 'react';
-import ProfileAvatar from './ProfileAvatar';
+import React from "react";
+import ProfileAvatar from "./ProfileAvatar";
 
 export const AVATAR_OPTIONS = [
-  { id: 'male_gulf', label: 'رجل' },
-  { id: 'female_gulf', label: 'امرأة' },
+  { id: "male_gulf", label: "طالب" },
+  { id: "female_gulf", label: "طالبة" },
 ];
 
-const AvatarPickerModal = ({ open, selected, onSelect, onClose, onSave, saving = false }) => {
+const AvatarPickerModal = ({
+  open,
+  selected,
+  onSelect,
+  onClose,
+  onSave,
+  saving = false,
+}) => {
   if (!open) return null;
 
   return (
@@ -36,14 +43,18 @@ const AvatarPickerModal = ({ open, selected, onSelect, onClose, onSave, saving =
                   type="button"
                   onClick={() => onSelect(opt.id)}
                   className={`border-2 rounded-2xl p-4 flex items-center gap-4 text-right hover:shadow transition ${
-                    active ? 'border-primary-500 bg-primary-50' : 'border-gray-200 bg-white'
+                    active
+                      ? "border-primary-500 bg-primary-50"
+                      : "border-gray-200 bg-white"
                   }`}
                 >
                   <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 flex items-center justify-center flex-shrink-0">
                     <ProfileAvatar choice={opt.id} size={48} />
                   </div>
                   <div className="flex-1">
-                    <div className="font-extrabold text-dark-900">{opt.label}</div>
+                    <div className="font-extrabold text-dark-900">
+                      {opt.label}
+                    </div>
                   </div>
                 </button>
               );
@@ -57,7 +68,7 @@ const AvatarPickerModal = ({ open, selected, onSelect, onClose, onSave, saving =
               disabled={!selected || saving}
               className="flex-1 py-3 rounded-xl font-extrabold bg-green-500 text-white hover:bg-green-600 transition disabled:opacity-60"
             >
-              {saving ? 'جاري الحفظ...' : 'حفظ'}
+              {saving ? "جاري الحفظ..." : "حفظ"}
             </button>
             <button
               type="button"
@@ -75,4 +86,3 @@ const AvatarPickerModal = ({ open, selected, onSelect, onClose, onSave, saving =
 };
 
 export default AvatarPickerModal;
-

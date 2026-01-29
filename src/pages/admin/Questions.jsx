@@ -113,6 +113,34 @@ const Questions = () => {
     });
   };
 
+  /** تحويل الأرقام العادية فقط (٠–٩) في محتوى Quill. لا نمسّ المعادلات: .math-equation, [data-latex], .katex */
+  const convertPlainTextNumbersToArabic = (html) => {
+    if (html == null || typeof html !== "string") return html;
+    const t = html.trim();
+    if (!t) return html;
+    const ar = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
+    const convertDigits = (s) => s.replace(/[0-9]/g, (d) => ar[parseInt(d)]);
+    if (typeof document === "undefined" || !t.includes("<"))
+      return convertDigits(html);
+    const div = document.createElement("div");
+    div.innerHTML = html;
+    const mathSel = ".math-equation, [data-latex], .katex";
+    const walker = document.createTreeWalker(
+      div,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false,
+    );
+    const nodes = [];
+    let n;
+    while ((n = walker.nextNode())) nodes.push(n);
+    nodes.forEach((node) => {
+      if (node.parentElement && !node.parentElement.closest(mathSel))
+        node.textContent = convertDigits(node.textContent);
+    });
+    return div.innerHTML;
+  };
+
   // Detect if text contains Arabic characters
   const hasArabicCharacters = (text) => {
     // Arabic Unicode range: \u0600-\u06FF
@@ -835,26 +863,32 @@ const Questions = () => {
       }
     }
 
+    const passageTextAr = convertPlainTextNumbersToArabic(
+      passageFormData.passageText,
+    );
+    const questionsAr = (passageFormData.questions || []).map((q) => ({
+      ...q,
+      question: convertPlainTextNumbersToArabic(q.question) ?? q.question,
+    }));
+
     try {
       if (useBackend && backendApi.isBackendOn()) {
-        // Use backend API
         if (editingPassage) {
           await backendApi.updatePassage(editingPassage.id, {
-            passageText: passageFormData.passageText,
-            questions: passageFormData.questions,
+            passageText: passageTextAr,
+            questions: questionsAr,
           });
         } else {
           await backendApi.addPassage(selectedLevel, {
-            passageText: passageFormData.passageText,
-            questions: passageFormData.questions,
+            passageText: passageTextAr,
+            questions: questionsAr,
           });
         }
       } else {
-        // Use local storage
         const passageData = {
           type: "passage",
-          passageText: passageFormData.passageText,
-          questions: passageFormData.questions,
+          passageText: passageTextAr,
+          questions: questionsAr,
           levelId: selectedLevel,
         };
 
@@ -1031,8 +1065,10 @@ const Questions = () => {
       return;
     }
 
+    const questionAr = convertPlainTextNumbersToArabic(formData.question);
     const questionData = {
       ...formData,
+      question: questionAr,
       levelId: selectedLevel,
     };
 
@@ -1043,7 +1079,7 @@ const Questions = () => {
           await backendApi.updateQuestion(
             editingQuestion.id,
             {
-              question: formData.question,
+              question: questionAr,
               questionEn: formData.questionEn,
               explanation: formData.explanation,
               answers: formData.answers,
@@ -1054,7 +1090,7 @@ const Questions = () => {
           await backendApi.addQuestion(
             selectedLevel,
             {
-              question: formData.question,
+              question: questionAr,
               questionEn: formData.questionEn,
               explanation: formData.explanation,
               answers: formData.answers,

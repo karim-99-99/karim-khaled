@@ -1,11 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { getCurrentUser, logout } from '../services/storageService';
-import logoimage from '../assets/karim.png';
-import ProfileAvatar from './ProfileAvatar';
+import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
+import { getCurrentUser, logout } from "../services/storageService";
+import logoimage from "../assets/karim.png";
+import ProfileAvatar from "./ProfileAvatar";
 
-const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange }) => {
-  const [currentUser, setCurrentUser] = useState(propCurrentUser || getCurrentUser());
+const HeaderNoRouter = ({
+  onNavigate,
+  currentUser: propCurrentUser,
+  onUserChange,
+}) => {
+  const [currentUser, setCurrentUser] = useState(
+    propCurrentUser || getCurrentUser(),
+  );
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -23,7 +29,7 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
     setIsMenuOpen(false);
     setIsUserMenuOpen(false);
     if (onNavigate) {
-      onNavigate('landing');
+      onNavigate("landing");
     }
   };
 
@@ -32,12 +38,12 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
       onNavigate(section);
     }
     setIsMenuOpen(false);
-    
+
     // Scroll to section
     setTimeout(() => {
       const element = document.getElementById(section);
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        element.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     }, 100);
   };
@@ -47,27 +53,27 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
       <div className="max-w-7xl mx-auto px-4 relative bg-white">
         <div className="flex items-center justify-center h-16 relative bg-white">
           <button
-            onClick={() => handleNavClick('landing')}
+            onClick={() => handleNavClick("landing")}
             className="absolute right-0 flex items-center gap-2  hover:opacity-80 transition-opacity"
           >
-            <img 
-              src={logoimage} 
-              alt="بدايتي Logo" 
+            <img
+              src={logoimage}
+              alt="بدايتي Logo"
               className="h-20 w-20 object-contain flex-shrink-0 mt-2"
-              style={{ display: 'block', minWidth: '48px', minHeight: '48px' }}
+              style={{ display: "block", minWidth: "48px", minHeight: "48px" }}
             />
             {/* <span className="text-2xl font-bold text-primary-500">بدايتي</span> */}
           </button>
 
           <nav className="hidden md:flex items-center gap-4 justify-center">
             <button
-              onClick={() => handleNavClick('landing')}
+              onClick={() => handleNavClick("landing")}
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
             >
               الرئيسية
             </button>
             <button
-              onClick={() => handleNavClick('courses')}
+              onClick={() => handleNavClick("courses")}
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
             >
               الدورات
@@ -77,16 +83,16 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
               onClick={() => setIsMenuOpen(false)}
             >
-              دروس مجانية
+              الدورات المجانية
             </Link>
             <button
-              onClick={() => handleNavClick('about')}
+              onClick={() => handleNavClick("about")}
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
             >
               من نحن
             </button>
             <button
-              onClick={() => handleNavClick('contact')}
+              onClick={() => handleNavClick("contact")}
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
             >
               تواصل معنا
@@ -99,9 +105,17 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                   {/* Standalone avatar. الطالب يختار مرة واحدة فقط عند التسجيل. */}
                   <div
                     className="w-10 h-10 rounded-full bg-white border-2 border-white shadow flex items-center justify-center overflow-hidden"
-                    title={currentUser?.role === 'student' && currentUser?.avatarChoice ? undefined : 'تغيير صورة البروفايل'}
+                    title={
+                      currentUser?.role === "student" &&
+                      currentUser?.avatarChoice
+                        ? undefined
+                        : "تغيير صورة البروفايل"
+                    }
                   >
-                    <ProfileAvatar choice={currentUser?.avatarChoice || 'male_gulf'} size={40} />
+                    <ProfileAvatar
+                      choice={currentUser?.avatarChoice || "male_gulf"}
+                      size={40}
+                    />
                   </div>
 
                   {/* Dropdown trigger */}
@@ -116,35 +130,15 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
 
                 {isUserMenuOpen && (
                   <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
-                    {/* Navigation shortcuts (always visible in user menu) */}
                     <button
                       onClick={() => {
-                        handleNavClick('contact');
+                        handleNavClick("landing");
                         setIsUserMenuOpen(false);
                       }}
                       className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
                     >
-                      تواصل معنا
+                      الرئيسية
                     </button>
-                    <button
-                      onClick={() => {
-                        handleNavClick('about');
-                        setIsUserMenuOpen(false);
-                      }}
-                      className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
-                    >
-                      من نحن
-                    </button>
-                    <Link
-                      to="/foundation"
-                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsMenuOpen(false);
-                      }}
-                    >
-                      دروس مجانية
-                    </Link>
                     <Link
                       to="/courses"
                       className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
@@ -155,8 +149,35 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                     >
                       الدورات
                     </Link>
-
-                    {currentUser.role === 'admin' && (
+                    <Link
+                      to="/foundation"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      الدورات المجانية
+                    </Link>
+                    <button
+                      onClick={() => {
+                        handleNavClick("about");
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                    >
+                      من نحن
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleNavClick("contact");
+                        setIsUserMenuOpen(false);
+                      }}
+                      className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                    >
+                      تواصل معنا
+                    </button>
+                    {currentUser.role === "admin" && (
                       <>
                         <div className="border-t border-gray-200" />
                         <Link
@@ -191,9 +212,10 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                         </Link>
                       </>
                     )}
+                    <div className="border-t border-gray-200" />
                     <Link
                       to="/register"
-                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors border-t border-gray-200 text-right"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         setIsMenuOpen(false);
@@ -238,9 +260,17 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                     {/* Standalone avatar. الطالب يختار مرة واحدة فقط عند التسجيل. */}
                     <div
                       className="w-10 h-10 rounded-full bg-white border-2 border-white shadow flex items-center justify-center overflow-hidden"
-                      title={currentUser?.role === 'student' && currentUser?.avatarChoice ? undefined : 'تغيير صورة البروفايل'}
+                      title={
+                        currentUser?.role === "student" &&
+                        currentUser?.avatarChoice
+                          ? undefined
+                          : "تغيير صورة البروفايل"
+                      }
                     >
-                      <ProfileAvatar choice={currentUser?.avatarChoice || 'male_gulf'} size={40} />
+                      <ProfileAvatar
+                        choice={currentUser?.avatarChoice || "male_gulf"}
+                        size={40}
+                      />
                     </div>
 
                     {/* Dropdown trigger */}
@@ -254,37 +284,16 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                   </div>
                   {isUserMenuOpen && (
                     <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
-                      {/* Navigation shortcuts (always visible in user menu) */}
                       <button
                         onClick={() => {
-                          handleNavClick('contact');
+                          handleNavClick("landing");
                           setIsUserMenuOpen(false);
                           setIsMenuOpen(false);
                         }}
                         className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
                       >
-                        تواصل معنا
+                        الرئيسية
                       </button>
-                      <button
-                        onClick={() => {
-                          handleNavClick('about');
-                          setIsUserMenuOpen(false);
-                          setIsMenuOpen(false);
-                        }}
-                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
-                      >
-                        من نحن
-                      </button>
-                      <Link
-                        to="/foundation"
-                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                        onClick={() => {
-                          setIsUserMenuOpen(false);
-                          setIsMenuOpen(false);
-                        }}
-                      >
-                        دروس مجانية
-                      </Link>
                       <Link
                         to="/courses"
                         className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
@@ -295,8 +304,37 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                       >
                         الدورات
                       </Link>
-
-                      {currentUser.role === 'admin' && (
+                      <Link
+                        to="/foundation"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        الدورات المجانية
+                      </Link>
+                      <button
+                        onClick={() => {
+                          handleNavClick("about");
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      >
+                        من نحن
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleNavClick("contact");
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      >
+                        تواصل معنا
+                      </button>
+                      {currentUser.role === "admin" && (
                         <>
                           <div className="border-t border-gray-200" />
                           <Link
@@ -331,9 +369,10 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                           </Link>
                         </>
                       )}
+                      <div className="border-t border-gray-200" />
                       <Link
                         to="/register"
-                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right border-t border-gray-200"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                         onClick={() => {
                           setIsUserMenuOpen(false);
                           setIsMenuOpen(false);
@@ -350,7 +389,7 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                     </div>
                   )}
                 </div>
-                
+
                 {/* Admin Icon - only for admin, visible indicator */}
                 {/* {currentUser.role === 'admin' && (
                   <div className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-primary-500 rounded-full flex-shrink-0" title="مدير النظام">
@@ -367,8 +406,18 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               aria-label="Menu"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 6h16M4 12h16M4 18h16"
+                />
               </svg>
             </button>
           </div>
@@ -379,13 +428,13 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
           <div className="md:hidden pb-4 border-t border-gray-200 mt-2 pt-4 bg-white ">
             <nav className="flex flex-col gap-4">
               <button
-                onClick={() => handleNavClick('landing')}
+                onClick={() => handleNavClick("landing")}
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium text-right"
               >
                 الرئيسية
               </button>
               <button
-                onClick={() => handleNavClick('courses')}
+                onClick={() => handleNavClick("courses")}
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium text-right"
               >
                 الدورات
@@ -395,16 +444,16 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium text-right"
                 onClick={() => setIsMenuOpen(false)}
               >
-                دروس مجانية
+                الدورات المجانية
               </Link>
               <button
-                onClick={() => handleNavClick('about')}
+                onClick={() => handleNavClick("about")}
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium text-right"
               >
                 من نحن
               </button>
               <button
-                onClick={() => handleNavClick('contact')}
+                onClick={() => handleNavClick("contact")}
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium text-right"
               >
                 تواصل معنا
@@ -437,4 +486,3 @@ const HeaderNoRouter = ({ onNavigate, currentUser: propCurrentUser, onUserChange
 };
 
 export default HeaderNoRouter;
-
