@@ -13,6 +13,7 @@ import {
   isBackendOn,
   getFileByLevel as getFileByLevelApi,
   getItemById as getItemByIdApi,
+  fetchFileAsBlobUrlForViewer,
 } from "../services/backendApi";
 
 const FileViewer = () => {
@@ -64,8 +65,14 @@ const FileViewer = () => {
           } catch (_) {}
         }
         if (isBackendOn() && file.url) {
-          currentFileUrl = file.url;
-          setFileUrl(file.url);
+          const blobUrl = await fetchFileAsBlobUrlForViewer(file.url);
+          if (blobUrl) {
+            currentFileUrl = blobUrl;
+            setFileUrl(blobUrl);
+          } else {
+            currentFileUrl = file.url;
+            setFileUrl(file.url);
+          }
         } else if (
           !isBackendOn() &&
           file.isFileUpload &&
@@ -192,6 +199,21 @@ const FileViewer = () => {
             {fileMetadata.fileName && (
               <p className="text-center text-dark-500 mb-4">
                 {fileMetadata.fileName}
+              </p>
+            )}
+
+            {isBackendOn() && fileMetadata?.url && (
+              <p className="text-center mb-4">
+                <a
+                  href={fileMetadata.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-700 font-medium underline"
+                >
+                  {isArabicBrowser()
+                    ? "فتح الملف في نافذة جديدة"
+                    : "Open file in new tab"}
+                </a>
               </p>
             )}
 

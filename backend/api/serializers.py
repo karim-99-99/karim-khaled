@@ -248,11 +248,17 @@ class FileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
     
     def get_file_url(self, obj):
-        if obj.file:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.file.url)
-        return None
+        if not obj.file:
+            return None
+        url = obj.file.url
+        if not url:
+            return None
+        if isinstance(url, str) and (url.startswith('http://') or url.startswith('https://')):
+            return url
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
 
 class StudentProgressSerializer(serializers.ModelSerializer):

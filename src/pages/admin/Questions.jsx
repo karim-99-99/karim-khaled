@@ -938,7 +938,12 @@ const Questions = () => {
       }
     } catch (error) {
       console.error("Error saving passage:", error);
-      alert("حدث خطأ أثناء حفظ القطعة. يرجى المحاولة مرة أخرى.");
+      const msg = (error?.message || "").trim();
+      alert(
+        msg
+          ? `حدث خطأ أثناء حفظ القطعة:\n${msg}`
+          : "حدث خطأ أثناء حفظ القطعة. يرجى المحاولة مرة أخرى.",
+      );
     }
   };
 

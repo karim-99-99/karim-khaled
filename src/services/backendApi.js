@@ -101,6 +101,32 @@ const request = async (path, options = {}) => {
 
 export const isBackendOn = () => !!(import.meta.env.VITE_API_URL && getToken());
 
+/**
+ * Fetch file from our API (e.g. /media/...) with auth and return a blob URL
+ * for use in iframe. Use when file URL is on API host; iframe does not send
+ * Authorization so direct src would fail when auth is required.
+ * Returns null if URL is external or fetch fails; caller should use original URL.
+ */
+export const fetchFileAsBlobUrlForViewer = async (fileUrl) => {
+  if (!fileUrl || typeof fileUrl !== "string") return null;
+  const base = getBase();
+  if (!base) return null;
+  const apiOrigin = base.replace(/\/api\/?$/, "");
+  if (!apiOrigin || !fileUrl.startsWith(apiOrigin)) return null;
+  try {
+    const token = getToken();
+    const res = await fetch(fileUrl, {
+      headers: token ? { Authorization: `Token ${token}` } : {},
+      mode: "cors",
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+};
+
 // ——— Auth ———
 export const login = async (username, password) => {
   const data = await request("/auth/login/", {
