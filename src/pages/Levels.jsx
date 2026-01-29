@@ -65,12 +65,13 @@ const Levels = () => {
 
   useEffect(() => {
     let c = false;
+    const user = getCurrentUser();
     async function load() {
       try {
         if (useBackend) {
           const ch = await getChapterByIdApi(chapterId);
           if (!c) setChapter(ch || null);
-          if (currentUser) {
+          if (user) {
             const [v, f, q] = await Promise.all([
               getVideos(),
               getFiles(),
@@ -91,6 +92,8 @@ const Levels = () => {
         } else {
           if (!c) setChapter(getChapterById(chapterId) || null);
         }
+      } catch (e) {
+        if (!c) setChapter(null);
       } finally {
         if (!c) setLoading(false);
       }
@@ -99,7 +102,7 @@ const Levels = () => {
     return () => {
       c = true;
     };
-  }, [chapterId, isAdmin, useBackend, currentUser]);
+  }, [chapterId, useBackend]);
 
   const norm = (id) => (id == null ? "" : String(id));
   const getVideoForItem = (itemId) => {
