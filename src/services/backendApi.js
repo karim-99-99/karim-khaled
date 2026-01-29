@@ -456,7 +456,7 @@ const mapQuestionFromBackend = (q) => {
       return {
         id: q.id || "",
         type: "passage",
-        passageText: q.passage_text || q.passageText || "",
+        passageText: q.passage_text ?? q.passageText ?? "",
         questions: (q.passage_questions || q.questions || []).map((pq) => ({
           id:
             pq.id ||
@@ -470,6 +470,7 @@ const mapQuestionFromBackend = (q) => {
         })),
         itemId: lessonId,
         levelId: lessonId,
+        createdAt: q.created_at || null,
       };
     }
 
@@ -550,6 +551,18 @@ export const getQuestionsByLevel = async (levelId) => {
   } catch (err) {
     console.error("Error in getQuestionsByLevel:", err);
     return [];
+  }
+};
+
+/** Fetch a single question by ID (full detail). Use when list omits passage_text / passage_questions. */
+export const getQuestionById = async (questionId) => {
+  try {
+    if (!questionId) return null;
+    const data = await request(`/questions/${encodeURIComponent(questionId)}/`);
+    return mapQuestionFromBackend(data);
+  } catch (err) {
+    console.error("Error in getQuestionById:", err);
+    return null;
   }
 };
 

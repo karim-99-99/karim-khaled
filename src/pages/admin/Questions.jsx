@@ -557,11 +557,42 @@ const Questions = () => {
         if (!alive) return;
 
         // Sort questions by createdAt to maintain order
-        const sortedQuestions = (levelQuestions || []).sort((a, b) => {
+        let sortedQuestions = (levelQuestions || []).sort((a, b) => {
           const dateA = new Date(a.createdAt || 0);
           const dateB = new Date(b.createdAt || 0);
           return dateA - dateB;
         });
+
+        // Refetch passage detail when list omits passage_text / passage_questions (e.g. pagination)
+        if (useBackend && backendApi.isBackendOn() && backendApi.getQuestionById) {
+          const merged = [];
+          for (const q of sortedQuestions) {
+            if (q.type === "passage") {
+              const noPassageText = !(q.passageText || "").trim();
+              const noQuestions = !q.questions || q.questions.length === 0;
+              const noContent = noPassageText && noQuestions;
+              if (noContent && q.id) {
+                try {
+                  const full = await backendApi.getQuestionById(q.id);
+                  if (full && ((full.passageText || "").trim() || (full.questions || []).length > 0)) {
+                    merged.push({
+                      ...q,
+                      passageText: full.passageText ?? q.passageText,
+                      questions: full.questions ?? q.questions,
+                    });
+                    continue;
+                  }
+                } catch (e) {
+                  console.warn("Refetch passage by id failed:", q.id, e);
+                }
+              }
+            }
+            merged.push(q);
+          }
+          sortedQuestions = merged;
+        }
+
+        if (!alive) return;
         setQuestions(sortedQuestions);
       } catch (error) {
         console.error("Error loading questions:", error);
@@ -590,11 +621,38 @@ const Questions = () => {
       } else {
         levelQuestions = getQuestionsByLevel(levelId);
       }
-      const sorted = (levelQuestions || []).sort((a, b) => {
+      let sorted = (levelQuestions || []).sort((a, b) => {
         const dateA = new Date(a.createdAt || 0);
         const dateB = new Date(b.createdAt || 0);
         return dateA - dateB;
       });
+      if (useBackend && backendApi.isBackendOn() && backendApi.getQuestionById) {
+        const merged = [];
+        for (const q of sorted) {
+          if (q.type === "passage") {
+            const noPassageText = !(q.passageText || "").trim();
+            const noQuestions = !q.questions || q.questions.length === 0;
+            const noContent = noPassageText && noQuestions;
+            if (noContent && q.id) {
+              try {
+                const full = await backendApi.getQuestionById(q.id);
+                if (full && ((full.passageText || "").trim() || (full.questions || []).length > 0)) {
+                  merged.push({
+                    ...q,
+                    passageText: full.passageText ?? q.passageText,
+                    questions: full.questions ?? q.questions,
+                  });
+                  continue;
+                }
+              } catch (e) {
+                console.warn("Refetch passage by id failed:", q.id, e);
+              }
+            }
+          }
+          merged.push(q);
+        }
+        sorted = merged;
+      }
       setQuestions(sorted);
     } catch (err) {
       console.error("Error refetching questions:", err);
@@ -1326,16 +1384,22 @@ const Questions = () => {
                               {/* Passage Text */}
                               <div className="bg-white rounded-lg p-4 mb-4 border border-green-200">
                                 <div className="text-sm sm:text-base md:text-lg text-dark-700 leading-relaxed">
-                                  <MathRenderer
-                                    html={question.passageText || ""}
-                                    inline={false}
-                                  />
+                                  {(question.passageText || "").trim() ? (
+                                    <MathRenderer
+                                      html={question.passageText || ""}
+                                      inline={false}
+                                    />
+                                  ) : (
+                                    <p className="text-gray-500 italic">
+                                      لا يوجد نص للقطعة. اضغط &quot;تعديل&quot; لإضافة المحتوى.
+                                    </p>
+                                  )}
                                 </div>
                               </div>
 
                               {/* Questions in Passage */}
                               <div className="space-y-4">
-                                {question.questions &&
+                                {question.questions && question.questions.length > 0 ? (
                                   question.questions.map((q, qIndex) => (
                                     <div
                                       key={q.id || qIndex}
@@ -1378,7 +1442,12 @@ const Questions = () => {
                                           ))}
                                       </div>
                                     </div>
-                                  ))}
+                                  ))
+                                ) : (
+                                  <p className="text-gray-500 italic py-2">
+                                    لا توجد أسئلة في القطعة. اضغط &quot;تعديل&quot; لإضافتها.
+                                  </p>
+                                )}
                               </div>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
