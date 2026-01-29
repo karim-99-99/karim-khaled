@@ -1,5 +1,11 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import {
+  useNavigate,
+  useParams,
+  useSearchParams,
+  useLocation,
+  Link,
+} from "react-router-dom";
 import {
   getLevelProgress,
   getCurrentUser,
@@ -29,6 +35,7 @@ const Levels = () => {
   const { sectionId, subjectId, categoryId, chapterId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const returnUrl = searchParams.get("returnUrl");
   const [chapter, setChapter] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -63,15 +70,23 @@ const Levels = () => {
         if (useBackend) {
           const ch = await getChapterByIdApi(chapterId);
           if (!c) setChapter(ch || null);
-          const [v, f, q] = await Promise.all([
-            getVideos(),
-            getFiles(),
-            getQuestions({ chapter_id: chapterId }),
-          ]);
-          if (!c) {
-            setVideos(Array.isArray(v) ? v : []);
-            setFiles(Array.isArray(f) ? f : []);
-            setQuestions(Array.isArray(q) ? q : []);
+          if (currentUser) {
+            const [v, f, q] = await Promise.all([
+              getVideos(),
+              getFiles(),
+              getQuestions({ chapter_id: chapterId }),
+            ]);
+            if (!c) {
+              setVideos(Array.isArray(v) ? v : []);
+              setFiles(Array.isArray(f) ? f : []);
+              setQuestions(Array.isArray(q) ? q : []);
+            }
+          } else {
+            if (!c) {
+              setVideos([]);
+              setFiles([]);
+              setQuestions([]);
+            }
           }
         } else {
           if (!c) setChapter(getChapterById(chapterId) || null);
@@ -84,13 +99,14 @@ const Levels = () => {
     return () => {
       c = true;
     };
-  }, [chapterId, isAdmin, useBackend]);
+  }, [chapterId, isAdmin, useBackend, currentUser]);
 
+  const norm = (id) => (id == null ? "" : String(id));
   const getVideoForItem = (itemId) => {
     if (useBackend)
       return (
         (videos || []).find(
-          (v) => (v.lesson || v.itemId || v.levelId) === itemId,
+          (v) => norm(v.lesson || v.itemId || v.levelId) === norm(itemId),
         ) || null
       );
     return getVideoByLevel(itemId);
@@ -99,7 +115,7 @@ const Levels = () => {
     if (useBackend)
       return (
         (files || []).find(
-          (f) => (f.lesson || f.itemId || f.levelId) === itemId,
+          (f) => norm(f.lesson || f.itemId || f.levelId) === norm(itemId),
         ) || null
       );
     return getFileByLevel(itemId);
@@ -107,7 +123,7 @@ const Levels = () => {
   const getQuestionsForItem = (itemId) => {
     if (useBackend)
       return (questions || []).filter(
-        (q) => (q.lesson || q.levelId || q.itemId) === itemId,
+        (q) => norm(q.lesson || q.levelId || q.itemId) === norm(itemId),
       );
     return getQuestionsByLevel(itemId);
   };
@@ -371,6 +387,22 @@ const Levels = () => {
             </div>
           )}
 
+          {!currentUser && !isAdmin && (
+            <div className="mb-6 p-4 bg-primary-50 border border-primary-200 rounded-xl text-center">
+              <p className="text-dark-700 font-medium mb-3">
+                {isArabicBrowser()
+                  ? "سجّل الدخول لمشاهدة الفيديوهات والملفات وحل الاختبارات"
+                  : "Sign in to watch videos, read files, and take quizzes"}
+              </p>
+              <Link
+                to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}
+                className="inline-block px-6 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition"
+              >
+                {isArabicBrowser() ? "تسجيل الدخول" : "Sign in"}
+              </Link>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {items.map((item) => {
               const status = getItemStatus(item.id);
@@ -482,6 +514,15 @@ const Levels = () => {
                     ) : (
                       <>
                         {(() => {
+                          if (!currentUser) {
+                            return (
+                              <p className="text-dark-600 text-sm font-medium">
+                                {isArabicBrowser()
+                                  ? "سجّل الدخول لمشاهدة المحتوى وحل الاختبارات"
+                                  : "Sign in to view content and take quizzes"}
+                              </p>
+                            );
+                          }
                           const video = getVideoForItem(item.id);
                           const file = getFileForItem(item.id);
                           const qs = getQuestionsForItem(item.id);

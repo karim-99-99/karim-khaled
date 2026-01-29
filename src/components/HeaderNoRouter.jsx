@@ -65,7 +65,9 @@ const HeaderNoRouter = ({
             {/* <span className="text-2xl font-bold text-primary-500">بدايتي</span> */}
           </button>
 
-          <nav className="hidden md:flex items-center gap-4 justify-center">
+          <nav
+            className={`hidden lg:flex items-center justify-center gap-4 ${!currentUser ? "lg:pl-20" : ""}`}
+          >
             <button
               onClick={() => handleNavClick("landing")}
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
@@ -233,7 +235,7 @@ const HeaderNoRouter = ({
                 )}
               </div>
             ) : (
-              <div className="absolute left-0 flex items-center gap-2">
+              <div className="absolute left-0 flex items-center gap-2 lg:gap-5">
                 <Link
                   to="/register"
                   className="px-4 py-2 border-2 border-primary-500 rounded-full bg-transparent hover:bg-primary-500 hover:text-white transition-colors font-medium text-primary-500"
@@ -250,8 +252,8 @@ const HeaderNoRouter = ({
             )}
           </nav>
 
-          {/* Mobile Menu Button and User Button */}
-          <div className="md:hidden flex items-center gap-2 absolute left-0 z-10 bg-white">
+          {/* Mobile Menu Button and User Button — حتى 1023px */}
+          <div className="lg:hidden flex items-center gap-2 absolute left-0 z-10 bg-white">
             {currentUser && (
               <>
                 {/* User Menu Selector - always visible for admin and student */}
@@ -401,31 +403,33 @@ const HeaderNoRouter = ({
                 )} */}
               </>
             )}
-            <button
-              className="p-2 text-dark-600 flex-shrink-0"
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              aria-label="Menu"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            {!currentUser && (
+              <button
+                className="p-2 text-dark-600 flex-shrink-0"
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                aria-label="Menu"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
+                <svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div className="md:hidden pb-4 border-t border-gray-200 mt-2 pt-4 bg-white ">
+        {/* Mobile Menu — للزوار فقط؛ حتى 1023px */}
+        {!currentUser && isMenuOpen && (
+          <div className="lg:hidden pb-4 border-t border-gray-200 mt-2 pt-4 bg-white ">
             <nav className="flex flex-col gap-4">
               <button
                 onClick={() => handleNavClick("landing")}

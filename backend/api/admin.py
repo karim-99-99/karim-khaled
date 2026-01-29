@@ -8,14 +8,18 @@ from .models import (
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ['username', 'email', 'role', 'is_active_account', 'is_active', 'date_joined']
-    list_filter = ['role', 'is_active_account', 'is_active']
+    list_display = ['username', 'email', 'role', 'is_active_account', 'allow_multi_device', 'is_active', 'date_joined']
+    list_filter = ['role', 'is_active_account', 'allow_multi_device', 'is_active']
     fieldsets = BaseUserAdmin.fieldsets + (
         ('Role & Permissions', {
             'fields': ('role', 'phone', 'is_active_account',
-                      'has_abilities_access', 'has_collection_access',
-                      'abilities_subjects_verbal', 'abilities_subjects_quantitative',
-                      'abilities_categories_foundation', 'abilities_categories_collections')
+                       'has_abilities_access', 'has_collection_access',
+                       'abilities_subjects_verbal', 'abilities_subjects_quantitative',
+                       'abilities_categories_foundation', 'abilities_categories_collections')
+        }),
+        ('Device / IP access', {
+            'fields': ('registered_ip', 'allow_multi_device'),
+            'description': 'Students can log in only from registered IP unless allow_multi_device is enabled.',
         }),
     )
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
@@ -26,6 +30,7 @@ class UserAdmin(BaseUserAdmin):
                       'abilities_categories_foundation', 'abilities_categories_collections')
         }),
     )
+    readonly_fields = ['registered_ip']
 
 
 @admin.register(Section)

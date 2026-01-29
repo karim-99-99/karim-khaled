@@ -413,10 +413,30 @@ const SinglePage = () => {
               <p className="text-lg md:text-xl lg:text-2xl mb-4 md:mb-6 text-dark-600 font-medium max-w-4xl mx-auto">
                 طور مهاراتك من خلال دوراتنا التعليمية المميزة
               </p>
-              <p className="text-base md:text-lg lg:text-xl mb-8 md:mb-12 text-dark-600 font-medium max-w-4xl mx-auto">
+              <p className="text-base md:text-lg lg:text-xl mb-6 md:mb-8 text-dark-600 font-medium max-w-4xl mx-auto">
                 بدايتي هي منصة تعليمية متخصصة في تحضير الطلاب والطالبات لاختبار
                 القدرات
               </p>
+              <div className="flex flex-wrap justify-center gap-4 md:gap-6">
+                <button
+                  onClick={handleDiscoverCourses}
+                  className="group px-8 py-4 bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 rounded-2xl text-lg md:text-xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl text-white transform hover:scale-105"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>الدورات</span>
+                   
+                  </span>
+                </button>
+                <button
+                  onClick={handleDiscoverFreeCourses}
+                  className="group px-8 py-4 bg-white border-2 border-primary-500 text-primary-600 hover:bg-primary-50 rounded-2xl text-lg md:text-xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  <span className="flex items-center gap-2">
+                    <span>الدورات المجانية</span>
+                    
+                  </span>
+                </button>
+              </div>
             </div>
 
             {/* Boy Image - Centered below text */}

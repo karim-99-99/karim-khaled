@@ -86,7 +86,14 @@ const request = async (path, options = {}) => {
         ? JSON.stringify(err)
         : null) ||
       `خطأ ${res.status}`;
-    throw new Error(msg);
+    const e = new Error(msg);
+    if (
+      res.status === 403 &&
+      (err.code === "device_restricted" ||
+        (typeof msg === "string" && msg.includes("registered device")))
+    )
+      e.code = "device_restricted";
+    throw e;
   }
   if (res.status === 204) return null;
   return res.json();
@@ -142,6 +149,7 @@ export const mapUserFromBackend = (u) => ({
       collections: u.abilities_categories_collections || false,
     },
   },
+  allowMultiDevice: !!u.allow_multi_device,
 });
 
 export const getUsers = async () => {
@@ -196,6 +204,8 @@ export const updateUser = async (userId, updates) => {
           p.abilitiesCategories.collections;
     }
   }
+  if (updates.allowMultiDevice !== undefined)
+    backendUpdates.allow_multi_device = !!updates.allowMultiDevice;
 
   const data = await request(`/users/${encodeURIComponent(userId)}/`, {
     method: "PATCH",

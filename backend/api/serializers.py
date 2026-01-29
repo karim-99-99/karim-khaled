@@ -12,11 +12,12 @@ class UserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role', 
-                  'phone', 'is_active_account', 'has_abilities_access', 
-                  'has_collection_access', 'abilities_subjects_verbal', 
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role',
+                  'phone', 'is_active_account', 'has_abilities_access',
+                  'has_collection_access', 'abilities_subjects_verbal',
                   'abilities_subjects_quantitative', 'abilities_categories_foundation',
-                  'abilities_categories_collections', 'avatar_choice', 'date_joined']
+                  'abilities_categories_collections', 'avatar_choice',
+                  'allow_multi_device', 'date_joined']
         read_only_fields = ['id', 'date_joined']
 
 
@@ -58,11 +59,11 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name', 'phone', 
-                  'is_active_account', 'has_abilities_access', 
-                  'has_collection_access', 'abilities_subjects_verbal', 
+        fields = ['username', 'email', 'first_name', 'last_name', 'phone',
+                  'is_active_account', 'has_abilities_access',
+                  'has_collection_access', 'abilities_subjects_verbal',
                   'abilities_subjects_quantitative', 'abilities_categories_foundation',
-                  'abilities_categories_collections', 'avatar_choice']
+                  'abilities_categories_collections', 'avatar_choice', 'allow_multi_device']
 
 
 class LoginSerializer(serializers.Serializer):

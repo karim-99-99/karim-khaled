@@ -20,16 +20,10 @@ const AdminUsers = () => {
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState({
     hasAbilitiesAccess: false,
-    // "تحصيلي" section removed — keep only abilities permissions.
-    abilitiesSubjects: {
-      verbal: false,
-      quantitative: false,
-    },
-    abilitiesCategories: {
-      foundation: false,
-      collections: false,
-    },
+    abilitiesSubjects: { verbal: false, quantitative: false },
+    abilitiesCategories: { foundation: false, collections: false },
   });
+  const [allowMultiDevice, setAllowMultiDevice] = useState(false);
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
   const useBackend = backendApi.isBackendOn();
@@ -146,6 +140,7 @@ const AdminUsers = () => {
         collections: !!p.abilitiesCategories?.collections,
       },
     });
+    setAllowMultiDevice(!!user.allowMultiDevice);
     setShowPermissionsModal(true);
   };
 
@@ -188,7 +183,10 @@ const AdminUsers = () => {
 
     try {
       if (useBackend) {
-        await backendApi.updateUser(selectedUser.id, { permissions: merged });
+        await backendApi.updateUser(selectedUser.id, {
+          permissions: merged,
+          allowMultiDevice,
+        });
       } else {
         updateUserLocal(selectedUser.id, { permissions: merged });
       }
@@ -643,6 +641,32 @@ const AdminUsers = () => {
                   </>
                 )}
               </div>
+
+              {useBackend && (
+                <div className="border-b pb-4 mb-6">
+                  <h3 className="text-lg font-semibold text-dark-600 mb-3">
+                    {isArabicBrowser() ? "الوصول من الأجهزة" : "Device Access"}
+                  </h3>
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={allowMultiDevice}
+                      onChange={(e) => setAllowMultiDevice(e.target.checked)}
+                      className="w-5 h-5 text-primary-500 rounded focus:ring-primary-500"
+                    />
+                    <span className="text-dark-600 font-medium">
+                      {isArabicBrowser()
+                        ? "السماح بالوصول من أجهزة متعددة"
+                        : "Allow access from multiple devices"}
+                    </span>
+                  </label>
+                  <p className="text-sm text-dark-500 mt-2 pr-8">
+                    {isArabicBrowser()
+                      ? "بدون هذا الخيار، الطالب يدخل فقط من الجهاز الذي سجّل منه."
+                      : "Without this, student can only log in from the device they registered on."}
+                  </p>
+                </div>
+              )}
 
               {/* Action Buttons */}
               <div className="flex justify-end gap-3">

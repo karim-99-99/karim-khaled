@@ -12,6 +12,8 @@ from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
     Question, Answer, Video, File, StudentProgress, LessonProgress
 )
+from .utils import get_client_ip
+from .permissions import IsAuthenticatedDeviceAllowed
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, LoginSerializer,
     SectionSerializer, SubjectSerializer, CategorySerializer, ChapterSerializer, LessonSerializer,
@@ -26,7 +28,7 @@ PUBLIC_FOUNDATION_SUBJECT_IDS = ['مادة_اللفظي', 'مادة_الكمي']
 
 class IsAdminUser(permissions.BasePermission):
     """Permission class to check if user is admin"""
-    
+
     def has_permission(self, request, view):
         return request.user and request.user.is_authenticated and request.user.role == 'admin'
 
@@ -34,11 +36,15 @@ class IsAdminUser(permissions.BasePermission):
 class RegisterView(APIView):
     """User registration endpoint"""
     permission_classes = [permissions.AllowAny]
-    
+
     def post(self, request):
         serializer = UserCreateSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
+            ip = get_client_ip(request)
+            if ip and user.role == 'student':
+                user.registered_ip = ip
+                user.save(update_fields=['registered_ip'])
             token, created = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
@@ -74,7 +80,18 @@ class LoginView(APIView):
                         {'error': 'Account is not active. Please contact administrator.'},
                         status=status.HTTP_403_FORBIDDEN
                     )
-                
+                if user.role == 'student' and not getattr(user, 'allow_multi_device', False):
+                    reg = getattr(user, 'registered_ip', None) or ''
+                    if reg.strip():
+                        ip = get_client_ip(request) or ''
+                        if ip.strip() != reg.strip():
+                            return Response(
+                                {
+                                    'error': 'Access allowed only from your registered device. Contact administrator for multi-device access.',
+                                    'code': 'device_restricted',
+                                },
+                                status=status.HTTP_403_FORBIDDEN
+                            )
                 token, created = Token.objects.get_or_create(user=user)
                 login(request, user)
                 return Response({
@@ -144,19 +161,19 @@ class UserViewSet(viewsets.ModelViewSet):
     """User management (admin only for list/update, users can view themselves)"""
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
     def get_serializer_class(self):
         if self.action == 'create':
             return UserCreateSerializer
         elif self.action in ['update', 'partial_update']:
             return UserUpdateSerializer
         return UserSerializer
-    
+
     def get_permissions(self):
         if self.action in ['list', 'create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
-        return [permissions.IsAuthenticated()]
+        return [IsAuthenticatedDeviceAllowed()]
     
     @action(detail=False, methods=['get'])
     def me(self, request):
@@ -193,11 +210,16 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class SectionViewSet(viewsets.ReadOnlyModelViewSet):
-    """Sections viewset (read-only for all authenticated users)"""
+    """Sections viewset (read-only). List/retrieve public for visitors; rest unchanged."""
     queryset = Section.objects.prefetch_related('subjects__categories__chapters__items').all()
     serializer_class = SectionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get_permissions(self):
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [IsAuthenticatedDeviceAllowed()]
+
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.exclude(id__in=DISABLED_SECTION_IDS)
@@ -207,13 +229,15 @@ class SubjectViewSet(viewsets.ModelViewSet):
     """Subjects CRUD (admin for write)"""
     queryset = Subject.objects.prefetch_related('categories__chapters__items').all()
     serializer_class = SubjectSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedDeviceAllowed]
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
-        return [permissions.IsAuthenticated()]
-    
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [IsAuthenticatedDeviceAllowed()]
+
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.exclude(section_id__in=DISABLED_SECTION_IDS)
@@ -227,7 +251,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     """Categories CRUD (admin for write)"""
     queryset = Category.objects.prefetch_related('chapters__items').all()
     serializer_class = CategorySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedDeviceAllowed]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -239,7 +263,9 @@ class CategoryViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
-        return [permissions.IsAuthenticated()]
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [IsAuthenticatedDeviceAllowed()]
 
     def perform_create(self, serializer):
         sub = serializer.validated_data.get('subject')
@@ -252,7 +278,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
     """Chapters CRUD (admin for write)"""
     queryset = Chapter.objects.prefetch_related('items').all()
     serializer_class = ChapterSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedDeviceAllowed]
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
 
@@ -266,13 +292,15 @@ class ChapterViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
-        return [permissions.IsAuthenticated()]
+        if self.action in ['list', 'retrieve']:
+            return [permissions.AllowAny()]
+        return [IsAuthenticatedDeviceAllowed()]
 
     def perform_create(self, serializer):
         cat = serializer.validated_data.get('category')
         if not cat:
             raise ValueError("Category is required")
-        
+
         # Generate ID in Arabic format: {categoryId}_فصل_{number}
         id_val = self.request.data.get('id')
         if not id_val:
@@ -300,7 +328,7 @@ class LessonViewSet(viewsets.ModelViewSet):
     """Lessons/Items CRUD (admin for write)"""
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedDeviceAllowed]
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
 
@@ -314,7 +342,7 @@ class LessonViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
-        return [permissions.IsAuthenticated()]
+        return [IsAuthenticatedDeviceAllowed()]
 
     def perform_create(self, serializer):
         ch = serializer.validated_data.get('chapter')
@@ -347,7 +375,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 class QuestionViewSet(viewsets.ModelViewSet):
     """Questions management"""
     queryset = Question.objects.select_related('lesson', 'chapter', 'category', 'subject', 'section', 'created_by').prefetch_related('answers').all()
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedDeviceAllowed]
     
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
@@ -381,7 +409,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
-        return [permissions.IsAuthenticated()]
+        return [IsAuthenticatedDeviceAllowed()]
     
     def perform_create(self, serializer):
         qid = self.request.data.get('id') or f"q_{int(timezone.now().timestamp())}_{uuid.uuid4().hex[:8]}"
@@ -415,7 +443,7 @@ class VideoViewSet(viewsets.ModelViewSet):
     """Videos management"""
     queryset = Video.objects.select_related('lesson', 'chapter', 'category', 'subject', 'section', 'created_by').all()
     serializer_class = VideoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedDeviceAllowed]
     
     def get_queryset(self):
         queryset = super().get_queryset().exclude(section_id__in=DISABLED_SECTION_IDS)
@@ -427,7 +455,7 @@ class VideoViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
-        return [permissions.IsAuthenticated()]
+        return [IsAuthenticatedDeviceAllowed()]
     
     def perform_create(self, serializer):
         vid = self.request.data.get('id') or f"v_{uuid.uuid4().hex[:12]}"
@@ -456,7 +484,7 @@ class FileViewSet(viewsets.ModelViewSet):
     """Files management"""
     queryset = File.objects.select_related('lesson', 'chapter', 'category', 'subject', 'section', 'created_by').all()
     serializer_class = FileSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedDeviceAllowed]
     
     def get_queryset(self):
         queryset = super().get_queryset().exclude(section_id__in=DISABLED_SECTION_IDS)
@@ -468,7 +496,7 @@ class FileViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
-        return [permissions.IsAuthenticated()]
+        return [IsAuthenticatedDeviceAllowed()]
     
     def perform_create(self, serializer):
         fid = self.request.data.get('id') or f"f_{uuid.uuid4().hex[:12]}"
@@ -496,7 +524,7 @@ class FileViewSet(viewsets.ModelViewSet):
 class StudentProgressViewSet(viewsets.ModelViewSet):
     """Student progress tracking"""
     serializer_class = StudentProgressSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedDeviceAllowed]
     
     def get_queryset(self):
         # Students can only see their own progress
@@ -532,7 +560,7 @@ class StudentProgressViewSet(viewsets.ModelViewSet):
 class LessonProgressViewSet(viewsets.ReadOnlyModelViewSet):
     """Lesson progress tracking (read-only)"""
     serializer_class = LessonProgressSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticatedDeviceAllowed]
     
     def get_queryset(self):
         # Students can only see their own progress
