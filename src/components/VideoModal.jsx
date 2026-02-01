@@ -1,10 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getVideoFile } from '../services/videoStorage';
 import { isArabicBrowser } from '../utils/language';
+import { isBackendOn, recordVideoWatch } from '../services/backendApi';
 
-const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليمي' }) => {
+const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليمي', lessonId, videoId }) => {
   const [actualVideoUrl, setActualVideoUrl] = useState(null);
   const [loading, setLoading] = useState(false);
+  const hasRecordedRef = useRef(false);
+
+  const recordWatch = () => {
+    if (hasRecordedRef.current || !lessonId || !isBackendOn()) return;
+    hasRecordedRef.current = true;
+    recordVideoWatch(lessonId, videoId || null).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (isOpen) hasRecordedRef.current = false;
+  }, [isOpen]);
 
   useEffect(() => {
     const loadVideo = async () => {
@@ -61,7 +73,10 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-xl font-bold text-dark-600">{title}</h3>
           <button
-            onClick={onClose}
+            onClick={() => {
+              if (!hasRecordedRef.current && lessonId) recordWatch();
+              onClose();
+            }}
             className="p-2 text-dark-600 hover:text-primary-500 hover:bg-gray-100 rounded-full transition text-2xl"
           >
             ✕
@@ -86,6 +101,7 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
                 controls
                 className="w-full h-full rounded"
                 autoPlay={false}
+                onEnded={recordWatch}
               >
                 {isArabicBrowser() ? 'متصفحك لا يدعم تشغيل الفيديو' : 'Your browser does not support video playback'}
               </video>

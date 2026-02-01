@@ -10,7 +10,7 @@ const HeaderNoRouter = ({
   onUserChange,
 }) => {
   const [currentUser, setCurrentUser] = useState(
-    propCurrentUser || getCurrentUser(),
+    propCurrentUser || getCurrentUser()
   );
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -66,7 +66,9 @@ const HeaderNoRouter = ({
           </button>
 
           <nav
-            className={`hidden lg:flex items-center justify-center gap-4 ${!currentUser ? "lg:pl-20" : ""}`}
+            className={`hidden lg:flex items-center justify-center gap-4 ${
+              !currentUser ? "lg:pl-20" : ""
+            }`}
           >
             <button
               onClick={() => handleNavClick("landing")}
@@ -80,13 +82,13 @@ const HeaderNoRouter = ({
             >
               الدورات
             </button>
-            <Link
+            {/* <Link
               to="/foundation"
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
               onClick={() => setIsMenuOpen(false)}
             >
               الدورات المجانية
-            </Link>
+            </Link> */}
             <button
               onClick={() => handleNavClick("about")}
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
@@ -153,7 +155,7 @@ const HeaderNoRouter = ({
                     </Link>
                     <Link
                       to="/foundation"
-                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                      className="hidden block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         setIsMenuOpen(false);
@@ -200,7 +202,7 @@ const HeaderNoRouter = ({
                             setIsMenuOpen(false);
                           }}
                         >
-                          إدارة الاختبار
+                          إدارة الواجب
                         </Link>
                         <Link
                           to="/admin/users"
@@ -308,7 +310,7 @@ const HeaderNoRouter = ({
                       </Link>
                       <Link
                         to="/foundation"
-                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        className="hidden block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                         onClick={() => {
                           setIsUserMenuOpen(false);
                           setIsMenuOpen(false);
@@ -357,7 +359,7 @@ const HeaderNoRouter = ({
                               setIsMenuOpen(false);
                             }}
                           >
-                            إدارة الاختبار
+                            إدارة الواجب
                           </Link>
                           <Link
                             to="/admin/users"
@@ -445,7 +447,7 @@ const HeaderNoRouter = ({
               </button>
               <Link
                 to="/foundation"
-                className="text-dark-600 hover:text-primary-500 transition-colors font-medium text-right"
+                className="hidden text-dark-600 hover:text-primary-500 transition-colors font-medium text-right"
                 onClick={() => setIsMenuOpen(false)}
               >
                 الدورات المجانية

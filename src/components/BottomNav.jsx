@@ -47,6 +47,7 @@ const navItems = [
   {
     to: "/foundation",
     label: "الدورات المجانية",
+    hidden: true,
     icon: (
       <svg
         className="w-6 h-6"
@@ -77,25 +78,27 @@ export default function BottomNav() {
       aria-label="التنقل الرئيسي"
     >
       <div className="flex items-stretch justify-around h-16 max-w-lg mx-auto px-2">
-        {navItems.map((item) => {
-          const isActive = item.match(path);
-          return (
-            <Link
-              key={item.to}
-              to={item.to}
-              className={`flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 py-2 rounded-xl transition-colors ${
-                isActive
-                  ? "text-primary-300 border border-primary-500 bg-primary-500/15"
-                  : "text-dark-200 hover:text-white hover:bg-dark-700"
-              }`}
-            >
-              <span className="flex-shrink-0">{item.icon}</span>
-              <span className="text-xs font-medium truncate max-w-full px-1">
-                {item.label}
-              </span>
-            </Link>
-          );
-        })}
+        {navItems
+          .filter((item) => !item.hidden)
+          .map((item) => {
+            const isActive = item.match(path);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={`flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 py-2 rounded-xl transition-colors ${
+                  isActive
+                    ? "text-primary-300 border border-primary-500 bg-primary-500/15"
+                    : "text-dark-200 hover:text-white hover:bg-dark-700"
+                }`}
+              >
+                <span className="flex-shrink-0">{item.icon}</span>
+                <span className="text-xs font-medium truncate max-w-full px-1">
+                  {item.label}
+                </span>
+              </Link>
+            );
+          })}
       </div>
     </nav>
   );

@@ -60,6 +60,10 @@ const Levels = () => {
   const categoryName = (categoryId || "").includes("تأسيس")
     ? "التأسيس"
     : "التجميعات";
+  const isTajmiat = categoryName === "التجميعات";
+  const lessonLabel = isTajmiat ? "البنك" : "الدرس";
+  const manageLabel = isTajmiat ? "إدارة البنك" : "إدارة الواجب";
+  const solveLabel = isTajmiat ? "حل البنك" : "حل الواجب";
   const canAccessMedia =
     isAdmin || (currentUser && hasCategoryAccess(currentUser, categoryName));
 
@@ -109,7 +113,7 @@ const Levels = () => {
     if (useBackend)
       return (
         (videos || []).find(
-          (v) => norm(v.lesson || v.itemId || v.levelId) === norm(itemId),
+          (v) => norm(v.lesson || v.itemId || v.levelId) === norm(itemId)
         ) || null
       );
     return getVideoByLevel(itemId);
@@ -118,7 +122,7 @@ const Levels = () => {
     if (useBackend)
       return (
         (files || []).find(
-          (f) => norm(f.lesson || f.itemId || f.levelId) === norm(itemId),
+          (f) => norm(f.lesson || f.itemId || f.levelId) === norm(itemId)
         ) || null
       );
     return getFileByLevel(itemId);
@@ -126,7 +130,7 @@ const Levels = () => {
   const getQuestionsForItem = (itemId) => {
     if (useBackend)
       return (questions || []).filter(
-        (q) => norm(q.lesson || q.levelId || q.itemId) === norm(itemId),
+        (q) => norm(q.lesson || q.levelId || q.itemId) === norm(itemId)
       );
     return getQuestionsByLevel(itemId);
   };
@@ -141,7 +145,7 @@ const Levels = () => {
     if (!currentUser) {
       // Redirect to login with return path
       navigate(
-        `/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`,
+        `/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`
       );
       return;
     }
@@ -149,12 +153,14 @@ const Levels = () => {
       // For admin: navigate to video upload page with itemId pre-selected and return URL
       const returnUrl = `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`;
       navigate(
-        `/admin/videos?itemId=${itemId}&returnUrl=${encodeURIComponent(returnUrl)}`,
+        `/admin/videos?itemId=${itemId}&returnUrl=${encodeURIComponent(
+          returnUrl
+        )}`
       );
       return;
     }
     navigate(
-      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`,
+      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`
     );
   };
 
@@ -168,7 +174,7 @@ const Levels = () => {
       if (!currentUser) {
         // Redirect to login with return path
         navigate(
-          `/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`,
+          `/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`
         );
         return;
       }
@@ -185,14 +191,14 @@ const Levels = () => {
         return;
       }
       navigate(
-        `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`,
+        `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`
       );
     } catch (error) {
       console.error("Error navigating to quiz page:", error);
       alert(
         isArabicBrowser()
-          ? "حدث خطأ أثناء فتح صفحة الاختبار. يرجى المحاولة مرة أخرى."
-          : "An error occurred while opening the quiz page. Please try again.",
+          ? "حدث خطأ أثناء فتح صفحة الواجب. يرجى المحاولة مرة أخرى."
+          : "An error occurred while opening the quiz page. Please try again."
       );
     }
   };
@@ -201,7 +207,7 @@ const Levels = () => {
     if (!currentUser) {
       // Redirect to login with return path
       navigate(
-        `/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/file`,
+        `/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/file`
       );
       return;
     }
@@ -209,12 +215,14 @@ const Levels = () => {
       // For admin: navigate to file management page with itemId and return URL
       const returnUrl = `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`;
       navigate(
-        `/admin/files?itemId=${itemId}&returnUrl=${encodeURIComponent(returnUrl)}`,
+        `/admin/files?itemId=${itemId}&returnUrl=${encodeURIComponent(
+          returnUrl
+        )}`
       );
       return;
     }
     navigate(
-      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/file`,
+      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/file`
     );
   };
 
@@ -273,7 +281,12 @@ const Levels = () => {
   };
 
   const handleDeleteLesson = async (itemId) => {
-    if (!window.confirm("هل تريد حذف هذا الدرس؟")) return;
+    if (
+      !window.confirm(
+        isTajmiat ? "هل تريد حذف هذا البنك؟" : "هل تريد حذف هذا الدرس؟"
+      )
+    )
+      return;
     setBusy(true);
     try {
       if (useBackend) {
@@ -319,7 +332,7 @@ const Levels = () => {
                     navigate(returnUrl);
                   } else {
                     navigate(
-                      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`,
+                      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapters`
                     );
                   }
                 }}
@@ -333,7 +346,12 @@ const Levels = () => {
                     onClick={() => setShowAddForm(true)}
                     className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
                   >
-                    + {isArabicBrowser() ? "إضافة درس" : "Add Lesson"}
+                    +{" "}
+                    {isArabicBrowser()
+                      ? isTajmiat
+                        ? "إضافة بنك"
+                        : "إضافة درس"
+                      : "Add Lesson"}
                   </button>
                   <button
                     onClick={() =>
@@ -341,30 +359,45 @@ const Levels = () => {
                     }
                     className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium transition flex items-center gap-2"
                   >
-                    📖 {isArabicBrowser() ? "إدارة الدروس" : "Manage Lessons"}
+                    📖{" "}
+                    {isArabicBrowser()
+                      ? isTajmiat
+                        ? "إدارة البنوك"
+                        : "إدارة الدروس"
+                      : "Manage Lessons"}
                   </button>
                 </div>
               )}
             </div>
             <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
-              {chapter?.name || "الدروس"}
+              {chapter?.name || (isTajmiat ? "البنوك" : "الدروس")}
             </h1>
             <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">
-              اختر الدرس
+              اختر {lessonLabel}
             </p>
           </div>
 
           {isAdmin && showAddForm && (
             <div className="bg-white rounded-lg shadow p-6 mb-6 border-2 border-blue-300">
               <h3 className="text-lg font-bold text-dark-600 mb-3">
-                {isArabicBrowser() ? "إضافة درس جديد" : "Add New Lesson"}
+                {isArabicBrowser()
+                  ? isTajmiat
+                    ? "إضافة بنك جديد"
+                    : "إضافة درس جديد"
+                  : "Add New Lesson"}
               </h3>
               <div className="flex gap-3">
                 <input
                   type="text"
                   value={newLessonName}
                   onChange={(e) => setNewLessonName(e.target.value)}
-                  placeholder={isArabicBrowser() ? "اسم الدرس" : "Lesson name"}
+                  placeholder={
+                    isArabicBrowser()
+                      ? isTajmiat
+                        ? "اسم البنك"
+                        : "اسم الدرس"
+                      : "Lesson name"
+                  }
                   className="flex-1 px-4 py-2 border rounded-lg"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") handleAddLesson();
@@ -394,11 +427,13 @@ const Levels = () => {
             <div className="mb-6 p-4 bg-primary-50 border border-primary-200 rounded-xl text-center">
               <p className="text-dark-700 font-medium mb-3">
                 {isArabicBrowser()
-                  ? "سجّل الدخول لمشاهدة الفيديوهات والملفات وحل الاختبارات"
+                  ? "سجّل الدخول لمشاهدة الفيديوهات والملفات وحل الواجبات"
                   : "Sign in to watch videos, read files, and take quizzes"}
               </p>
               <Link
-                to={`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`}
+                to={`/login?redirect=${encodeURIComponent(
+                  location.pathname + location.search
+                )}`}
                 className="inline-block px-6 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition"
               >
                 {isArabicBrowser() ? "تسجيل الدخول" : "Sign in"}
@@ -493,7 +528,9 @@ const Levels = () => {
                         >
                           📤{" "}
                           {isArabicBrowser()
-                            ? "رفع فيديو للدرس"
+                            ? isTajmiat
+                              ? "رفع فيديو للبنك"
+                              : "رفع فيديو للدرس"
                             : "Upload Video"}
                         </button>
 
@@ -510,8 +547,7 @@ const Levels = () => {
                           onClick={(e) => handleQuizClick(item.id, e)}
                           className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
                         >
-                          📝{" "}
-                          {isArabicBrowser() ? "إدارة الاختبار" : "Manage Quiz"}
+                          📝 {isArabicBrowser() ? manageLabel : "Manage Quiz"}
                         </button>
                       </>
                     ) : (
@@ -521,7 +557,7 @@ const Levels = () => {
                             return (
                               <p className="text-dark-600 text-sm font-medium">
                                 {isArabicBrowser()
-                                  ? "سجّل الدخول لمشاهدة المحتوى وحل الاختبارات"
+                                  ? "سجّل الدخول لمشاهدة المحتوى وحل الواجبات"
                                   : "Sign in to view content and take quizzes"}
                               </p>
                             );
@@ -571,9 +607,7 @@ const Levels = () => {
                                   className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
                                 >
                                   📝{" "}
-                                  {isArabicBrowser()
-                                    ? "حل الاختبار"
-                                    : "Take Quiz"}
+                                  {isArabicBrowser() ? solveLabel : "Take Quiz"}
                                 </button>
                               )}
                             </>

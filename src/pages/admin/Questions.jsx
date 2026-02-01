@@ -1606,12 +1606,6 @@ const Questions = () => {
           {showPassageForm && (
             <div
               className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) {
-                  setShowPassageForm(false);
-                  setEditingPassage(null);
-                }
-              }}
             >
               <div
                 className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-4xl lg:max-w-6xl w-full max-h-[95vh] overflow-y-auto"
@@ -1793,12 +1787,6 @@ const Questions = () => {
           {showForm && (
             <div
               className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4"
-              onClick={(e) => {
-                if (e.target === e.currentTarget) {
-                  setShowForm(false);
-                  setIsLoadingForm(false);
-                }
-              }}
             >
               <div
                 className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-2xl lg:max-w-4xl w-full max-h-[95vh] overflow-y-auto"

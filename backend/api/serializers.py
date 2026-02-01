@@ -3,7 +3,8 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
-    Question, Answer, Video, File, StudentProgress, LessonProgress
+    Question, Answer, Video, File, StudentProgress, LessonProgress,
+    QuizAttempt, VideoWatch
 )
 
 
@@ -306,3 +307,43 @@ class LessonProgressSerializer(serializers.ModelSerializer):
                   'correct_answers', 'completion_percentage', 'accuracy_percentage',
                   'last_question', 'started_at', 'last_activity', 'completed_at']
         read_only_fields = ['user', 'started_at', 'last_activity', 'completed_at']
+
+
+class QuizAttemptSerializer(serializers.ModelSerializer):
+    """Quiz attempt serializer for tracker"""
+    lesson_name = serializers.CharField(source='lesson.name', read_only=True)
+    user_name = serializers.CharField(source='user.username', read_only=True)
+
+    class Meta:
+        model = QuizAttempt
+        fields = ['id', 'user', 'user_name', 'lesson', 'lesson_name', 'score',
+                  'correct_count', 'total_questions', 'started_at', 'completed_at',
+                  'duration_seconds', 'created_at']
+        read_only_fields = ['user', 'created_at']
+
+
+class QuizAttemptCreateSerializer(serializers.ModelSerializer):
+    """Serializer for creating quiz attempts"""
+
+    class Meta:
+        model = QuizAttempt
+        fields = ['lesson', 'score', 'correct_count', 'total_questions',
+                  'started_at', 'completed_at', 'duration_seconds']
+
+    def create(self, validated_data):
+        return QuizAttempt.objects.create(
+            user=self.context['request'].user,
+            **validated_data
+        )
+
+
+class VideoWatchSerializer(serializers.ModelSerializer):
+    """Video watch serializer for tracker"""
+    lesson_name = serializers.CharField(source='lesson.name', read_only=True)
+    video_title = serializers.CharField(source='video.title', read_only=True)
+
+    class Meta:
+        model = VideoWatch
+        fields = ['id', 'user', 'lesson', 'lesson_name', 'video', 'video_title',
+                  'watch_count', 'last_watched_at']
+        read_only_fields = ['user', 'watch_count', 'last_watched_at']

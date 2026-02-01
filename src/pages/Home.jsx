@@ -1,25 +1,41 @@
-import { useLocation, useNavigate } from 'react-router-dom';
-import { addChapterToCategory, deleteChapterFromCategory, getCategoryById, getSections, getCurrentUser, updateChapterName } from '../services/storageService';
-import { useEffect, useState } from 'react';
-import Header from '../components/Header';
-import { hasSectionAccess, hasSubjectAccess } from '../components/ProtectedRoute';
-import { addChapter, deleteChapter, getCategoryById as getCategoryByIdApi, getSections as getSectionsApi, updateChapter } from '../services/backendApi';
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  addChapterToCategory,
+  deleteChapterFromCategory,
+  getCategoryById,
+  getSections,
+  getCurrentUser,
+  updateChapterName,
+} from "../services/storageService";
+import { useEffect, useState } from "react";
+import Header from "../components/Header";
+import {
+  hasSectionAccess,
+  hasSubjectAccess,
+} from "../components/ProtectedRoute";
+import {
+  addChapter,
+  deleteChapter,
+  getCategoryById as getCategoryByIdApi,
+  getSections as getSectionsApi,
+  updateChapter,
+} from "../services/backendApi";
 
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [section, setSection] = useState(null);
   const [subjects, setSubjects] = useState([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState('');
-  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [selectedSubjectId, setSelectedSubjectId] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
   const [loading, setLoading] = useState(true);
   const [chaptersState, setChaptersState] = useState([]);
   const [chaptersBusy, setChaptersBusy] = useState(false);
   const [showAddChapterForm, setShowAddChapterForm] = useState(false);
-  const [newChapterName, setNewChapterName] = useState('');
-  const [editingChapterId, setEditingChapterId] = useState('');
-  const [editingChapterName, setEditingChapterName] = useState('');
+  const [newChapterName, setNewChapterName] = useState("");
+  const [editingChapterId, setEditingChapterId] = useState("");
+  const [editingChapterName, setEditingChapterName] = useState("");
 
   const useBackend = !!import.meta.env.VITE_API_URL;
 
@@ -32,34 +48,36 @@ const Home = () => {
         let allSections = [];
         if (useBackend) {
           const data = await getSectionsApi();
-          allSections = Array.isArray(data) ? data : (data?.results || []);
+          allSections = Array.isArray(data) ? data : data?.results || [];
         } else {
           allSections = getSections() || [];
         }
         if (cancelled) return;
-        const abilitiesSection = (allSections || []).find((s) => s?.id === 'قسم_قدرات') || null;
+        const abilitiesSection =
+          (allSections || []).find((s) => s?.id === "قسم_قدرات") || null;
         setSection(abilitiesSection);
 
         const allSubjects = abilitiesSection?.subjects || [];
-        const visibleSubjects = (cu && cu.role === 'student')
-          ? allSubjects.filter((subj) => hasSubjectAccess(cu, subj?.id))
-          : allSubjects;
+        const visibleSubjects =
+          cu && cu.role === "student"
+            ? allSubjects.filter((subj) => hasSubjectAccess(cu, subj?.id))
+            : allSubjects;
         setSubjects(visibleSubjects);
 
         // Default selected tab: اللفظي then الكمي then first available
         const preferred =
-          visibleSubjects.find((s) => s?.id === 'مادة_اللفظي')?.id
-          || visibleSubjects.find((s) => s?.id === 'مادة_الكمي')?.id
-          || visibleSubjects[0]?.id
-          || '';
+          visibleSubjects.find((s) => s?.id === "مادة_اللفظي")?.id ||
+          visibleSubjects.find((s) => s?.id === "مادة_الكمي")?.id ||
+          visibleSubjects[0]?.id ||
+          "";
         setSelectedSubjectId((prev) => prev || preferred);
-        setSelectedCategoryId(''); // reset category selection on reload
+        setSelectedCategoryId(""); // reset category selection on reload
       } catch (e) {
         if (!cancelled) {
           setSection(null);
           setSubjects([]);
-          setSelectedSubjectId('');
-          setSelectedCategoryId('');
+          setSelectedSubjectId("");
+          setSelectedCategoryId("");
           setCurrentUser(null);
         }
       } finally {
@@ -67,26 +85,35 @@ const Home = () => {
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [useBackend]);
 
-  const selectedSubject = subjects.find((s) => s?.id === selectedSubjectId) || null;
-  const categories = (selectedSubject?.categories || []).map((c) => ({ ...c, hasTests: c.has_tests ?? c.hasTests }));
-  
-  const isAdmin = currentUser?.role === 'admin';
-  const isStudent = currentUser?.role === 'student';
-  const selectedCategory = categories.find((c) => c?.id === selectedCategoryId) || null;
+  const selectedSubject =
+    subjects.find((s) => s?.id === selectedSubjectId) || null;
+  const categories = (selectedSubject?.categories || []).map((c) => ({
+    ...c,
+    hasTests: c.has_tests ?? c.hasTests,
+  }));
+
+  const isAdmin = currentUser?.role === "admin";
+  const isStudent = currentUser?.role === "student";
+  const selectedCategory =
+    categories.find((c) => c?.id === selectedCategoryId) || null;
   const chapters = Array.isArray(chaptersState) ? [...chaptersState] : [];
   chapters.sort((a, b) => (a?.order ?? 0) - (b?.order ?? 0));
 
   // Keep a stable chapters list for the selected category
   useEffect(() => {
-    const next = Array.isArray(selectedCategory?.chapters) ? selectedCategory.chapters : [];
+    const next = Array.isArray(selectedCategory?.chapters)
+      ? selectedCategory.chapters
+      : [];
     setChaptersState(next);
     setShowAddChapterForm(false);
-    setNewChapterName('');
-    setEditingChapterId('');
-    setEditingChapterName('');
+    setNewChapterName("");
+    setEditingChapterId("");
+    setEditingChapterName("");
   }, [selectedCategoryId, selectedSubjectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshSelectedCategory = async () => {
@@ -99,7 +126,9 @@ const Home = () => {
         setSubjects((prev) =>
           (prev || []).map((subj) => {
             if (!subj || subj.id !== selectedSubjectId) return subj;
-            const nextCats = (subj.categories || []).map((c) => (c?.id === selectedCategoryId ? updated : c));
+            const nextCats = (subj.categories || []).map((c) =>
+              c?.id === selectedCategoryId ? updated : c
+            );
             return { ...subj, categories: nextCats };
           })
         );
@@ -110,7 +139,9 @@ const Home = () => {
         setSubjects((prev) =>
           (prev || []).map((subj) => {
             if (!subj || subj.id !== selectedSubjectId) return subj;
-            const nextCats = (subj.categories || []).map((c) => (c?.id === selectedCategoryId ? updated : c));
+            const nextCats = (subj.categories || []).map((c) =>
+              c?.id === selectedCategoryId ? updated : c
+            );
             return { ...subj, categories: nextCats };
           })
         );
@@ -121,21 +152,24 @@ const Home = () => {
     }
   };
 
-  const buildCoursesReturnUrl = (subjectId = selectedSubjectId, categoryId = selectedCategoryId) => {
+  const buildCoursesReturnUrl = (
+    subjectId = selectedSubjectId,
+    categoryId = selectedCategoryId
+  ) => {
     const params = new URLSearchParams();
-    if (subjectId) params.set('subjectId', subjectId);
-    if (categoryId) params.set('categoryId', categoryId);
+    if (subjectId) params.set("subjectId", subjectId);
+    if (categoryId) params.set("categoryId", categoryId);
     // Mark that chapters section should be visible when returning
-    if (categoryId) params.set('open', 'chapters');
+    if (categoryId) params.set("open", "chapters");
     const qs = params.toString();
-    return `/courses${qs ? `?${qs}` : ''}`;
+    return `/courses${qs ? `?${qs}` : ""}`;
   };
 
   // Restore selection when navigating back to /courses?subjectId=...&categoryId=...
   useEffect(() => {
-    const sp = new URLSearchParams(location.search || '');
-    const subjectIdFromUrl = sp.get('subjectId') || '';
-    const categoryIdFromUrl = sp.get('categoryId') || '';
+    const sp = new URLSearchParams(location.search || "");
+    const subjectIdFromUrl = sp.get("subjectId") || "";
+    const categoryIdFromUrl = sp.get("categoryId") || "";
     if (subjectIdFromUrl && subjects.some((s) => s?.id === subjectIdFromUrl)) {
       setSelectedSubjectId(subjectIdFromUrl);
       // category must exist under selected subject
@@ -154,15 +188,20 @@ const Home = () => {
 
   const handleChapterClick = (chapterId) => {
     if (!selectedSubjectId || !selectedCategoryId) return;
-    const returnUrl = buildCoursesReturnUrl(selectedSubjectId, selectedCategoryId);
+    const returnUrl = buildCoursesReturnUrl(
+      selectedSubjectId,
+      selectedCategoryId
+    );
     navigate(
-      `/section/قسم_قدرات/subject/${selectedSubjectId}/category/${selectedCategoryId}/chapter/${chapterId}/items?returnUrl=${encodeURIComponent(returnUrl)}`
+      `/section/قسم_قدرات/subject/${selectedSubjectId}/category/${selectedCategoryId}/chapter/${chapterId}/items?returnUrl=${encodeURIComponent(
+        returnUrl
+      )}`
     );
   };
 
   // Admin inline chapter management (inside /courses)
   const handleAddChapterInline = async () => {
-    const name = (newChapterName || '').trim();
+    const name = (newChapterName || "").trim();
     if (!selectedCategoryId || !name) return;
     setChaptersBusy(true);
     try {
@@ -173,26 +212,31 @@ const Home = () => {
       }
       await refreshSelectedCategory();
       setShowAddChapterForm(false);
-      setNewChapterName('');
+      setNewChapterName("");
     } catch (e) {
-      alert(e?.message || 'حدث خطأ أثناء إضافة الفصل');
+      alert(
+        e?.message ||
+          (selectedCategory?.name === "التجميعات"
+            ? "حدث خطأ أثناء إضافة المستوى"
+            : "حدث خطأ أثناء إضافة القسم")
+      );
     } finally {
       setChaptersBusy(false);
     }
   };
 
   const handleStartEditChapter = (ch) => {
-    setEditingChapterId(ch?.id || '');
-    setEditingChapterName(ch?.name || '');
+    setEditingChapterId(ch?.id || "");
+    setEditingChapterName(ch?.name || "");
   };
 
   const handleCancelEditChapter = () => {
-    setEditingChapterId('');
-    setEditingChapterName('');
+    setEditingChapterId("");
+    setEditingChapterName("");
   };
 
   const handleSaveEditChapter = async (chapterId) => {
-    const name = (editingChapterName || '').trim();
+    const name = (editingChapterName || "").trim();
     if (!chapterId || !name) return;
     setChaptersBusy(true);
     try {
@@ -204,7 +248,12 @@ const Home = () => {
       await refreshSelectedCategory();
       handleCancelEditChapter();
     } catch (e) {
-      alert(e?.message || 'حدث خطأ أثناء تعديل اسم الفصل');
+      alert(
+        e?.message ||
+          (selectedCategory?.name === "التجميعات"
+            ? "حدث خطأ أثناء تعديل اسم المستوى"
+            : "حدث خطأ أثناء تعديل اسم القسم")
+      );
     } finally {
       setChaptersBusy(false);
     }
@@ -212,7 +261,14 @@ const Home = () => {
 
   const handleDeleteChapterInline = async (chapterId) => {
     if (!chapterId) return;
-    if (!window.confirm('هل تريد حذف هذا الفصل؟')) return;
+    if (
+      !window.confirm(
+        selectedCategory?.name === "التجميعات"
+          ? "هل تريد حذف هذا المستوى؟"
+          : "هل تريد حذف هذا القسم؟"
+      )
+    )
+      return;
     setChaptersBusy(true);
     try {
       if (useBackend) {
@@ -222,7 +278,12 @@ const Home = () => {
       }
       await refreshSelectedCategory();
     } catch (e) {
-      alert(e?.message || 'حدث خطأ أثناء حذف الفصل');
+      alert(
+        e?.message ||
+          (selectedCategory?.name === "التجميعات"
+            ? "حدث خطأ أثناء حذف المستوى"
+            : "حدث خطأ أثناء حذف القسم")
+      );
     } finally {
       setChaptersBusy(false);
     }
@@ -231,71 +292,160 @@ const Home = () => {
   return (
     <div className="min-h-screen bg-gray-50 relative overflow-hidden">
       <Header />
-      
+
       {/* Decorative Background Elements - Using brand colors: E8CCAD, EC802B, EDC55B, 66BCB4 */}
       {/* Small orange circle - top left - visible on mobile */}
-      <div className="absolute top-20 left-4 w-16 h-16 md:w-24 md:h-24 rounded-full opacity-15" style={{ zIndex: 0, background: '#EC802B' }}></div>
-      
+      <div
+        className="absolute top-20 left-4 w-16 h-16 md:w-24 md:h-24 rounded-full opacity-15"
+        style={{ zIndex: 0, background: "#EC802B" }}
+      ></div>
+
       {/* Small beige circle - bottom left - visible on mobile */}
-      <div className="absolute bottom-20 left-8 w-12 h-12 md:w-20 md:h-20 rounded-full opacity-20" style={{ zIndex: 0, background: '#E8CCAD' }}></div>
-      
+      <div
+        className="absolute bottom-20 left-8 w-12 h-12 md:w-20 md:h-20 rounded-full opacity-20"
+        style={{ zIndex: 0, background: "#E8CCAD" }}
+      ></div>
+
       {/* Small turquoise circle - top right - visible on mobile */}
-      <div className="absolute top-32 right-12 w-12 h-12 md:w-18 md:h-18 rounded-full opacity-20" style={{ zIndex: 0, background: '#66BCB4' }}></div>
-      
+      <div
+        className="absolute top-32 right-12 w-12 h-12 md:w-18 md:h-18 rounded-full opacity-20"
+        style={{ zIndex: 0, background: "#66BCB4" }}
+      ></div>
+
       {/* Small golden yellow circle - mid right */}
-      <div className="absolute top-1/2 right-8 w-14 h-14 md:w-20 md:h-20 rounded-full opacity-15 hidden md:block" style={{ zIndex: 0, background: '#EDC55B' }}></div>
-      
+      <div
+        className="absolute top-1/2 right-8 w-14 h-14 md:w-20 md:h-20 rounded-full opacity-15 hidden md:block"
+        style={{ zIndex: 0, background: "#EDC55B" }}
+      ></div>
+
       {/* Small dotted turquoise square - mid left */}
-      <div className="absolute top-1/3 left-16 w-12 h-12 md:w-18 md:h-18 opacity-20 hidden md:block" style={{ zIndex: 0 }}>
+      <div
+        className="absolute top-1/3 left-16 w-12 h-12 md:w-18 md:h-18 opacity-20 hidden md:block"
+        style={{ zIndex: 0 }}
+      >
         <svg width="100%" height="100%">
           <defs>
-            <pattern id="dots-square-turquoise-home" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
+            <pattern
+              id="dots-square-turquoise-home"
+              x="0"
+              y="0"
+              width="6"
+              height="6"
+              patternUnits="userSpaceOnUse"
+            >
               <circle cx="3" cy="3" r="1" fill="#66BCB4" />
             </pattern>
           </defs>
-          <rect width="100%" height="100%" fill="url(#dots-square-turquoise-home)" />
+          <rect
+            width="100%"
+            height="100%"
+            fill="url(#dots-square-turquoise-home)"
+          />
         </svg>
       </div>
-      
+
       {/* Small dotted golden yellow triangle - bottom center left */}
-      <div className="absolute bottom-32 left-1/4 w-10 h-10 md:w-14 md:h-14 opacity-15 hidden md:block transform -translate-x-1/2" style={{ zIndex: 0 }}>
+      <div
+        className="absolute bottom-32 left-1/4 w-10 h-10 md:w-14 md:h-14 opacity-15 hidden md:block transform -translate-x-1/2"
+        style={{ zIndex: 0 }}
+      >
         <svg width="100%" height="100%">
-          <polygon points="50,10 90,90 10,90" stroke="#EDC55B" strokeWidth="1.5" fill="none" strokeDasharray="2,2" />
+          <polygon
+            points="50,10 90,90 10,90"
+            stroke="#EDC55B"
+            strokeWidth="1.5"
+            fill="none"
+            strokeDasharray="2,2"
+          />
         </svg>
       </div>
-      
+
       {/* Small orange circles - scattered */}
-      <div className="absolute top-1/4 left-1/3 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-25 hidden md:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
-      <div className="absolute bottom-1/3 right-1/4 w-7 h-7 md:w-10 md:h-10 rounded-full opacity-20 hidden md:block" style={{ zIndex: 0, background: '#EC802B' }}></div>
-      
+      <div
+        className="absolute top-1/4 left-1/3 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-25 hidden md:block"
+        style={{ zIndex: 0, background: "#EC802B" }}
+      ></div>
+      <div
+        className="absolute bottom-1/3 right-1/4 w-7 h-7 md:w-10 md:h-10 rounded-full opacity-20 hidden md:block"
+        style={{ zIndex: 0, background: "#EC802B" }}
+      ></div>
+
       {/* Small beige square with wavy pattern - top center */}
-      <div className="absolute top-40 left-1/2 w-14 h-14 md:w-20 md:h-20 opacity-15 hidden md:block transform -translate-x-1/2" style={{ zIndex: 0 }}>
+      <div
+        className="absolute top-40 left-1/2 w-14 h-14 md:w-20 md:h-20 opacity-15 hidden md:block transform -translate-x-1/2"
+        style={{ zIndex: 0 }}
+      >
         <svg width="100%" height="100%" viewBox="0 0 100 100">
-          <rect width="60" height="60" x="20" y="20" fill="#E8CCAD" opacity="0.3" />
-          <path d="M 25,50 Q 30,35 40,50 T 55,50 T 75,50" stroke="#EC802B" strokeWidth="1.5" fill="none" />
+          <rect
+            width="60"
+            height="60"
+            x="20"
+            y="20"
+            fill="#E8CCAD"
+            opacity="0.3"
+          />
+          <path
+            d="M 25,50 Q 30,35 40,50 T 55,50 T 75,50"
+            stroke="#EC802B"
+            strokeWidth="1.5"
+            fill="none"
+          />
         </svg>
       </div>
-      
+
       {/* Small golden yellow pie chart segment - bottom right */}
-      <div className="absolute bottom-24 right-16 w-10 h-10 md:w-14 md:h-14 opacity-20 hidden md:block" style={{ zIndex: 0 }}>
+      <div
+        className="absolute bottom-24 right-16 w-10 h-10 md:w-14 md:h-14 opacity-20 hidden md:block"
+        style={{ zIndex: 0 }}
+      >
         <svg width="100%" height="100%" viewBox="0 0 100 100">
-          <path d="M 50,50 L 50,20 A 30,30 0 0,1 80,50 Z" fill="#EDC55B" opacity="0.5" />
+          <path
+            d="M 50,50 L 50,20 A 30,30 0 0,1 80,50 Z"
+            fill="#EDC55B"
+            opacity="0.5"
+          />
         </svg>
       </div>
-      
+
       {/* Small X shape - decorative */}
-      <div className="absolute top-1/3 right-1/4 w-6 h-6 md:w-8 md:h-8 opacity-12 hidden md:block" style={{ zIndex: 0 }}>
+      <div
+        className="absolute top-1/3 right-1/4 w-6 h-6 md:w-8 md:h-8 opacity-12 hidden md:block"
+        style={{ zIndex: 0 }}
+      >
         <svg width="100%" height="100%" viewBox="0 0 24 24">
-          <line x1="4" y1="4" x2="20" y2="20" stroke="#3D3D3D" strokeWidth="1.5" />
-          <line x1="20" y1="4" x2="4" y2="20" stroke="#3D3D3D" strokeWidth="1.5" />
+          <line
+            x1="4"
+            y1="4"
+            x2="20"
+            y2="20"
+            stroke="#3D3D3D"
+            strokeWidth="1.5"
+          />
+          <line
+            x1="20"
+            y1="4"
+            x2="4"
+            y2="20"
+            stroke="#3D3D3D"
+            strokeWidth="1.5"
+          />
         </svg>
       </div>
-      
+
       {/* Small turquoise circles - additional decorative elements */}
-      <div className="absolute top-2/3 left-1/2 w-8 h-8 md:w-12 md:h-12 rounded-full opacity-15 hidden md:block transform -translate-x-1/2" style={{ zIndex: 0, background: '#66BCB4' }}></div>
-      <div className="absolute bottom-1/4 right-1/3 w-9 h-9 md:w-12 md:h-12 rounded-full opacity-20 hidden md:block" style={{ zIndex: 0, background: '#66BCB4' }}></div>
-      
-      <div className="relative max-w-6xl mx-auto px-4 py-8 md:py-12" style={{ zIndex: 1 }}>
+      <div
+        className="absolute top-2/3 left-1/2 w-8 h-8 md:w-12 md:h-12 rounded-full opacity-15 hidden md:block transform -translate-x-1/2"
+        style={{ zIndex: 0, background: "#66BCB4" }}
+      ></div>
+      <div
+        className="absolute bottom-1/4 right-1/3 w-9 h-9 md:w-12 md:h-12 rounded-full opacity-20 hidden md:block"
+        style={{ zIndex: 0, background: "#66BCB4" }}
+      ></div>
+
+      <div
+        className="relative max-w-6xl mx-auto px-4 py-8 md:py-12"
+        style={{ zIndex: 1 }}
+      >
         <div className="text-center mb-6 md:mb-8">
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
             الدورات
@@ -307,7 +457,9 @@ const Home = () => {
 
         <div className="max-w-4xl mx-auto">
           {loading ? (
-            <div className="text-center py-12"><p className="text-xl text-gray-600">جاري التحميل...</p></div>
+            <div className="text-center py-12">
+              <p className="text-xl text-gray-600">جاري التحميل...</p>
+            </div>
           ) : !section ? (
             <div className="text-center py-12">
               <p className="text-xl text-gray-600">لا توجد بيانات متاحة</p>
@@ -323,19 +475,24 @@ const Home = () => {
                 <div className="bg-gray-100 rounded-full p-1 flex gap-1 w-full max-w-md">
                   {subjects.map((subj) => {
                     const isActive = subj.id === selectedSubjectId;
-                    const label = subj.name === 'اللفظي' ? 'القسم اللفظي' : subj.name === 'الكمي' ? 'القسم الكمي' : subj.name;
+                    const label =
+                      subj.name === "اللفظي"
+                        ? "القسم اللفظي"
+                        : subj.name === "الكمي"
+                        ? "القسم الكمي"
+                        : subj.name;
                     return (
                       <button
                         key={subj.id}
                         type="button"
                         onClick={() => {
                           setSelectedSubjectId(subj.id);
-                          setSelectedCategoryId(''); // reset category when switching subject
+                          setSelectedCategoryId(""); // reset category when switching subject
                         }}
                         className={`flex-1 py-2 px-4 rounded-full font-bold text-sm md:text-base transition ${
                           isActive
-                            ? 'bg-primary-500 text-white shadow'
-                            : 'bg-transparent text-dark-600 hover:bg-white'
+                            ? "bg-primary-500 text-white shadow"
+                            : "bg-transparent text-dark-600 hover:bg-white"
                         }`}
                       >
                         {label}
@@ -354,17 +511,18 @@ const Home = () => {
                     onClick={() => handleCategoryClick(category.id)}
                     className={`border-2 rounded-2xl p-5 hover:shadow-xl transition-all duration-300 text-right ${
                       selectedCategoryId === category.id
-                        ? 'bg-primary-50 border-primary-300'
-                        : 'bg-secondary-50 border-secondary-200'
+                        ? "bg-primary-50 border-primary-300"
+                        : "bg-secondary-50 border-secondary-200"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-3">
                       <div className="text-4xl">
-                        {category.name === 'التأسيس' ? '🧩' : '🧠'}
+                        {category.name === "التأسيس" ? "🧩" : "🧠"}
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs md:text-sm px-3 py-1 rounded-full bg-accent-50 text-accent-800 border border-accent-200 font-semibold">
-                          {category.chapters?.length || 0} فصول
+                          {category.chapters?.length || 0}{" "}
+                          {category.name === "التجميعات" ? "مستويات" : "أقسام"}
                         </span>
                       </div>
                     </div>
@@ -372,35 +530,41 @@ const Home = () => {
                       {category.name}
                     </div>
                     <div className="text-sm md:text-base text-dark-600 font-medium">
-                      {category.name === 'التأسيس'
-                        ? 'ابدأ من الصفر خطوة بخطوة'
-                        : 'تدريبات وتجميعات مطابقة للاختبار'}
+                      {category.name === "التأسيس"
+                        ? "ابدأ من الصفر خطوة بخطوة"
+                        : "تدريبات وتجميعات مطابقة للاختبار"}
                     </div>
                   </button>
                 ))}
               </div>
 
               {/* زر الدروس المجانية */}
-              <div className="mt-6 flex justify-center">
+              <div className="hidden mt-6 flex justify-center">
                 <button
                   type="button"
-                  onClick={() => navigate('/foundation')}
+                  onClick={() => navigate("/foundation")}
                   className="px-6 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-primary-600 text-white font-extrabold text-base md:text-lg shadow-lg hover:shadow-xl transition-all hover:scale-105"
                 >
                   الدروس المجانية
                 </button>
               </div>
 
-              {/* الفصول تظهر داخل نفس الصفحة (طالب + أدمن) */}
+              {/* الأقسام / المستويات تظهر داخل نفس الصفحة (طالب + أدمن) */}
               {selectedCategoryId && (
                 <div className="mt-8">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg md:text-xl font-extrabold text-dark-900">
-                      الفصول - {selectedCategory?.name || ''}
+                      {selectedCategory?.name === "التجميعات"
+                        ? "المستويات"
+                        : "الأقسام"}{" "}
+                      - {selectedCategory?.name || ""}
                     </h3>
                     <div className="flex items-center gap-2">
                       <span className="text-xs md:text-sm px-3 py-1 rounded-full bg-accent-50 text-accent-800 border border-accent-200 font-semibold">
-                        {chapters.length} فصل
+                        {chapters.length}{" "}
+                        {selectedCategory?.name === "التجميعات"
+                          ? "مستويات"
+                          : "أقسام"}
                       </span>
                       {isAdmin && (
                         <button
@@ -409,7 +573,10 @@ const Home = () => {
                           className="text-xs md:text-sm px-3 py-1 rounded-full bg-primary-500 text-white hover:bg-primary-600 transition font-bold disabled:opacity-60"
                           disabled={chaptersBusy}
                         >
-                          + إضافة فصل
+                          + إضافة{" "}
+                          {selectedCategory?.name === "التجميعات"
+                            ? "مستوى"
+                            : "قسم"}
                         </button>
                       )}
                     </div>
@@ -422,10 +589,14 @@ const Home = () => {
                           type="text"
                           value={newChapterName}
                           onChange={(e) => setNewChapterName(e.target.value)}
-                          placeholder="اسم الفصل"
+                          placeholder={
+                            selectedCategory?.name === "التجميعات"
+                              ? "اسم المستوى"
+                              : "اسم القسم"
+                          }
                           className="flex-1 px-4 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-primary-500"
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleAddChapterInline();
+                            if (e.key === "Enter") handleAddChapterInline();
                           }}
                         />
                         <div className="flex gap-2">
@@ -441,7 +612,7 @@ const Home = () => {
                             type="button"
                             onClick={() => {
                               setShowAddChapterForm(false);
-                              setNewChapterName('');
+                              setNewChapterName("");
                             }}
                             className="px-5 py-2 rounded-lg bg-gray-400 text-white hover:bg-gray-500 transition font-bold"
                           >
@@ -454,7 +625,9 @@ const Home = () => {
 
                   {chapters.length === 0 ? (
                     <div className="text-center py-10 text-dark-600">
-                      لا توجد فصول متاحة
+                      {selectedCategory?.name === "التجميعات"
+                        ? "لا توجد مستويات متاحة"
+                        : "لا توجد أقسام متاحة"}
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -467,7 +640,10 @@ const Home = () => {
                             <div className="text-2xl">📘</div>
                             <div className="flex items-center gap-2">
                               <span className="text-xs px-2 py-1 rounded-full bg-secondary-100 text-dark-700 border border-secondary-200 font-semibold">
-                                {(ch.items || ch.lessons || []).length} درس
+                                {(ch.items || ch.lessons || []).length}{" "}
+                                {selectedCategory?.name === "التجميعات"
+                                  ? "بنك"
+                                  : "درس"}
                               </span>
                               {isAdmin && (
                                 <>
@@ -475,9 +651,14 @@ const Home = () => {
                                     <>
                                       <button
                                         type="button"
-                                        onClick={() => handleSaveEditChapter(ch.id)}
+                                        onClick={() =>
+                                          handleSaveEditChapter(ch.id)
+                                        }
                                         className="text-xs px-2 py-1 rounded bg-green-500 text-white hover:bg-green-600 transition font-bold disabled:opacity-60"
-                                        disabled={chaptersBusy || !editingChapterName.trim()}
+                                        disabled={
+                                          chaptersBusy ||
+                                          !editingChapterName.trim()
+                                        }
                                         title="حفظ"
                                       >
                                         حفظ
@@ -495,7 +676,9 @@ const Home = () => {
                                     <>
                                       <button
                                         type="button"
-                                        onClick={() => handleStartEditChapter(ch)}
+                                        onClick={() =>
+                                          handleStartEditChapter(ch)
+                                        }
                                         className="text-xs px-2 py-1 rounded bg-primary-500 text-white hover:bg-primary-600 transition font-bold"
                                         title="تعديل الاسم"
                                       >
@@ -503,7 +686,9 @@ const Home = () => {
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => handleDeleteChapterInline(ch.id)}
+                                        onClick={() =>
+                                          handleDeleteChapterInline(ch.id)
+                                        }
                                         className="text-xs px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600 transition font-bold disabled:opacity-60"
                                         disabled={chaptersBusy}
                                         title="حذف"
@@ -521,7 +706,9 @@ const Home = () => {
                             <input
                               type="text"
                               value={editingChapterName}
-                              onChange={(e) => setEditingChapterName(e.target.value)}
+                              onChange={(e) =>
+                                setEditingChapterName(e.target.value)
+                              }
                               className="w-full font-extrabold text-dark-900 border-2 border-primary-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary-500"
                             />
                           ) : (
@@ -554,5 +741,3 @@ const Home = () => {
 };
 
 export default Home;
-
-

@@ -14,6 +14,8 @@ router.register(r'videos', views.VideoViewSet, basename='video')
 router.register(r'files', views.FileViewSet, basename='file')
 router.register(r'progress', views.StudentProgressViewSet, basename='progress')
 router.register(r'lesson-progress', views.LessonProgressViewSet, basename='lesson-progress')
+router.register(r'tracker/quiz-attempts', views.QuizAttemptViewSet, basename='quiz-attempt')
+router.register(r'tracker/video-watches', views.VideoWatchViewSet, basename='video-watch')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -21,4 +23,6 @@ urlpatterns = [
     path('auth/login/', views.LoginView.as_view(), name='login'),
     path('auth/logout/', views.LogoutView.as_view(), name='logout'),
     path('public/foundation/', views.PublicFoundationView.as_view(), name='public-foundation'),
+    path('tracker/student-summary/', views.TrackerStudentSummaryView.as_view(), name='tracker-student-summary'),
+    path('tracker/admin-summary/', views.TrackerAdminSummaryView.as_view(), name='tracker-admin-summary'),
 ]

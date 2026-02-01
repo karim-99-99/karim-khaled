@@ -51,6 +51,14 @@ const SinglePage = () => {
       }, 100);
       return;
     }
+    if (sectionId === "courses") {
+      navigate("/courses");
+      return;
+    }
+    if (sectionId === "foundation" || sectionId === "free-courses") {
+      navigate("/foundation");
+      return;
+    }
     const element = document.getElementById(sectionId);
     if (element) {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -408,14 +416,13 @@ const SinglePage = () => {
           <div className="relative max-w-7xl mx-auto px-4 z-10">
             <div className="text-center">
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 text-dark-900 leading-tight">
-                نظام تعليمي متكامل
+              بدايتي في القدرات أ. ايمان معوض 
               </h1>
               <p className="text-lg md:text-xl lg:text-2xl mb-4 md:mb-6 text-dark-600 font-medium max-w-4xl mx-auto">
-                طور مهاراتك من خلال دوراتنا التعليمية المميزة
+               مدربة القدرات العامه للقسمين اللفظي و الكمي  بمدارس رياض الصالحين
               </p>
               <p className="text-base md:text-lg lg:text-xl mb-6 md:mb-8 text-dark-600 font-medium max-w-4xl mx-auto">
-                بدايتي هي منصة تعليمية متخصصة في تحضير الطلاب والطالبات لاختبار
-                القدرات
+               
               </p>
               <div className="flex flex-wrap justify-center gap-4 md:gap-6">
                 <button
@@ -427,7 +434,7 @@ const SinglePage = () => {
                    
                   </span>
                 </button>
-                <button
+                {/* <button
                   onClick={handleDiscoverFreeCourses}
                   className="group px-8 py-4 bg-white border-2 border-primary-500 text-primary-600 hover:bg-primary-50 rounded-2xl text-lg md:text-xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
                 >
@@ -435,7 +442,7 @@ const SinglePage = () => {
                     <span>الدورات المجانية</span>
                     
                   </span>
-                </button>
+                </button> */}
               </div>
             </div>
 
@@ -504,8 +511,8 @@ const SinglePage = () => {
       </section>
 
       {/* الدورات Section */}
-      <section id="courses" className="min-h-screen bg-white py-12">
-        <div className="max-w-7xl mx-auto px-4">
+      {/* <section id="courses" className="min-h-screen bg-white py-12"> */}
+        {/* <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-8 md:mb-12 relative">
             <div className="absolute left-8 top-8 w-4 h-4 border-2 border-primary-500 rounded-full opacity-30 hidden md:block"></div>
             <div className="absolute right-8 top-8 w-4 h-4 border-2 border-primary-500 rounded-full opacity-30 hidden md:block"></div>
@@ -529,10 +536,10 @@ const SinglePage = () => {
                 />
               </svg>
             </div>
-          </div>
+          </div> */}
 
           {/* Single Discover Courses Button */}
-          <div className="flex justify-center">
+          {/* <div className="flex justify-center">
             <button
               onClick={handleDiscoverCourses}
               className="group relative px-12 py-6 bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 rounded-2xl text-2xl md:text-3xl font-bold transition-all duration-300 shadow-xl hover:shadow-2xl text-white transform hover:scale-105"
@@ -544,10 +551,10 @@ const SinglePage = () => {
                 </span>
               </span>
             </button>
-          </div>
+          </div> */}
 
           {/* الدورات المجانية — أسفل اكتشف قدراتنا */}
-          <div className="mt-12 md:mt-16 flex flex-col items-center gap-4">
+          {/* <div className="mt-12 md:mt-16 flex flex-col items-center gap-4">
             <h2 className="text-xl md:text-2xl font-bold text-dark-800">
               الدورات المجانية
             </h2>
@@ -563,8 +570,8 @@ const SinglePage = () => {
               </span>
             </button>
           </div>
-        </div>
-      </section>
+        </div> */}
+      {/* </section> */}
 
       {/* الاسئلة المتكررة Section */}
       <section id="about" className="min-h-screen bg-gray-50 py-12 relative">
@@ -997,7 +1004,7 @@ const SinglePage = () => {
                 </button>
 
                 {/* Instagram Button */}
-                <button className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-transparent hover:bg-white/10 transition-all duration-300 text-white font-semibold text-base md:text-lg group">
+                {/* <button className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-transparent hover:bg-white/10 transition-all duration-300 text-white font-semibold text-base md:text-lg group">
                   <svg
                     className="w-6 h-6 md:w-7 md:h-7"
                     fill="currentColor"
@@ -1008,10 +1015,10 @@ const SinglePage = () => {
                   <span className="group-hover:scale-105 transition-transform">
                     انستا
                   </span>
-                </button>
+                </button> */}
 
                 {/* Twitter Button */}
-                <button className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-transparent hover:bg-white/10 transition-all duration-300 text-white font-semibold text-base md:text-lg group">
+                {/* <button className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-transparent hover:bg-white/10 transition-all duration-300 text-white font-semibold text-base md:text-lg group">
                   <svg
                     className="w-6 h-6 md:w-7 md:h-7"
                     fill="currentColor"
@@ -1022,7 +1029,7 @@ const SinglePage = () => {
                   <span className="group-hover:scale-105 transition-transform">
                     تويتر
                   </span>
-                </button>
+                </button> */}
               </div>
             </div>
           </div>

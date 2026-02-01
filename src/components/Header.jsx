@@ -52,7 +52,9 @@ const Header = () => {
 
           {/* Desktop Navigation — من 1024px فما فوق؛ أدناه نعرض واجهة الموبايل */}
           <nav
-            className={`hidden lg:flex items-center justify-center gap-4 ${!currentUser ? "lg:pl-20" : ""}`}
+            className={`hidden lg:flex items-center justify-center gap-4 ${
+              !currentUser ? "lg:pl-20" : ""
+            }`}
           >
             <Link
               to="/"
@@ -79,7 +81,7 @@ const Header = () => {
             </Link>
             <Link
               to="/foundation"
-              className={`px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
+              className={`hidden px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
                 location.pathname === "/foundation"
                   ? "text-primary-500 border-2 border-primary-500"
                   : "text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
@@ -165,7 +167,7 @@ const Header = () => {
                     </Link>
                     <Link
                       to="/foundation"
-                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                      className="hidden block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         setIsMenuOpen(false);
@@ -173,6 +175,18 @@ const Header = () => {
                     >
                       الدورات المجانية
                     </Link>
+                    {currentUser.role === "student" && (
+                      <Link
+                        to="/tracker"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        متابعة التقدم
+                      </Link>
+                    )}
                     <Link
                       to="/about"
                       className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
@@ -214,7 +228,7 @@ const Header = () => {
                             setIsMenuOpen(false);
                           }}
                         >
-                          إدارة الاختبار
+                          إدارة الواجب
                         </Link>
                         <Link
                           to="/admin/users"
@@ -225,6 +239,16 @@ const Header = () => {
                           }}
                         >
                           إدارة المستخدمين
+                        </Link>
+                        <Link
+                          to="/admin/tracker"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          تتبع الطلاب
                         </Link>
                       </>
                     )}
@@ -322,7 +346,7 @@ const Header = () => {
                       </Link>
                       <Link
                         to="/foundation"
-                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        className="hidden block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                         onClick={() => {
                           setIsUserMenuOpen(false);
                           setIsMenuOpen(false);
@@ -371,7 +395,7 @@ const Header = () => {
                               setIsMenuOpen(false);
                             }}
                           >
-                            إدارة الاختبار
+                            إدارة الواجب
                           </Link>
                           <Link
                             to="/admin/users"
@@ -479,7 +503,7 @@ const Header = () => {
               </Link>
               <Link
                 to="/foundation"
-                className="text-dark-600 hover:text-primary-500 transition-colors font-medium"
+                className="hidden text-dark-600 hover:text-primary-500 transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
                 الدورات المجانية

@@ -5,13 +5,14 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login, logout
-from django.db.models import Q, Count, Avg
+from django.db.models import Q, Count, Avg, Max, Sum
 from django.http import HttpResponse
 from django.utils import timezone
 
 from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
-    Question, Answer, Video, File, StudentProgress, LessonProgress
+    Question, Answer, Video, File, StudentProgress, LessonProgress,
+    QuizAttempt, VideoWatch
 )
 from .utils import get_client_ip
 from .permissions import IsAuthenticatedDeviceAllowed
@@ -20,7 +21,8 @@ from .serializers import (
     SectionSerializer, SubjectSerializer, CategorySerializer, ChapterSerializer, LessonSerializer,
     QuestionSerializer, QuestionCreateUpdateSerializer,
     VideoSerializer, FileSerializer,
-    StudentProgressSerializer, LessonProgressSerializer
+    StudentProgressSerializer, LessonProgressSerializer,
+    QuizAttemptSerializer, QuizAttemptCreateSerializer, VideoWatchSerializer
 )
 
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
@@ -650,3 +652,170 @@ class LessonProgressViewSet(viewsets.ReadOnlyModelViewSet):
         progress = LessonProgress.objects.filter(user=request.user).select_related('lesson', 'last_question')
         serializer = self.get_serializer(progress, many=True)
         return Response(serializer.data)
+
+
+# ——— Tracker (QuizAttempt, VideoWatch, summaries) ———
+
+class QuizAttemptViewSet(viewsets.ModelViewSet):
+    """Quiz attempt tracking - students create & list own; admin lists all."""
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return QuizAttemptCreateSerializer
+        return QuizAttemptSerializer
+
+    def get_queryset(self):
+        qs = QuizAttempt.objects.select_related('user', 'lesson').order_by('-completed_at')
+        if self.request.user.role == 'student':
+            return qs.filter(user=self.request.user)
+        # Admin sees all
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        lesson_id = self.request.query_params.get('lesson_id')
+        if lesson_id:
+            qs = qs.filter(lesson_id=lesson_id)
+        return qs.exclude(lesson__chapter__category__subject__section_id__in=DISABLED_SECTION_IDS)
+
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [IsAuthenticatedDeviceAllowed()]
+
+
+class VideoWatchViewSet(viewsets.GenericViewSet):
+    """Video watch tracking - record watch (create or increment)."""
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+    serializer_class = VideoWatchSerializer
+
+    def get_queryset(self):
+        qs = VideoWatch.objects.select_related('user', 'lesson', 'video').order_by('-last_watched_at')
+        if self.request.user.role == 'student':
+            return qs.filter(user=self.request.user)
+        user_id = self.request.query_params.get('user_id')
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        return qs.exclude(lesson__chapter__category__subject__section_id__in=DISABLED_SECTION_IDS)
+
+    def list(self, request):
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        """Record a video watch - create or increment watch_count."""
+        lesson_id = request.data.get('lesson_id')
+        video_id = request.data.get('video_id')
+        if not lesson_id:
+            return Response({'error': 'lesson_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            lesson = Lesson.objects.get(id=lesson_id)
+        except Lesson.DoesNotExist:
+            return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
+        video = None
+        if video_id:
+            try:
+                video = Video.objects.get(id=video_id, lesson=lesson)
+            except Video.DoesNotExist:
+                pass
+        # For lessons with one video, try to get it if not provided
+        if not video and lesson:
+            v = Video.objects.filter(lesson=lesson).first()
+            if v:
+                video = v
+        obj, created = VideoWatch.objects.get_or_create(
+            user=request.user,
+            lesson=lesson,
+            video=video,
+            defaults={'watch_count': 1}
+        )
+        if not created:
+            obj.watch_count += 1
+            obj.save(update_fields=['watch_count', 'last_watched_at'])
+        serializer = self.get_serializer(obj)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+class TrackerStudentSummaryView(APIView):
+    """Student's own progress summary: exams (completed/not started), video watches."""
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get(self, request):
+        from django.db.models import Max
+        user = request.user
+        # All lessons that have tests (from non-disabled sections)
+        lessons_with_tests = Lesson.objects.filter(
+            has_test=True
+        ).exclude(
+            chapter__category__subject__section_id__in=DISABLED_SECTION_IDS
+        ).select_related('chapter', 'chapter__category', 'chapter__category__subject')
+        # Get attempt counts and last attempt per lesson
+        attempts = QuizAttempt.objects.filter(user=user).values('lesson_id').annotate(
+            attempt_count=Count('id'),
+            last_score=Max('score'),
+            avg_duration=Avg('duration_seconds')
+        )
+        attempt_map = {a['lesson_id']: a for a in attempts}
+        vw_agg = VideoWatch.objects.filter(user=user).values('lesson_id').annotate(
+            total=Sum('watch_count')
+        )
+        vw_map = {v['lesson_id']: v['total'] for v in vw_agg}
+        result = {
+            'exam_progress': [],
+            'video_watches': vw_map,
+            'stats': {'total_exams': 0, 'completed': 0, 'not_started': 0}
+        }
+        for les in lessons_with_tests:
+            info = attempt_map.get(les.id, {})
+            count = info.get('attempt_count', 0)
+            status = 'completed' if count > 0 else 'not_started'
+            result['exam_progress'].append({
+                'lesson_id': les.id,
+                'lesson_name': les.name,
+                'chapter_name': les.chapter.name if les.chapter else '',
+                'category_name': les.chapter.category.name if les.chapter and les.chapter.category else '',
+                'subject_name': les.chapter.category.subject.name if les.chapter and les.chapter.category and les.chapter.category.subject else '',
+                'attempt_count': count,
+                'last_score': info.get('last_score'),
+                'avg_duration_seconds': info.get('avg_duration'),
+                'status': status,
+            })
+            result['stats']['total_exams'] += 1
+            if status == 'completed':
+                result['stats']['completed'] += 1
+            else:
+                result['stats']['not_started'] += 1
+        return Response(result)
+
+
+class TrackerAdminSummaryView(APIView):
+    """Admin overview: per-student stats, averages, video watch counts."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        from django.db.models import Count, Avg
+        students = User.objects.filter(role='student', is_active=True)
+        result = []
+        for s in students:
+            attempts = QuizAttempt.objects.filter(user=s).aggregate(
+                total_attempts=Count('id'),
+                avg_score=Avg('score'),
+                avg_duration=Avg('duration_seconds')
+            )
+            vw = VideoWatch.objects.filter(user=s).aggregate(
+                total_watch_events=Count('id')
+            )
+            total_video_watches = VideoWatch.objects.filter(user=s).aggregate(
+                t=Sum('watch_count')
+            ).get('t') or 0
+            result.append({
+                'user_id': s.id,
+                'username': s.username,
+                'first_name': s.first_name or s.username,
+                'total_exam_attempts': attempts['total_attempts'] or 0,
+                'avg_exam_score': round(attempts['avg_score'] or 0, 1),
+                'avg_exam_duration_seconds': round(attempts['avg_duration'] or 0),
+                'total_video_watches': total_video_watches,
+            })
+        return Response({'students': result})

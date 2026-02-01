@@ -5,7 +5,7 @@ import { getVideoFile } from '../services/videoStorage';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
 import { hasCategoryAccess } from '../components/ProtectedRoute';
-import { isBackendOn, getVideoByLevel as getVideoByLevelApi, getItemById as getItemByIdApi } from '../services/backendApi';
+import { isBackendOn, getVideoByLevel as getVideoByLevelApi, getItemById as getItemByIdApi, recordVideoWatch } from '../services/backendApi';
 
 const Video = () => {
   const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } = useParams();
@@ -175,6 +175,7 @@ const Video = () => {
                     controls
                     className="w-full h-full"
                     autoPlay={false}
+                    onEnded={recordWatch}
                   >
                     {isArabicBrowser() ? 'متصفحك لا يدعم تشغيل الفيديو' : 'Your browser does not support video playback'}
                   </video>

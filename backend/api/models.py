@@ -330,3 +330,42 @@ class LessonProgress(models.Model):
             self.last_question = last_progress.question
         
         self.save()
+
+
+class QuizAttempt(models.Model):
+    """Track each quiz/exam attempt (completed exams only)"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='quiz_attempts')
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='quiz_attempts')
+    
+    score = models.FloatField(default=0)  # Percentage 0-100
+    correct_count = models.IntegerField(default=0)
+    total_questions = models.IntegerField(default=0)
+    
+    started_at = models.DateTimeField()
+    completed_at = models.DateTimeField()
+    duration_seconds = models.IntegerField(default=0)  # Time to complete in seconds
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-completed_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.lesson.name} ({self.score}%)"
+
+
+class VideoWatch(models.Model):
+    """Track video watches per user per lesson"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_watches')
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='video_watches')
+    video = models.ForeignKey(Video, on_delete=models.CASCADE, related_name='watches', null=True, blank=True)
+    
+    watch_count = models.IntegerField(default=1)
+    last_watched_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        unique_together = [['user', 'lesson', 'video']]
+        ordering = ['-last_watched_at']
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.lesson.name} (x{self.watch_count})"

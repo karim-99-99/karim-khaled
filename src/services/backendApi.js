@@ -879,3 +879,38 @@ export const getSubjectsFromSections = async () => {
   }
   return list;
 };
+
+// ——— Tracker ———
+export const saveQuizAttempt = async (data) => {
+  return request("/tracker/quiz-attempts/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+};
+
+export const recordVideoWatch = async (lessonId, videoId = null) => {
+  const body = { lesson_id: lessonId };
+  if (videoId) body.video_id = videoId;
+  return request("/tracker/video-watches/", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+};
+
+export const getStudentTrackerSummary = async () => {
+  return request("/tracker/student-summary/");
+};
+
+export const getAdminTrackerSummary = async () => {
+  return request("/tracker/admin-summary/");
+};
+
+export const getQuizAttempts = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.user_id) params.set("user_id", filters.user_id);
+  if (filters.lesson_id) params.set("lesson_id", filters.lesson_id);
+  const qs = params.toString();
+  const path = qs ? `/tracker/quiz-attempts/?${qs}` : "/tracker/quiz-attempts/";
+  const list = await request(path);
+  return Array.isArray(list) ? list : list?.results || [];
+};

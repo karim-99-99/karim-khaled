@@ -1,6 +1,6 @@
-import { useNavigate } from 'react-router-dom';
-import Header from '../../components/Header';
-import { isArabicBrowser } from '../../utils/language';
+import { useNavigate } from "react-router-dom";
+import Header from "../../components/Header";
+import { isArabicBrowser } from "../../utils/language";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -18,51 +18,69 @@ const Dashboard = () => {
         {/* Admin Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
           <button
-            onClick={() => navigate('/admin/users')}
+            onClick={() => navigate("/admin/users")}
             className="bg-amber-500 hover:bg-amber-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >
             <span className="text-2xl">👥</span>
-            <span>{isArabicBrowser() ? 'إدارة المستخدمين' : 'User Management'}</span>
+            <span>
+              {isArabicBrowser() ? "إدارة المستخدمين" : "User Management"}
+            </span>
           </button>
 
           <button
-            onClick={() => navigate('/admin/questions')}
+            onClick={() => navigate("/admin/questions")}
             className="bg-orange-500 hover:bg-orange-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >
             <span className="text-2xl">📝</span>
-            <span>{isArabicBrowser() ? 'إدارة الاختبار' : 'Test Management'}</span>
+            <span>
+              {isArabicBrowser() ? "إدارة الواجب" : "Test Management"}
+            </span>
           </button>
 
           <button
-            onClick={() => navigate('/admin/chapters')}
+            onClick={() => navigate("/admin/chapters")}
             className="bg-blue-500 hover:bg-blue-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >
             <span className="text-2xl">📚</span>
-            <span>{isArabicBrowser() ? 'إدارة الفصول' : 'Manage Chapters'}</span>
+            <span>
+              {isArabicBrowser() ? "إدارة الفصول" : "Manage Chapters"}
+            </span>
           </button>
 
           <button
-            onClick={() => navigate('/admin/lessons')}
+            onClick={() => navigate("/admin/lessons")}
             className="bg-green-500 hover:bg-green-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >
             <span className="text-2xl">📖</span>
-            <span>{isArabicBrowser() ? 'إدارة الدروس' : 'Manage Lessons'}</span>
+            <span>{isArabicBrowser() ? "إدارة الدروس" : "Manage Lessons"}</span>
           </button>
 
           <button
-            onClick={() => navigate('/admin/classrooms')}
+            onClick={() => navigate("/admin/classrooms")}
             className="bg-purple-500 hover:bg-purple-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >
             <span className="text-2xl">🏫</span>
-            <span>{isArabicBrowser() ? 'إدارة الفصول الدراسية' : 'Manage Classrooms'}</span>
+            <span>
+              {isArabicBrowser()
+                ? "إدارة الفصول الدراسية"
+                : "Manage Classrooms"}
+            </span>
           </button>
 
           <button
-            onClick={() => navigate('/foundation')}
+            onClick={() => navigate("/foundation")}
             className="bg-primary-500 hover:bg-primary-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >
             <span className="text-2xl">🎓</span>
             <span>إدارة الدروس المجانية</span>
+          </button>
+
+          <button
+            onClick={() => navigate("/admin/tracker")}
+            className="bg-teal-500 hover:bg-teal-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
+          >
+            <span className="text-2xl">📊</span>
+            <span>{isArabicBrowser() ? "تتبع الطلاب" : "Student Tracker"}</span>
           </button>
         </div>
       </div>
@@ -71,5 +89,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-
