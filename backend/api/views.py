@@ -819,3 +819,66 @@ class TrackerAdminSummaryView(APIView):
                 'total_video_watches': total_video_watches,
             })
         return Response({'students': result})
+
+
+class TrackerAdminStudentDetailView(APIView):
+    """Admin: detailed progress for a specific student - per lesson/bank."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            student = User.objects.get(id=user_id, role='student')
+        except User.DoesNotExist:
+            return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        lessons = Lesson.objects.exclude(
+            chapter__category__subject__section_id__in=DISABLED_SECTION_IDS
+        ).select_related('chapter', 'chapter__category', 'chapter__category__subject')
+
+        attempts = QuizAttempt.objects.filter(user=student).values('lesson_id').annotate(
+            attempt_count=Count('id'),
+            last_score=Max('score'),
+            avg_duration=Avg('duration_seconds')
+        )
+        attempt_map = {a['lesson_id']: a for a in attempts}
+
+        vw_agg = VideoWatch.objects.filter(user=student).values('lesson_id').annotate(
+            total=Sum('watch_count')
+        )
+        vw_map = {v['lesson_id']: v['total'] for v in vw_agg}
+
+        items = []
+        for les in lessons:
+            info = attempt_map.get(les.id, {})
+            ch = les.chapter
+            cat = ch.category if ch else None
+            subj = cat.subject if cat else None
+            cat_name = cat.name if cat else ''
+            is_bank = 'تجميع' in (cat_name or '')
+            items.append({
+                'lesson_id': les.id,
+                'lesson_name': les.name,
+                'chapter_id': ch.id if ch else None,
+                'chapter_name': ch.name if ch else '',
+                'category_id': cat.id if cat else None,
+                'category_name': cat_name,
+                'subject_id': subj.id if subj else None,
+                'subject_name': subj.name if subj else '',
+                'is_bank': is_bank,
+                'attempt_count': info.get('attempt_count', 0),
+                'last_score': info.get('last_score'),
+                'avg_duration_seconds': info.get('avg_duration'),
+                'video_watch_count': vw_map.get(les.id, 0),
+            })
+
+        return Response({
+            'student': {
+                'user_id': student.id,
+                'username': student.username,
+                'first_name': student.first_name or student.username,
+            },
+            'items': items,
+        })

@@ -277,7 +277,7 @@ export const getSubjects = async () => {
 
 export const getCategoriesBySubject = async (subjectId) => {
   const list = await request(
-    `/categories/?subject_id=${encodeURIComponent(subjectId)}`,
+    `/categories/?subject_id=${encodeURIComponent(subjectId)}`
   );
   return Array.isArray(list) ? list : list?.results || [];
 };
@@ -300,7 +300,7 @@ export const getSectionById = async (sectionId) => {
 
 export const getChaptersByCategory = async (categoryId) => {
   const list = await request(
-    `/chapters/?category_id=${encodeURIComponent(categoryId)}`,
+    `/chapters/?category_id=${encodeURIComponent(categoryId)}`
   );
   const arr = Array.isArray(list) ? list : list?.results || [];
   return arr.map((ch) => ({
@@ -312,7 +312,7 @@ export const getChaptersByCategory = async (categoryId) => {
 
 export const getLevelsByChapter = async (chapterId) => {
   const list = await request(
-    `/lessons/?chapter_id=${encodeURIComponent(chapterId)}`,
+    `/lessons/?chapter_id=${encodeURIComponent(chapterId)}`
   );
   const arr = Array.isArray(list) ? list : list?.results || [];
   return arr.map((l) => ({
@@ -381,7 +381,7 @@ export const deleteLesson = async (lessonId) => {
 export const getCategoryById = async (categoryId) => {
   try {
     const data = await request(
-      `/categories/${encodeURIComponent(categoryId)}/`,
+      `/categories/${encodeURIComponent(categoryId)}/`
     );
     return data;
   } catch {
@@ -569,7 +569,7 @@ export const getQuestionById = async (questionId) => {
 export const addQuestion = async (
   lessonId,
   { question, questionEn, explanation, answers },
-  questionImageFile = null,
+  questionImageFile = null
 ) => {
   const body = {
     lesson: lessonId,
@@ -601,7 +601,7 @@ export const addQuestion = async (
 export const updateQuestion = async (
   questionId,
   { question, questionEn, explanation, answers },
-  questionImageFile = null,
+  questionImageFile = null
 ) => {
   const body = {
     question: question ?? "",
@@ -626,7 +626,7 @@ export const updateQuestion = async (
     });
   }
   return mapQuestionFromBackend(
-    await request(`/questions/${encodeURIComponent(questionId)}/`),
+    await request(`/questions/${encodeURIComponent(questionId)}/`)
   );
 };
 
@@ -681,14 +681,14 @@ export const updatePassage = async (passageId, { passageText, questions }) => {
     body: JSON.stringify(body),
   });
   return mapQuestionFromBackend(
-    await request(`/questions/${encodeURIComponent(passageId)}/`),
+    await request(`/questions/${encodeURIComponent(passageId)}/`)
   );
 };
 
 // ——— Videos (file upload and URL-based videos) ———
 const videoLessonId = (v) =>
   v.lesson != null && typeof v.lesson === "object"
-    ? (v.lesson?.id ?? v.lesson?.pk ?? null)
+    ? v.lesson?.id ?? v.lesson?.pk ?? null
     : v.lesson;
 
 const mapVideoFromBackend = (v) => {
@@ -705,7 +705,7 @@ const mapVideoFromBackend = (v) => {
 };
 
 export const getVideos = async (opts = null) => {
-  const lessonId = typeof opts === "string" ? opts : (opts?.lesson_id ?? null);
+  const lessonId = typeof opts === "string" ? opts : opts?.lesson_id ?? null;
   const chapterId =
     typeof opts === "object" && opts != null ? opts.chapter_id : null;
   const params = new URLSearchParams();
@@ -769,7 +769,7 @@ export const deleteVideo = async (videoId) => {
 // ——— Files ———
 const lessonIdFrom = (f) =>
   f.lesson != null && typeof f.lesson === "object"
-    ? (f.lesson?.id ?? f.lesson?.pk ?? null)
+    ? f.lesson?.id ?? f.lesson?.pk ?? null
     : f.lesson;
 
 const mapFileFromBackend = (f) => {
@@ -787,7 +787,7 @@ const mapFileFromBackend = (f) => {
 };
 
 export const getFiles = async (opts = null) => {
-  const lessonId = typeof opts === "string" ? opts : (opts?.lesson_id ?? null);
+  const lessonId = typeof opts === "string" ? opts : opts?.lesson_id ?? null;
   const chapterId =
     typeof opts === "object" && opts != null ? opts.chapter_id : null;
   const params = new URLSearchParams();
@@ -903,6 +903,12 @@ export const getStudentTrackerSummary = async () => {
 
 export const getAdminTrackerSummary = async () => {
   return request("/tracker/admin-summary/");
+};
+
+export const getAdminStudentDetail = async (userId) => {
+  return request(
+    `/tracker/admin-student-detail/?user_id=${encodeURIComponent(userId)}`
+  );
 };
 
 export const getQuizAttempts = async (filters = {}) => {
