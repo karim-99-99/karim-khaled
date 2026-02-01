@@ -12,7 +12,7 @@ from django.utils import timezone
 from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
     Question, Answer, Video, File, StudentProgress, LessonProgress,
-    QuizAttempt, VideoWatch
+    QuizAttempt, VideoWatch, IncorrectAnswer
 )
 from .utils import get_client_ip
 from .permissions import IsAuthenticatedDeviceAllowed
@@ -786,15 +786,60 @@ class TrackerStudentSummaryView(APIView):
                 result['stats']['completed'] += 1
             else:
                 result['stats']['not_started'] += 1
+
+        # Chart data: average by subject and category
+        from collections import defaultdict
+        by_subject = defaultdict(list)
+        by_category = defaultdict(list)
+        all_scores = []
+        for ex in result['exam_progress']:
+            if ex.get('attempt_count', 0) > 0 and ex.get('last_score') is not None:
+                s = ex['last_score']
+                all_scores.append(s)
+                if ex.get('subject_name'):
+                    by_subject[ex['subject_name']].append(s)
+                if ex.get('category_name'):
+                    by_category[ex['category_name']].append(s)
+        result['chart_data'] = {
+            'by_subject': [{'name': k, 'avg': round(sum(v) / len(v), 1)} for k, v in by_subject.items() if v],
+            'by_category': [{'name': k, 'avg': round(sum(v) / len(v), 1)} for k, v in by_category.items() if v],
+            'overall_avg': round(sum(all_scores) / len(all_scores), 1) if all_scores else 0,
+        }
+        # For performance page: progress by subject -> chapter (vertical bars)
+        from collections import defaultdict
+        subj_chapters = defaultdict(dict)  # subject_name -> { chapter_name: { completed, total, avg } }
+        for ex in result['exam_progress']:
+            subj = ex.get('subject_name') or 'أخرى'
+            ch = ex.get('chapter_name') or 'غير محدد'
+            if ch not in subj_chapters[subj]:
+                subj_chapters[subj][ch] = {'completed': 0, 'total': 0, 'scores': []}
+            subj_chapters[subj][ch]['total'] += 1
+            if ex.get('status') == 'completed':
+                subj_chapters[subj][ch]['completed'] += 1
+                if ex.get('last_score') is not None:
+                    subj_chapters[subj][ch]['scores'].append(ex['last_score'])
+        perf = []
+        for subj_name, chapters in subj_chapters.items():
+            items = []
+            for ch_name, data in chapters.items():
+                total = data['total']
+                completed = data['completed']
+                scores = data['scores']
+                pct = round((completed / total * 100)) if total > 0 else 0
+                avg = round(sum(scores) / len(scores), 1) if scores else 0
+                items.append({'name': ch_name, 'progress': pct, 'avg': avg})
+            perf.append({'subject': subj_name, 'items': items})
+        result['performance_by_subject'] = perf
         return Response(result)
 
 
 class TrackerAdminSummaryView(APIView):
-    """Admin overview: per-student stats, averages, video watch counts."""
+    """Admin overview: per-student stats, averages, video watch counts, incorrect answers."""
     permission_classes = [IsAdminUser]
 
     def get(self, request):
         from django.db.models import Count, Avg
+        from collections import defaultdict
         students = User.objects.filter(role='student', is_active=True)
         result = []
         for s in students:
@@ -803,12 +848,10 @@ class TrackerAdminSummaryView(APIView):
                 avg_score=Avg('score'),
                 avg_duration=Avg('duration_seconds')
             )
-            vw = VideoWatch.objects.filter(user=s).aggregate(
-                total_watch_events=Count('id')
-            )
             total_video_watches = VideoWatch.objects.filter(user=s).aggregate(
                 t=Sum('watch_count')
             ).get('t') or 0
+            incorrect_count = IncorrectAnswer.objects.filter(user=s).count()
             result.append({
                 'user_id': s.id,
                 'username': s.username,
@@ -817,8 +860,12 @@ class TrackerAdminSummaryView(APIView):
                 'avg_exam_score': round(attempts['avg_score'] or 0, 1),
                 'avg_exam_duration_seconds': round(attempts['avg_duration'] or 0),
                 'total_video_watches': total_video_watches,
+                'incorrect_answers_count': incorrect_count,
             })
-        return Response({'students': result})
+        return Response({
+            'students': result,
+            'total_incorrect_answers': sum(r['incorrect_answers_count'] for r in result),
+        })
 
 
 class TrackerAdminStudentDetailView(APIView):
@@ -874,6 +921,46 @@ class TrackerAdminStudentDetailView(APIView):
                 'video_watch_count': vw_map.get(les.id, 0),
             })
 
+        # Compute chart data: average by subject and by category
+        from collections import defaultdict
+        by_subject = defaultdict(list)
+        by_category = defaultdict(list)
+        all_scores = []
+        for it in items:
+            if it.get('attempt_count', 0) > 0 and it.get('last_score') is not None:
+                s = it['last_score']
+                all_scores.append(s)
+                if it.get('subject_name'):
+                    by_subject[it['subject_name']].append(s)
+                if it.get('category_name'):
+                    by_category[it['category_name']].append(s)
+
+        chart_by_subject = [{'name': k, 'avg': round(sum(v) / len(v), 1)} for k, v in by_subject.items() if v]
+        chart_by_category = [{'name': k, 'avg': round(sum(v) / len(v), 1)} for k, v in by_category.items() if v]
+        overall_avg = round(sum(all_scores) / len(all_scores), 1) if all_scores else 0
+
+        # performance_by_subject: progress per chapter for this student (لفظي/كمي)
+        subj_chapters = defaultdict(lambda: defaultdict(lambda: {'completed': 0, 'total': 0, 'scores': []}))
+        for it in items:
+            subj = it.get('subject_name') or 'أخرى'
+            ch = it.get('chapter_name') or 'غير محدد'
+            subj_chapters[subj][ch]['total'] += 1
+            if it.get('attempt_count', 0) > 0:
+                subj_chapters[subj][ch]['completed'] += 1
+                if it.get('last_score') is not None:
+                    subj_chapters[subj][ch]['scores'].append(it['last_score'])
+        perf = []
+        for subj_name, chapters in subj_chapters.items():
+            perf_items = []
+            for ch_name, data in chapters.items():
+                total = data['total']
+                completed = data['completed']
+                scores = data['scores']
+                pct = round((completed / total * 100)) if total > 0 else 0
+                avg = round(sum(scores) / len(scores), 1) if scores else 0
+                perf_items.append({'name': ch_name, 'progress': pct, 'avg': avg})
+            perf.append({'subject': subj_name, 'items': perf_items})
+
         return Response({
             'student': {
                 'user_id': student.id,
@@ -881,4 +968,85 @@ class TrackerAdminStudentDetailView(APIView):
                 'first_name': student.first_name or student.username,
             },
             'items': items,
+            'chart_data': {
+                'by_subject': chart_by_subject,
+                'by_category': chart_by_category,
+                'overall_avg': overall_avg,
+            },
+            'performance_by_subject': perf,
         })
+
+
+class IncorrectAnswerListCreateView(APIView):
+    """List or batch-add incorrect answers for current user."""
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get(self, request):
+        items = IncorrectAnswer.objects.filter(user=request.user).select_related('lesson').order_by('-created_at')
+        out = []
+        for ia in items:
+            out.append({
+                'id': ia.id,
+                'question_id': ia.question_id,
+                'lesson_id': ia.lesson_id,
+                'lesson_name': ia.lesson_name,
+                'category_name': ia.category_name,
+                'subject_name': ia.subject_name,
+                'question_snapshot': ia.question_snapshot,
+                'user_answer_id': ia.user_answer_id,
+                'correct_answer_id': ia.correct_answer_id,
+                'created_at': ia.created_at.isoformat() if ia.created_at else None,
+            })
+        return Response(out)
+
+    def post(self, request):
+        items = request.data if isinstance(request.data, list) else request.data.get('items', [])
+        if not items:
+            return Response({'detail': 'لا توجد عناصر'}, status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        created = 0
+        for item in items:
+            qid = str(item.get('question_id', '')).strip()
+            if not qid:
+                continue
+            lesson_id = item.get('lesson_id')
+            lesson_name = item.get('lesson_name', '')[:200]
+            category_name = item.get('category_name', '')[:200]
+            subject_name = item.get('subject_name', '')[:200]
+            if lesson_id and (not lesson_name or not category_name or not subject_name):
+                try:
+                    les = Lesson.objects.select_related('chapter', 'chapter__category', 'chapter__category__subject').get(pk=lesson_id)
+                    if not lesson_name:
+                        lesson_name = les.name or ''
+                    if not category_name and les.chapter and les.chapter.category:
+                        category_name = les.chapter.category.name or ''
+                    if not subject_name and les.chapter and les.chapter.category and les.chapter.category.subject:
+                        subject_name = les.chapter.category.subject.name or ''
+                except Lesson.DoesNotExist:
+                    pass
+            IncorrectAnswer.objects.update_or_create(
+                user=user,
+                question_id=qid,
+                defaults={
+                    'lesson_id': lesson_id,
+                    'lesson_name': lesson_name[:200],
+                    'category_name': category_name[:200],
+                    'subject_name': subject_name[:200],
+                    'question_snapshot': item.get('question_snapshot', {}),
+                    'user_answer_id': str(item.get('user_answer_id', ''))[:10],
+                    'correct_answer_id': str(item.get('correct_answer_id', ''))[:10],
+                }
+            )
+            created += 1
+        return Response({'created': created})
+
+
+class IncorrectAnswerDetailView(APIView):
+    """Delete single incorrect answer (e.g. when answered correctly in review)."""
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def delete(self, request, question_id):
+        deleted, _ = IncorrectAnswer.objects.filter(
+            user=request.user, question_id=question_id
+        ).delete()
+        return Response({'deleted': deleted > 0}, status=status.HTTP_200_OK)

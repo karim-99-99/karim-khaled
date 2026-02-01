@@ -176,16 +176,28 @@ const Header = () => {
                       الدورات المجانية
                     </Link>
                     {currentUser.role === "student" && (
-                      <Link
-                        to="/tracker"
-                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                        onClick={() => {
-                          setIsUserMenuOpen(false);
-                          setIsMenuOpen(false);
-                        }}
-                      >
-                        متابعة التقدم
-                      </Link>
+                      <>
+                        <Link
+                          to="/tracker"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          متابعة التقدم
+                        </Link>
+                        <Link
+                          to="/incorrect-answers"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          الأجوبة الخاطئة
+                        </Link>
+                      </>
                     )}
                     <Link
                       to="/about"
@@ -374,6 +386,30 @@ const Header = () => {
                       >
                         تواصل معنا
                       </Link>
+                      {currentUser.role === "student" && (
+                        <>
+                          <Link
+                            to="/tracker"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            متابعة التقدم
+                          </Link>
+                          <Link
+                            to="/incorrect-answers"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            الأجوبة الخاطئة
+                          </Link>
+                        </>
+                      )}
                       {currentUser.role === "admin" && (
                         <>
                           <div className="border-t border-gray-200" />

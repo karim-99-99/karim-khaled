@@ -19,6 +19,7 @@ import {
   getVideoByLevel as getVideoByLevelApi,
   getItemById as getItemByIdApi,
   saveQuizAttempt,
+  addIncorrectAnswers,
 } from "../services/backendApi";
 
 /**
@@ -28,13 +29,15 @@ import {
 function flattenQuestionsForQuiz(raw) {
   const out = [];
   for (const q of raw || []) {
-    if (
-      q.type === "passage" &&
-      Array.isArray(q.questions) &&
-      q.questions.length > 0
-    ) {
-      const passageText = (q.passageText || "").trim();
-      q.questions.forEach((pq, idx) => {
+    if (q.type === "passage" || q.question_type === "passage") {
+      let pqList = Array.isArray(q.questions)
+        ? q.questions
+        : q.passage_questions || [];
+      if (!Array.isArray(pqList)) pqList = [];
+      if (pqList.length === 0) continue;
+      const passageText = (q.passageText || q.passage_text || "").trim();
+      for (let idx = 0; idx < pqList.length; idx++) {
+        const pq = pqList[idx];
         const sid = pq.id || `passage_${q.id}_${idx}`;
         const subHtml = (pq.question || "").trim();
         const combined = passageText
@@ -42,17 +45,18 @@ function flattenQuestionsForQuiz(raw) {
               idx + 1
             }:</div><div>${subHtml}</div>`
           : subHtml;
+        const answers = Array.isArray(pq.answers) ? pq.answers : [];
         out.push({
           id: sid,
           question: combined,
           questionEn: null,
           explanation: pq.explanation || null,
           image: null,
-          answers: Array.isArray(pq.answers) ? pq.answers : [],
+          answers,
           itemId: q.itemId,
           levelId: q.levelId,
         });
-      });
+      }
     } else {
       out.push(q);
     }
@@ -293,6 +297,36 @@ const Quiz = () => {
         });
       } catch (err) {
         console.warn("Could not save quiz attempt to tracker:", err);
+      }
+      // Save incorrect answers for review
+      const incorrectItems = [];
+      questions.forEach((q) => {
+        const userAns = ans[q.id];
+        const qa = q.answers || [];
+        const correct = qa.find((a) => a.isCorrect);
+        if (userAns !== correct?.id) {
+          incorrectItems.push({
+            question_id: q.id,
+            lesson_id: actualItemId,
+            lesson_name: level?.name || "",
+            question_snapshot: {
+              question: q.question,
+              answers: qa,
+              explanation: q.explanation,
+              itemId: q.itemId,
+              levelId: q.levelId,
+            },
+            user_answer_id: userAns || "",
+            correct_answer_id: correct?.id || "",
+          });
+        }
+      });
+      if (incorrectItems.length > 0) {
+        try {
+          await addIncorrectAnswers(incorrectItems);
+        } catch (err) {
+          console.warn("Could not save incorrect answers:", err);
+        }
       }
     }
 

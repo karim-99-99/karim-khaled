@@ -369,3 +369,26 @@ class VideoWatch(models.Model):
     
     def __str__(self):
         return f"{self.user.username} - {self.lesson.name} (x{self.watch_count})"
+
+
+class IncorrectAnswer(models.Model):
+    """Store questions the student answered incorrectly for later review."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incorrect_answers')
+    question_id = models.CharField(max_length=100)  # Can be passage sub-q id
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='incorrect_answers', null=True, blank=True)
+    lesson_name = models.CharField(max_length=200, blank=True)
+    category_name = models.CharField(max_length=200, blank=True)
+    subject_name = models.CharField(max_length=200, blank=True)
+
+    question_snapshot = models.JSONField(default=dict)  # Full question data for display
+    user_answer_id = models.CharField(max_length=10, blank=True)
+    correct_answer_id = models.CharField(max_length=10, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [['user', 'question_id']]  # One record per user per question
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.question_id}"

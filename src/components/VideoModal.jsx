@@ -1,22 +1,24 @@
-import { useState, useEffect, useRef } from 'react';
-import { getVideoFile } from '../services/videoStorage';
-import { isArabicBrowser } from '../utils/language';
-import { isBackendOn, recordVideoWatch } from '../services/backendApi';
+import { useState, useEffect } from "react";
+import { getVideoFile } from "../services/videoStorage";
+import { isArabicBrowser } from "../utils/language";
+import { isBackendOn, recordVideoWatch } from "../services/backendApi";
 
-const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليمي', lessonId, videoId }) => {
+const VideoModal = ({
+  isOpen,
+  onClose,
+  videoUrl,
+  title = "فيديو تعليمي",
+  lessonId,
+  videoId,
+}) => {
   const [actualVideoUrl, setActualVideoUrl] = useState(null);
   const [loading, setLoading] = useState(false);
-  const hasRecordedRef = useRef(false);
-
-  const recordWatch = () => {
-    if (hasRecordedRef.current || !lessonId || !isBackendOn()) return;
-    hasRecordedRef.current = true;
-    recordVideoWatch(lessonId, videoId || null).catch(() => {});
-  };
 
   useEffect(() => {
-    if (isOpen) hasRecordedRef.current = false;
-  }, [isOpen]);
+    if (isOpen && lessonId && isBackendOn()) {
+      recordVideoWatch(lessonId, videoId || null).catch(() => {});
+    }
+  }, [isOpen, lessonId, videoId]);
 
   useEffect(() => {
     const loadVideo = async () => {
@@ -26,10 +28,10 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
       }
 
       // Check if it's an IndexedDB video
-      if (videoUrl.startsWith('indexeddb://')) {
+      if (videoUrl.startsWith("indexeddb://")) {
         setLoading(true);
         try {
-          const levelId = videoUrl.replace('indexeddb://', '');
+          const levelId = videoUrl.replace("indexeddb://", "");
           const videoFile = await getVideoFile(levelId);
           if (videoFile && videoFile.url) {
             setActualVideoUrl(videoFile.url);
@@ -37,7 +39,7 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
             setActualVideoUrl(null);
           }
         } catch (error) {
-          console.error('Error loading video from IndexedDB:', error);
+          console.error("Error loading video from IndexedDB:", error);
           setActualVideoUrl(null);
         } finally {
           setLoading(false);
@@ -51,7 +53,7 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
       loadVideo();
     } else {
       // Clean up blob URL when modal closes
-      if (actualVideoUrl && actualVideoUrl.startsWith('blob:')) {
+      if (actualVideoUrl && actualVideoUrl.startsWith("blob:")) {
         URL.revokeObjectURL(actualVideoUrl);
       }
       setActualVideoUrl(null);
@@ -59,7 +61,7 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
 
     // Cleanup on unmount
     return () => {
-      if (actualVideoUrl && actualVideoUrl.startsWith('blob:')) {
+      if (actualVideoUrl && actualVideoUrl.startsWith("blob:")) {
         URL.revokeObjectURL(actualVideoUrl);
       }
     };
@@ -73,10 +75,7 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-xl font-bold text-dark-600">{title}</h3>
           <button
-            onClick={() => {
-              if (!hasRecordedRef.current && lessonId) recordWatch();
-              onClose();
-            }}
+            onClick={onClose}
             className="p-2 text-dark-600 hover:text-primary-500 hover:bg-gray-100 rounded-full transition text-2xl"
           >
             ✕
@@ -86,11 +85,23 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
           <div className="aspect-video w-full">
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <p className="text-dark-600 font-medium">{isArabicBrowser() ? 'جاري تحميل الفيديو...' : 'Loading video...'}</p>
+                <p className="text-dark-600 font-medium">
+                  {isArabicBrowser()
+                    ? "جاري تحميل الفيديو..."
+                    : "Loading video..."}
+                </p>
               </div>
-            ) : actualVideoUrl && (actualVideoUrl.includes('youtube.com') || actualVideoUrl.includes('youtu.be')) ? (
+            ) : actualVideoUrl &&
+              (actualVideoUrl.includes("youtube.com") ||
+                actualVideoUrl.includes("youtu.be")) ? (
               <iframe
-                src={actualVideoUrl.includes('embed') ? actualVideoUrl : `https://www.youtube.com/embed/${actualVideoUrl.split('/').pop().split('?')[0]}`}
+                src={
+                  actualVideoUrl.includes("embed")
+                    ? actualVideoUrl
+                    : `https://www.youtube.com/embed/${
+                        actualVideoUrl.split("/").pop().split("?")[0]
+                      }`
+                }
                 className="w-full h-full rounded"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
@@ -101,13 +112,18 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
                 controls
                 className="w-full h-full rounded"
                 autoPlay={false}
-                onEnded={recordWatch}
               >
-                {isArabicBrowser() ? 'متصفحك لا يدعم تشغيل الفيديو' : 'Your browser does not support video playback'}
+                {isArabicBrowser()
+                  ? "متصفحك لا يدعم تشغيل الفيديو"
+                  : "Your browser does not support video playback"}
               </video>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-dark-600 font-medium">{isArabicBrowser() ? 'لا يوجد فيديو متاح' : 'No video available'}</p>
+                <p className="text-dark-600 font-medium">
+                  {isArabicBrowser()
+                    ? "لا يوجد فيديو متاح"
+                    : "No video available"}
+                </p>
               </div>
             )}
           </div>
@@ -118,4 +134,3 @@ const VideoModal = ({ isOpen, onClose, videoUrl, title = 'فيديو تعليم�
 };
 
 export default VideoModal;
-

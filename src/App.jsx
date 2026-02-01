@@ -34,17 +34,18 @@ const Dashboard = lazy(() => import("./pages/admin/Dashboard.jsx"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers.jsx"));
 const Questions = lazy(() => import("./pages/admin/Questions.jsx"));
 const Videos = lazy(() => import("./pages/admin/Videos.jsx"));
-const ChaptersManagement = lazy(
-  () => import("./pages/admin/ChaptersManagement.jsx"),
+const ChaptersManagement = lazy(() =>
+  import("./pages/admin/ChaptersManagement.jsx")
 );
-const LessonsManagement = lazy(
-  () => import("./pages/admin/LessonsManagement.jsx"),
+const LessonsManagement = lazy(() =>
+  import("./pages/admin/LessonsManagement.jsx")
 );
-const ClassroomsManagement = lazy(
-  () => import("./pages/admin/ClassroomsManagement.jsx"),
+const ClassroomsManagement = lazy(() =>
+  import("./pages/admin/ClassroomsManagement.jsx")
 );
 const FilesManagement = lazy(() => import("./pages/admin/FilesManagement.jsx"));
 const StudentTracker = lazy(() => import("./pages/StudentTracker.jsx"));
+const IncorrectAnswers = lazy(() => import("./pages/IncorrectAnswers.jsx"));
 const AdminTracker = lazy(() => import("./pages/admin/AdminTracker.jsx"));
 
 // Loading component
@@ -310,6 +311,15 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <StudentTracker />
+                    </ProtectedRoute>
+                  }
+                />
+                {/* Incorrect answers review */}
+                <Route
+                  path="/incorrect-answers"
+                  element={
+                    <ProtectedRoute>
+                      <IncorrectAnswers />
                     </ProtectedRoute>
                   }
                 />

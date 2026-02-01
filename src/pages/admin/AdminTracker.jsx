@@ -6,6 +6,7 @@ import {
   getAdminTrackerSummary,
   getAdminStudentDetail,
 } from "../../services/backendApi";
+import AverageChart from "../../components/AverageChart";
 
 const formatDuration = (seconds) => {
   if (!seconds || seconds < 60) return `${Math.round(seconds || 0)} ث`;
@@ -76,6 +77,7 @@ const AdminTracker = () => {
   }
 
   const students = data?.students || [];
+  const totalIncorrectAnswers = data?.total_incorrect_answers ?? 0;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -88,33 +90,33 @@ const AdminTracker = () => {
           >
             ← رجوع للوحة التحكم
           </button>
-          <h1 className="text-2xl md:text-3xl font-bold text-dark-600">
-            {isArabicBrowser() ? "تتبع الطلاب" : "Student Tracker"}
+          <h1 className="text-xl md:text-2xl font-bold text-dark-600 text-center mb-2">
+            تابع أداء الطلاب في جميع فئات التدريب واكتشف نقاط القوة والضعف
           </h1>
-          <p className="text-gray-600 mt-1">
-            {isArabicBrowser()
-              ? "متابعة تقدم الطلاب ونتائجهم"
-              : "Track student progress and exam performance"}
+          <p className="text-gray-600 text-center">
+            متابعة تقدم الطلاب ونتائجهم
           </p>
         </div>
 
         {/* Summary stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           <div className="bg-white rounded-xl shadow p-4 border-t-4 border-primary-500">
             <div className="text-3xl font-bold text-primary-600">
               {students.length}
             </div>
-            <div className="text-sm text-gray-600">
-              {isArabicBrowser() ? "عدد الطلاب" : "Students"}
-            </div>
+            <div className="text-sm text-gray-600">عدد الطلاب</div>
           </div>
           <div className="bg-white rounded-xl shadow p-4 border-t-4 border-green-500">
             <div className="text-3xl font-bold text-green-600">
               {students.reduce((a, s) => a + (s.total_exam_attempts || 0), 0)}
             </div>
-            <div className="text-sm text-gray-600">
-              {isArabicBrowser() ? "إجمالي محاولات الواجبات" : "Total Attempts"}
+            <div className="text-sm text-gray-600">إجمالي محاولات الواجبات</div>
+          </div>
+          <div className="bg-white rounded-xl shadow p-4 border-t-4 border-red-500">
+            <div className="text-3xl font-bold text-red-600">
+              {totalIncorrectAnswers}
             </div>
+            <div className="text-sm text-gray-600">إجمالي الأجوبة الخاطئة</div>
           </div>
           <div className="bg-white rounded-xl shadow p-4 border-t-4 border-blue-500">
             <div className="text-3xl font-bold text-blue-600">
@@ -126,43 +128,42 @@ const AdminTracker = () => {
                 : 0}
               %
             </div>
-            <div className="text-sm text-gray-600">
-              {isArabicBrowser() ? "متوسط الدرجات" : "Avg Score"}
-            </div>
+            <div className="text-sm text-gray-600">متوسط الدرجات</div>
           </div>
           <div className="bg-white rounded-xl shadow p-4 border-t-4 border-purple-500">
             <div className="text-3xl font-bold text-purple-600">
               {students.reduce((a, s) => a + (s.total_video_watches || 0), 0)}
             </div>
-            <div className="text-sm text-gray-600">
-              {isArabicBrowser() ? "إجمالي مشاهدة الفيديو" : "Video Watches"}
-            </div>
+            <div className="text-sm text-gray-600">إجمالي مشاهدة الفيديو</div>
           </div>
         </div>
 
-        {/* Students table */}
+        {/* Students table - مع عدد المحاولات و الأجوبة الخاطئة */}
         <div className="bg-white rounded-xl shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-100">
                 <tr>
                   <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
-                    {isArabicBrowser() ? "الطالب" : "Student"}
+                    الطالب
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
-                    {isArabicBrowser() ? "محاولات الواجبات" : "Exam Attempts"}
+                    عدد المحاولات
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
-                    {isArabicBrowser() ? "متوسط الدرجة" : "Avg Score"}
+                    الأجوبة الخاطئة
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
-                    {isArabicBrowser() ? "متوسط الوقت" : "Avg Time"}
+                    متوسط الدرجة
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
-                    {isArabicBrowser() ? "مشاهدة الفيديو" : "Video Watches"}
+                    متوسط الوقت
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
-                    {isArabicBrowser() ? "تفاصيل" : "Details"}
+                    مشاهدة الفيديو
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
+                    تفاصيل
                   </th>
                 </tr>
               </thead>
@@ -170,12 +171,10 @@ const AdminTracker = () => {
                 {students.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-4 py-8 text-center text-gray-500"
                     >
-                      {isArabicBrowser()
-                        ? "لا يوجد طلاب مسجلين"
-                        : "No students registered"}
+                      لا يوجد طلاب مسجلين
                     </td>
                   </tr>
                 ) : (
@@ -191,7 +190,20 @@ const AdminTracker = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {s.total_exam_attempts || 0}
+                        <span className="font-bold text-green-600">
+                          {s.total_exam_attempts || 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`font-bold ${
+                            (s.incorrect_answers_count || 0) > 0
+                              ? "text-red-600"
+                              : "text-gray-500"
+                          }`}
+                        >
+                          {s.incorrect_answers_count ?? 0}
+                        </span>
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -259,7 +271,15 @@ const AdminTracker = () => {
                 ) : (
                   <StudentDetailContent
                     items={detailData.items || []}
+                    chartData={detailData.chart_data}
+                    performanceBySubject={
+                      detailData.performance_by_subject || []
+                    }
                     formatDuration={formatDuration}
+                    incorrectCount={
+                      selectedStudent.incorrect_answers_count ?? 0
+                    }
+                    attemptCount={selectedStudent.total_exam_attempts ?? 0}
                   />
                 )}
               </div>
@@ -272,7 +292,14 @@ const AdminTracker = () => {
 };
 
 /** Groups items by subject -> category -> chapter and renders detail rows */
-function StudentDetailContent({ items, formatDuration }) {
+function StudentDetailContent({
+  items,
+  chartData,
+  performanceBySubject,
+  formatDuration,
+  incorrectCount,
+  attemptCount,
+}) {
   const groups = {};
   for (const it of items) {
     const sk = it.subject_id || "s";
@@ -286,6 +313,123 @@ function StudentDetailContent({ items, formatDuration }) {
 
   return (
     <div className="space-y-6">
+      {/* عدد المحاولات و الأجوبة الخاطئة */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-green-50 rounded-xl p-4 border-t-4 border-green-500">
+          <div className="text-2xl font-bold text-green-600">
+            {attemptCount}
+          </div>
+          <div className="text-sm text-gray-600">عدد المحاولات</div>
+        </div>
+        <div className="bg-red-50 rounded-xl p-4 border-t-4 border-red-500">
+          <div className="text-2xl font-bold text-red-600">
+            {incorrectCount}
+          </div>
+          <div className="text-sm text-gray-600">الأجوبة الخاطئة</div>
+        </div>
+      </div>
+
+      {/* Charts لفظي و كمي - تقدم هذا الطالب */}
+      <div className="space-y-6">
+        {(performanceBySubject?.length > 0
+          ? performanceBySubject
+          : [
+              { subject: "اللفظي", items: [] },
+              { subject: "الكمي", items: [] },
+            ]
+        ).map((subj) => (
+          <div
+            key={subj.subject}
+            className={`rounded-2xl shadow-lg overflow-hidden ${
+              subj.subject?.includes("لفظ") ? "bg-blue-50" : "bg-green-50"
+            }`}
+          >
+            <div
+              className={`p-4 ${
+                subj.subject?.includes("لفظ") ? "bg-blue-100" : "bg-green-100"
+              }`}
+            >
+              <h3 className="text-lg font-bold text-dark-700">
+                {subj.subject}
+              </h3>
+            </div>
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-wrap gap-4 sm:gap-6 justify-center">
+                {subj.items?.length > 0 ? (
+                  subj.items.map((item) => (
+                    <div
+                      key={item.name}
+                      className="flex flex-col items-center gap-2 min-w-[80px]"
+                    >
+                      <div className="w-12 h-32 bg-gray-200 rounded-lg overflow-hidden flex flex-col-reverse">
+                        <div
+                          className={`w-full transition-all ${
+                            subj.subject?.includes("لفظ")
+                              ? "bg-blue-500"
+                              : "bg-green-500"
+                          }`}
+                          style={{
+                            height: `${Math.min(100, item.progress || 0)}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="text-xs sm:text-sm font-medium text-dark-600 text-center">
+                        {item.name}
+                      </span>
+                      <span
+                        className={`text-sm font-bold ${
+                          subj.subject?.includes("لفظ")
+                            ? "text-blue-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        {item.progress || 0}%
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 py-4">
+                    ابدأ التدريب لرصد تقدمك في هذا القسم
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Average charts */}
+      {(chartData?.overall_avg > 0 ||
+        chartData?.by_subject?.length > 0 ||
+        chartData?.by_category?.length > 0) && (
+        <div className="space-y-4 mb-6">
+          {chartData?.overall_avg > 0 && (
+            <div className="bg-white rounded-xl shadow p-6 border-t-4 border-primary-500">
+              <h3 className="text-lg font-bold text-dark-600 mb-2">
+                المتوسط الإجمالي
+              </h3>
+              <div className="text-4xl font-bold text-primary-600">
+                {chartData.overall_avg}%
+              </div>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {chartData?.by_subject?.length > 0 && (
+              <AverageChart
+                data={chartData.by_subject}
+                title="متوسط الدرجات حسب المادة"
+              />
+            )}
+            {chartData?.by_category?.length > 0 && (
+              <AverageChart
+                data={chartData.by_category}
+                title="متوسط الدرجات حسب التصنيف"
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {Object.entries(groups).map(([_, cats]) =>
         Object.entries(cats).map(([__, chaps]) =>
           Object.entries(chaps).map(([___, less]) => {
@@ -322,7 +466,7 @@ function StudentDetailContent({ items, formatDuration }) {
                         <div className="flex flex-wrap items-center gap-4 md:gap-6 text-sm">
                           <span>
                             <span className="text-gray-500">محاولات:</span>{" "}
-                            <span className="font-bold">
+                            <span className="font-bold text-green-600">
                               {it.attempt_count}
                             </span>
                           </span>

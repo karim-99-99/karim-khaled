@@ -123,11 +123,9 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
             pt = (attrs.get('passage_text') or '').strip()
             if not pt:
                 raise serializers.ValidationError({'passage_text': 'مطلوب لنوع القطعة.'})
-            pq = attrs.get('passage_questions') or []
-            if not pq:
-                raise serializers.ValidationError({'passage_questions': 'يجب إضافة سؤال واحد على الأقل للقطعة.'})
             attrs['question'] = attrs.get('question') or '(قطعة)'
             attrs['answers'] = attrs.get('answers') or []
+            attrs['passage_questions'] = attrs.get('passage_questions') or []
             return attrs
         # single
         q = (attrs.get('question') or '').strip()

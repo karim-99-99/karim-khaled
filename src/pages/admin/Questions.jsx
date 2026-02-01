@@ -65,6 +65,16 @@ const Questions = () => {
   const [isLoadingForm, setIsLoadingForm] = useState(false);
   const [showPassageForm, setShowPassageForm] = useState(false);
   const [editingPassage, setEditingPassage] = useState(null);
+  const [addingQuestionToPassage, setAddingQuestionToPassage] = useState(null);
+  const [newPassageQuestionForm, setNewPassageQuestionForm] = useState({
+    question: "",
+    answers: [
+      { id: "a", text: "", isCorrect: false },
+      { id: "b", text: "", isCorrect: false },
+      { id: "c", text: "", isCorrect: false },
+      { id: "d", text: "", isCorrect: false },
+    ],
+  });
   // Using the best working editor - SimpleProfessionalMathEditor with RTL/LTR button!
   const imageInputRef = useRef(null);
   const quillRef = useRef(null);
@@ -129,7 +139,7 @@ const Questions = () => {
       div,
       NodeFilter.SHOW_TEXT,
       null,
-      false,
+      false
     );
     const nodes = [];
     let n;
@@ -161,7 +171,7 @@ const Questions = () => {
         // Check if it's Arabic
         if (
           /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(
-            char,
+            char
           )
         ) {
           return "ar";
@@ -184,7 +194,7 @@ const Questions = () => {
       if (!/[0-9٠-٩\s.,;:!?\-_()\[\]{}\"']/.test(char)) {
         if (
           /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(
-            char,
+            char
           )
         ) {
           return "ar";
@@ -203,7 +213,7 @@ const Questions = () => {
 
     const arabicChars =
       context.match(
-        /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g,
+        /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/g
       ) || [];
     const latinChars = context.match(/[a-zA-Z]/g) || [];
     const arabicCount = arabicChars.length;
@@ -368,7 +378,7 @@ const Questions = () => {
               .Delta()
               .retain(selection.index)
               .concat(delta),
-            "user",
+            "user"
           );
 
           // Update form data
@@ -503,7 +513,7 @@ const Questions = () => {
     try {
       const allSubjects = getSubjects();
       const allowed = (allSubjects || []).filter(
-        (s) => s?.id === "مادة_اللفظي" || s?.id === "مادة_الكمي",
+        (s) => s?.id === "مادة_اللفظي" || s?.id === "مادة_الكمي"
       );
       if (allowed.length > 0) setSubjects(allowed);
 
@@ -543,8 +553,9 @@ const Questions = () => {
 
         if (useBackend && backendApi.isBackendOn()) {
           try {
-            levelQuestions =
-              await backendApi.getQuestionsByLevel(selectedLevel);
+            levelQuestions = await backendApi.getQuestionsByLevel(
+              selectedLevel
+            );
           } catch (err) {
             console.error("Error loading questions from backend:", err);
             // Fallback to local storage
@@ -564,7 +575,11 @@ const Questions = () => {
         });
 
         // Refetch passage detail when list omits passage_text / passage_questions (e.g. pagination)
-        if (useBackend && backendApi.isBackendOn() && backendApi.getQuestionById) {
+        if (
+          useBackend &&
+          backendApi.isBackendOn() &&
+          backendApi.getQuestionById
+        ) {
           const merged = [];
           for (const q of sortedQuestions) {
             if (q.type === "passage") {
@@ -574,7 +589,11 @@ const Questions = () => {
               if (noContent && q.id) {
                 try {
                   const full = await backendApi.getQuestionById(q.id);
-                  if (full && ((full.passageText || "").trim() || (full.questions || []).length > 0)) {
+                  if (
+                    full &&
+                    ((full.passageText || "").trim() ||
+                      (full.questions || []).length > 0)
+                  ) {
                     merged.push({
                       ...q,
                       passageText: full.passageText ?? q.passageText,
@@ -626,7 +645,11 @@ const Questions = () => {
         const dateB = new Date(b.createdAt || 0);
         return dateA - dateB;
       });
-      if (useBackend && backendApi.isBackendOn() && backendApi.getQuestionById) {
+      if (
+        useBackend &&
+        backendApi.isBackendOn() &&
+        backendApi.getQuestionById
+      ) {
         const merged = [];
         for (const q of sorted) {
           if (q.type === "passage") {
@@ -636,7 +659,11 @@ const Questions = () => {
             if (noContent && q.id) {
               try {
                 const full = await backendApi.getQuestionById(q.id);
-                if (full && ((full.passageText || "").trim() || (full.questions || []).length > 0)) {
+                if (
+                  full &&
+                  ((full.passageText || "").trim() ||
+                    (full.questions || []).length > 0)
+                ) {
                   merged.push({
                     ...q,
                     passageText: full.passageText ?? q.passageText,
@@ -797,18 +824,7 @@ const Questions = () => {
     setEditingPassage(null);
     setPassageFormData({
       passageText: "",
-      questions: [
-        {
-          id: `q_${Date.now()}_1`,
-          question: "",
-          answers: [
-            { id: "a", text: "", isCorrect: false },
-            { id: "b", text: "", isCorrect: false },
-            { id: "c", text: "", isCorrect: false },
-            { id: "d", text: "", isCorrect: false },
-          ],
-        },
-      ],
+      questions: [],
     });
     setShowPassageForm(true);
   };
@@ -845,7 +861,7 @@ const Questions = () => {
     setPassageFormData({
       ...passageFormData,
       questions: passageFormData.questions.map((q) =>
-        q.id === questionId ? { ...q, [field]: value } : q,
+        q.id === questionId ? { ...q, [field]: value } : q
       ),
     });
   };
@@ -858,10 +874,10 @@ const Questions = () => {
           ? {
               ...q,
               answers: q.answers.map((ans, idx) =>
-                idx === answerIndex ? { ...ans, [field]: value } : ans,
+                idx === answerIndex ? { ...ans, [field]: value } : ans
               ),
             }
-          : q,
+          : q
       ),
     });
   };
@@ -878,7 +894,7 @@ const Questions = () => {
                 isCorrect: idx === answerIndex,
               })),
             }
-          : q,
+          : q
       ),
     });
   };
@@ -897,12 +913,13 @@ const Questions = () => {
       return;
     }
 
-    if (passageFormData.questions.length === 0) {
+    const isNewPassage = !editingPassage;
+    if (!isNewPassage && passageFormData.questions.length === 0) {
       alert("يرجى إضافة سؤال واحد على الأقل للقطعة");
       return;
     }
 
-    // Validate all questions
+    // Validate all questions (when editing or when we have questions)
     for (const q of passageFormData.questions) {
       if (!q.question.trim()) {
         alert("يرجى إدخال نص جميع الأسئلة");
@@ -922,9 +939,10 @@ const Questions = () => {
     }
 
     const passageTextAr = convertPlainTextNumbersToArabic(
-      passageFormData.passageText,
+      passageFormData.passageText
     );
-    const questionsAr = (passageFormData.questions || []).map((q) => ({
+    const questionsToSave = passageFormData.questions || [];
+    const questionsAr = questionsToSave.map((q) => ({
       ...q,
       question: convertPlainTextNumbersToArabic(q.question) ?? q.question,
     }));
@@ -959,8 +977,9 @@ const Questions = () => {
 
       // Reload questions
       if (useBackend && backendApi.isBackendOn()) {
-        const levelQuestions =
-          await backendApi.getQuestionsByLevel(selectedLevel);
+        const levelQuestions = await backendApi.getQuestionsByLevel(
+          selectedLevel
+        );
         const sortedQuestions = (levelQuestions || []).sort((a, b) => {
           const dateA = new Date(a.createdAt || 0);
           const dateB = new Date(b.createdAt || 0);
@@ -973,21 +992,7 @@ const Questions = () => {
 
       setShowPassageForm(false);
       setEditingPassage(null);
-      setPassageFormData({
-        passageText: "",
-        questions: [
-          {
-            id: `q_${Date.now()}_1`,
-            question: "",
-            answers: [
-              { id: "a", text: "", isCorrect: false },
-              { id: "b", text: "", isCorrect: false },
-              { id: "c", text: "", isCorrect: false },
-              { id: "d", text: "", isCorrect: false },
-            ],
-          },
-        ],
-      });
+      setPassageFormData({ passageText: "", questions: [] });
 
       if (returnUrl && itemIdFromUrl && e.target.type === "submit") {
         setTimeout(() => {
@@ -1000,8 +1005,87 @@ const Questions = () => {
       alert(
         msg
           ? `حدث خطأ أثناء حفظ القطعة:\n${msg}`
-          : "حدث خطأ أثناء حفظ القطعة. يرجى المحاولة مرة أخرى.",
+          : "حدث خطأ أثناء حفظ القطعة. يرجى المحاولة مرة أخرى."
       );
+    }
+  };
+
+  const handleAddQuestionToExistingPassage = (passage) => {
+    setAddingQuestionToPassage(passage);
+    setNewPassageQuestionForm({
+      question: "",
+      answers: [
+        { id: "a", text: "", isCorrect: false },
+        { id: "b", text: "", isCorrect: false },
+        { id: "c", text: "", isCorrect: false },
+        { id: "d", text: "", isCorrect: false },
+      ],
+    });
+  };
+
+  const handleSaveNewPassageQuestion = async (e) => {
+    e.preventDefault();
+    if (!addingQuestionToPassage) return;
+    const q = newPassageQuestionForm;
+    if (!q.question.trim()) {
+      alert("يرجى إدخال نص السؤال");
+      return;
+    }
+    const hasCorrect = q.answers.some((a) => a.isCorrect);
+    if (!hasCorrect) {
+      alert("يرجى اختيار الإجابة الصحيحة");
+      return;
+    }
+    for (const a of q.answers) {
+      if (!a.text.trim()) {
+        alert("يرجى إدخال نص جميع الاختيارات");
+        return;
+      }
+    }
+    const existingQuestions = addingQuestionToPassage.questions || [];
+    const newQ = {
+      id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      question: q.question,
+      answers: q.answers,
+    };
+    const updatedQuestions = [...existingQuestions, newQ];
+    const passageText = (addingQuestionToPassage.passageText || "").trim();
+    const questionsAr = updatedQuestions.map((qq) => ({
+      question: convertPlainTextNumbersToArabic(qq.question) ?? qq.question,
+      answers: (qq.answers || []).map((a) => ({
+        id: a.id,
+        text: convertPlainTextNumbersToArabic(a.text) ?? a.text,
+        isCorrect: !!a.isCorrect,
+      })),
+    }));
+    try {
+      if (useBackend && backendApi.isBackendOn()) {
+        await backendApi.updatePassage(addingQuestionToPassage.id, {
+          passageText,
+          questions: questionsAr,
+        });
+      } else {
+        updateQuestion(addingQuestionToPassage.id, {
+          type: "passage",
+          passageText,
+          questions: updatedQuestions,
+          levelId: selectedLevel,
+        });
+      }
+      const levelQuestions =
+        useBackend && backendApi.isBackendOn()
+          ? await backendApi.getQuestionsByLevel(selectedLevel)
+          : getQuestionsByLevel(selectedLevel);
+      const sorted = (levelQuestions || []).sort((a, b) => {
+        const dA = new Date(a.createdAt || 0);
+        const dB = new Date(b.createdAt || 0);
+        return dA - dB;
+      });
+      setQuestions(sorted);
+      setAddingQuestionToPassage(null);
+    } catch (err) {
+      console.error(err);
+      alert("حدث خطأ أثناء حفظ السؤال");
     }
   };
 
@@ -1147,7 +1231,7 @@ const Questions = () => {
               explanation: formData.explanation,
               answers: formData.answers,
             },
-            questionImage || null,
+            questionImage || null
           );
         } else {
           await backendApi.addQuestion(
@@ -1158,7 +1242,7 @@ const Questions = () => {
               explanation: formData.explanation,
               answers: formData.answers,
             },
-            questionImage || null,
+            questionImage || null
           );
         }
         await refetchQuestionsForLevel(selectedLevel);
@@ -1391,7 +1475,8 @@ const Questions = () => {
                                     />
                                   ) : (
                                     <p className="text-gray-500 italic">
-                                      لا يوجد نص للقطعة. اضغط &quot;تعديل&quot; لإضافة المحتوى.
+                                      لا يوجد نص للقطعة. اضغط &quot;تعديل&quot;
+                                      لإضافة المحتوى.
                                     </p>
                                   )}
                                 </div>
@@ -1399,7 +1484,8 @@ const Questions = () => {
 
                               {/* Questions in Passage */}
                               <div className="space-y-4">
-                                {question.questions && question.questions.length > 0 ? (
+                                {question.questions &&
+                                question.questions.length > 0 ? (
                                   question.questions.map((q, qIndex) => (
                                     <div
                                       key={q.id || qIndex}
@@ -1445,9 +1531,19 @@ const Questions = () => {
                                   ))
                                 ) : (
                                   <p className="text-gray-500 italic py-2">
-                                    لا توجد أسئلة في القطعة. اضغط &quot;تعديل&quot; لإضافتها.
+                                    لا توجد أسئلة في القطعة بعد.
                                   </p>
                                 )}
+                              </div>
+                              <div className="mt-4">
+                                <button
+                                  onClick={() =>
+                                    handleAddQuestionToExistingPassage(question)
+                                  }
+                                  className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm"
+                                >
+                                  + إضافة سؤال
+                                </button>
                               </div>
                             </div>
                             <div className="flex gap-2 w-full sm:w-auto">
@@ -1502,8 +1598,8 @@ const Questions = () => {
                                   question.imageAlign === "right"
                                     ? "justify-end"
                                     : question.imageAlign === "left"
-                                      ? "justify-start"
-                                      : "justify-center"
+                                    ? "justify-start"
+                                    : "justify-center"
                                 }`}
                               >
                                 <img
@@ -1571,6 +1667,105 @@ const Questions = () => {
             </div>
           )}
 
+          {/* Add Question to Passage Modal */}
+          {addingQuestionToPassage && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+              <div
+                className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-2xl w-full max-h-[95vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6">
+                  <h2 className="text-xl font-bold mb-4">إضافة سؤال للقطعة</h2>
+                  <form
+                    onSubmit={handleSaveNewPassageQuestion}
+                    className="space-y-4"
+                  >
+                    <div>
+                      <label className="block text-sm font-medium text-dark-600 mb-2">
+                        نص السؤال
+                      </label>
+                      <ErrorBoundary isArabic={isArabicBrowser()}>
+                        <SimpleProfessionalMathEditor
+                          value={newPassageQuestionForm.question}
+                          onChange={(c) =>
+                            setNewPassageQuestionForm({
+                              ...newPassageQuestionForm,
+                              question: c,
+                            })
+                          }
+                          placeholder="اكتب السؤال هنا..."
+                        />
+                      </ErrorBoundary>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-dark-600 mb-2">
+                        الاختيارات (اختر الإجابة الصحيحة)
+                      </label>
+                      <div className="space-y-3">
+                        {newPassageQuestionForm.answers.map((ans, idx) => (
+                          <div
+                            key={ans.id}
+                            className="flex items-start gap-2 p-2 bg-gray-50 rounded border"
+                          >
+                            <input
+                              type="radio"
+                              name="newPassageCorrect"
+                              checked={ans.isCorrect}
+                              onChange={() =>
+                                setNewPassageQuestionForm({
+                                  ...newPassageQuestionForm,
+                                  answers: newPassageQuestionForm.answers.map(
+                                    (a, i) => ({ ...a, isCorrect: i === idx })
+                                  ),
+                                })
+                              }
+                              className="mt-3"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <ErrorBoundary isArabic={isArabicBrowser()}>
+                                <SimpleProfessionalMathEditor
+                                  value={ans.text}
+                                  onChange={(c) =>
+                                    setNewPassageQuestionForm({
+                                      ...newPassageQuestionForm,
+                                      answers:
+                                        newPassageQuestionForm.answers.map(
+                                          (a, i) =>
+                                            i === idx ? { ...a, text: c } : a
+                                        ),
+                                    })
+                                  }
+                                  placeholder={`الاختيار ${String.fromCharCode(
+                                    65 + idx
+                                  )}`}
+                                />
+                              </ErrorBoundary>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600"
+                      >
+                        حفظ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAddingQuestionToPassage(null)}
+                        className="flex-1 bg-gray-400 text-white py-2 rounded-lg"
+                      >
+                        إلغاء
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Image Maximize Modal */}
           {showImageModal && (
             <div
@@ -1604,9 +1799,7 @@ const Questions = () => {
 
           {/* Add/Edit Passage Form Modal */}
           {showPassageForm && (
-            <div
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4"
-            >
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
               <div
                 className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-4xl lg:max-w-6xl w-full max-h-[95vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
@@ -1640,124 +1833,130 @@ const Questions = () => {
                       </ErrorBoundary>
                     </div>
 
-                    {/* Questions in Passage */}
-                    <div>
-                      <div className="flex justify-between items-center mb-4">
-                        <label className="block text-sm md:text-base font-medium text-dark-600">
-                          أسئلة القطعة
-                        </label>
-                        <button
-                          type="button"
-                          onClick={handleAddQuestionToPassage}
-                          className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm"
-                        >
-                          + إضافة سؤال
-                        </button>
-                      </div>
-
-                      <div className="space-y-6">
-                        {passageFormData.questions.map((q, qIndex) => (
-                          <div
-                            key={q.id}
-                            className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50"
+                    {/* Questions in Passage - فقط عند التعديل */}
+                    {editingPassage && (
+                      <div>
+                        <div className="flex justify-between items-center mb-4">
+                          <label className="block text-sm md:text-base font-medium text-dark-600">
+                            أسئلة القطعة
+                          </label>
+                          <button
+                            type="button"
+                            onClick={handleAddQuestionToPassage}
+                            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm"
                           >
-                            <div className="flex justify-between items-center mb-3">
-                              <h3 className="font-bold text-dark-600">
-                                السؤال {qIndex + 1}
-                              </h3>
-                              {passageFormData.questions.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    handleRemoveQuestionFromPassage(q.id)
-                                  }
-                                  className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm"
-                                >
-                                  حذف السؤال
-                                </button>
-                              )}
-                            </div>
+                            + إضافة سؤال
+                          </button>
+                        </div>
 
-                            {/* Question Text */}
-                            <div className="mb-4">
-                              <label className="block text-xs font-medium text-gray-700 mb-2">
-                                نص السؤال
-                              </label>
-                              <ErrorBoundary isArabic={isArabicBrowser()}>
-                                <SimpleProfessionalMathEditor
-                                  value={q.question}
-                                  onChange={(content) =>
-                                    handlePassageQuestionChange(
-                                      q.id,
-                                      "question",
-                                      content,
-                                    )
-                                  }
-                                  placeholder={`اكتب نص السؤال ${qIndex + 1} هنا...`}
-                                />
-                              </ErrorBoundary>
-                            </div>
-
-                            {/* Answers */}
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-2">
-                                الاختيارات (اختر الإجابة الصحيحة)
-                              </label>
-                              <div className="space-y-3">
-                                {q.answers.map((answer, ansIndex) => (
-                                  <div
-                                    key={answer.id}
-                                    className="flex items-start gap-3 bg-white p-3 rounded border"
+                        <div className="space-y-6">
+                          {passageFormData.questions.map((q, qIndex) => (
+                            <div
+                              key={q.id}
+                              className="border-2 border-gray-300 rounded-lg p-4 bg-gray-50"
+                            >
+                              <div className="flex justify-between items-center mb-3">
+                                <h3 className="font-bold text-dark-600">
+                                  السؤال {qIndex + 1}
+                                </h3>
+                                {passageFormData.questions.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleRemoveQuestionFromPassage(q.id)
+                                    }
+                                    className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm"
                                   >
-                                    <div className="flex items-center pt-2">
-                                      <input
-                                        type="radio"
-                                        name={`correctAnswer_${q.id}`}
-                                        checked={answer.isCorrect}
-                                        onChange={() =>
-                                          handlePassageCorrectAnswerChange(
-                                            q.id,
-                                            ansIndex,
-                                          )
-                                        }
-                                        className="w-5 h-5 cursor-pointer"
-                                        title="اختر كإجابة صحيحة"
-                                      />
-                                    </div>
-                                    <div className="flex-1">
-                                      <label className="block text-xs font-medium text-gray-600 mb-2">
-                                        {String.fromCharCode(65 + ansIndex)}
-                                        {answer.isCorrect && (
-                                          <span className="ml-2 text-green-600 font-bold">
-                                            ✓ صحيحة
-                                          </span>
-                                        )}
-                                      </label>
-                                      <ErrorBoundary
-                                        isArabic={isArabicBrowser()}
-                                      >
-                                        <SimpleProfessionalMathEditor
-                                          value={answer.text}
-                                          onChange={(content) =>
-                                            handlePassageAnswerChange(
+                                    حذف السؤال
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Question Text */}
+                              <div className="mb-4">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                  نص السؤال
+                                </label>
+                                <ErrorBoundary isArabic={isArabicBrowser()}>
+                                  <SimpleProfessionalMathEditor
+                                    value={q.question}
+                                    onChange={(content) =>
+                                      handlePassageQuestionChange(
+                                        q.id,
+                                        "question",
+                                        content
+                                      )
+                                    }
+                                    placeholder={`اكتب نص السؤال ${
+                                      qIndex + 1
+                                    } هنا...`}
+                                  />
+                                </ErrorBoundary>
+                              </div>
+
+                              {/* Answers */}
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                  الاختيارات (اختر الإجابة الصحيحة)
+                                </label>
+                                <div className="space-y-3">
+                                  {q.answers.map((answer, ansIndex) => (
+                                    <div
+                                      key={answer.id}
+                                      className="flex items-start gap-3 bg-white p-3 rounded border"
+                                    >
+                                      <div className="flex items-center pt-2">
+                                        <input
+                                          type="radio"
+                                          name={`correctAnswer_${q.id}`}
+                                          checked={answer.isCorrect}
+                                          onChange={() =>
+                                            handlePassageCorrectAnswerChange(
                                               q.id,
-                                              ansIndex,
-                                              "text",
-                                              content,
+                                              ansIndex
                                             )
                                           }
-                                          placeholder={`اكتب الاختيار ${String.fromCharCode(65 + ansIndex)} هنا...`}
+                                          className="w-5 h-5 cursor-pointer"
+                                          title="اختر كإجابة صحيحة"
                                         />
-                                      </ErrorBoundary>
+                                      </div>
+                                      <div className="flex-1">
+                                        <label className="block text-xs font-medium text-gray-600 mb-2">
+                                          {String.fromCharCode(65 + ansIndex)}
+                                          {answer.isCorrect && (
+                                            <span className="ml-2 text-green-600 font-bold">
+                                              ✓ صحيحة
+                                            </span>
+                                          )}
+                                        </label>
+                                        <ErrorBoundary
+                                          isArabic={isArabicBrowser()}
+                                        >
+                                          <SimpleProfessionalMathEditor
+                                            value={answer.text}
+                                            onChange={(content) =>
+                                              handlePassageAnswerChange(
+                                                q.id,
+                                                ansIndex,
+                                                "text",
+                                                content
+                                              )
+                                            }
+                                            placeholder={`اكتب الاختيار ${String.fromCharCode(
+                                              65 + ansIndex
+                                            )} هنا...`}
+                                          />
+                                        </ErrorBoundary>
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
                     <div className="flex gap-3">
                       <button
@@ -1771,6 +1970,10 @@ const Questions = () => {
                         onClick={() => {
                           setShowPassageForm(false);
                           setEditingPassage(null);
+                          setPassageFormData({
+                            passageText: "",
+                            questions: [],
+                          });
                         }}
                         className="flex-1 bg-gray-400 text-white py-2 rounded-lg hover:bg-gray-500 transition"
                       >
@@ -1785,9 +1988,7 @@ const Questions = () => {
 
           {/* Add/Edit Form Modal */}
           {showForm && (
-            <div
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4"
-            >
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
               <div
                 className="bg-white rounded-lg shadow-xl max-w-full sm:max-w-2xl lg:max-w-4xl w-full max-h-[95vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
@@ -1854,7 +2055,13 @@ const Questions = () => {
                           <div className="mt-4 space-y-3">
                             {/* Image Preview */}
                             <div
-                              className={`flex ${imageAlign === "right" ? "justify-end" : imageAlign === "left" ? "justify-start" : "justify-center"}`}
+                              className={`flex ${
+                                imageAlign === "right"
+                                  ? "justify-end"
+                                  : imageAlign === "left"
+                                  ? "justify-start"
+                                  : "justify-center"
+                              }`}
                             >
                               <div className="relative inline-block">
                                 <img
@@ -2019,7 +2226,9 @@ const Questions = () => {
                                     onChange={(content) =>
                                       handleAnswerChange(index, "text", content)
                                     }
-                                    placeholder={`اكتب الإجابة ${String.fromCharCode(65 + index)} هنا...`}
+                                    placeholder={`اكتب الإجابة ${String.fromCharCode(
+                                      65 + index
+                                    )} هنا...`}
                                   />
                                 </ErrorBoundary>
                               </div>

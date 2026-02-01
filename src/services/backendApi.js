@@ -453,20 +453,38 @@ const mapQuestionFromBackend = (q) => {
       q.type === "passage" ||
       q.passage_text
     ) {
+      let pqList = q.passage_questions || q.questions || [];
+      if (typeof pqList === "string") {
+        try {
+          pqList = JSON.parse(pqList) || [];
+        } catch {
+          pqList = [];
+        }
+      }
+      if (!Array.isArray(pqList)) pqList = [];
       return {
         id: q.id || "",
         type: "passage",
-        passageText: q.passage_text ?? q.passageText ?? "",
-        questions: (q.passage_questions || q.questions || []).map((pq) => ({
+        passageText: (q.passage_text ?? q.passageText ?? "").trim(),
+        questions: pqList.map((pq, idx) => ({
           id:
             pq.id ||
-            `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            `passage_${q.id}_${idx}_${Math.random().toString(36).substr(2, 6)}`,
           question: pq.question || "",
-          answers: (pq.answers || []).map((a) => ({
-            id: a.answer_id || "a",
-            text: a.text || "",
-            isCorrect: !!a.is_correct,
-          })),
+          explanation: pq.explanation || null,
+          answers: (Array.isArray(pq.answers) ? pq.answers : []).map(
+            (a, ai) => {
+              const aid = (a.answer_id ?? a.id ?? "abcd"[ai])
+                .toString()
+                .toLowerCase()
+                .slice(0, 1);
+              return {
+                id: aid,
+                text: a.text || "",
+                isCorrect: !!a.is_correct,
+              };
+            }
+          ),
         })),
         itemId: lessonId,
         levelId: lessonId,
@@ -919,4 +937,22 @@ export const getQuizAttempts = async (filters = {}) => {
   const path = qs ? `/tracker/quiz-attempts/?${qs}` : "/tracker/quiz-attempts/";
   const list = await request(path);
   return Array.isArray(list) ? list : list?.results || [];
+};
+
+export const getIncorrectAnswers = async () => {
+  return request("/tracker/incorrect-answers/");
+};
+
+export const addIncorrectAnswers = async (items) => {
+  return request("/tracker/incorrect-answers/", {
+    method: "POST",
+    body: JSON.stringify(Array.isArray(items) ? items : { items }),
+  });
+};
+
+export const removeIncorrectAnswer = async (questionId) => {
+  return request(
+    `/tracker/incorrect-answers/${encodeURIComponent(questionId)}/`,
+    { method: "DELETE" }
+  );
 };
