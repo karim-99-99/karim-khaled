@@ -253,6 +253,18 @@ class FileSerializer(serializers.ModelSerializer):
         url = obj.file.url
         if not url:
             return None
+        if isinstance(url, str) and 'cloudinary.com' in url:
+            try:
+                import cloudinary.utils
+                public_id = getattr(obj.file, 'name', None) or ''
+                if public_id:
+                    resource_type = 'image' if '/image/' in url else ('raw' if '/raw/' in url else 'image')
+                    signed_url, _ = cloudinary.utils.cloudinary_url(public_id, resource_type=resource_type, sign_url=True)
+                    if signed_url:
+                        return signed_url
+            except Exception:
+                pass
+            return url
         if isinstance(url, str) and (url.startswith('http://') or url.startswith('https://')):
             return url
         request = self.context.get('request')

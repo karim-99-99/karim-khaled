@@ -529,7 +529,7 @@ class FileViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='content')
     def content(self, request, pk=None):
-        """Stream file content for embedding (e.g. PDF viewer). Auth required. Proxies Cloudinary."""
+        """Stream file content for embedding (e.g. PDF viewer). Auth required. Proxies Cloudinary with signed URLs."""
         import urllib.request
         f = self.get_object()
         if not f.file:
@@ -543,15 +543,35 @@ class FileViewSet(viewsets.ModelViewSet):
         elif (f.file_type or '').lower() in ('application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'):
             ct = (f.file_type or '').lower()
 
-        file_url = getattr(f.file, 'url', None) or ''
-        if isinstance(file_url, str) and (file_url.startswith('http://') or file_url.startswith('https://')):
+        file_url = None
+        is_cloudinary = False
+        raw_url = getattr(f.file, 'url', None) or ''
+        if isinstance(raw_url, str) and ('cloudinary.com' in raw_url or raw_url.startswith('http')):
+            is_cloudinary = 'cloudinary.com' in raw_url
+            file_url = raw_url
+
+        if file_url and is_cloudinary:
+            try:
+                import cloudinary
+                import cloudinary.utils
+                public_id = getattr(f.file, 'name', None) or ''
+                if not public_id:
+                    return Response({'detail': 'File path not found.'}, status=status.HTTP_404_NOT_FOUND)
+                resource_type = 'image' if '/image/' in raw_url else ('raw' if '/raw/' in raw_url else 'image')
+                signed_url, _ = cloudinary.utils.cloudinary_url(public_id, resource_type=resource_type, sign_url=True)
+                if signed_url:
+                    file_url = signed_url
+            except Exception:
+                pass
+
+        if file_url and (file_url.startswith('http://') or file_url.startswith('https://')):
             try:
                 req = urllib.request.Request(file_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req, timeout=30) as r:
                     data = r.read()
-            except Exception as e:
+            except Exception:
                 return Response(
-                    {'detail': 'Failed to fetch file from storage.'},
+                    {'detail': 'Failed to fetch file from storage. File may be private - ensure CLOUDINARY credentials are set.'},
                     status=status.HTTP_502_BAD_GATEWAY
                 )
         else:
