@@ -255,13 +255,24 @@ class FileSerializer(serializers.ModelSerializer):
             return None
         if isinstance(url, str) and 'cloudinary.com' in url:
             try:
+                from django.conf import settings
                 import cloudinary.utils
-                public_id = getattr(obj.file, 'name', None) or ''
-                if public_id:
-                    resource_type = 'image' if '/image/' in url else ('raw' if '/raw/' in url else 'image')
-                    signed_url, _ = cloudinary.utils.cloudinary_url(public_id, resource_type=resource_type, sign_url=True)
-                    if signed_url:
-                        return signed_url
+                creds = getattr(settings, 'CLOUDINARY_STORAGE', {}) or {}
+                api_secret = creds.get('API_SECRET') or getattr(settings, 'CLOUDINARY_API_SECRET', None)
+                if api_secret:
+                    public_id = getattr(obj.file, 'name', None) or ''
+                    if public_id:
+                        resource_type = 'image' if '/image/' in url else ('raw' if '/raw/' in url else 'image')
+                        signed_url, _ = cloudinary.utils.cloudinary_url(
+                            public_id,
+                            resource_type=resource_type,
+                            sign_url=True,
+                            api_secret=api_secret,
+                            cloud_name=creds.get('CLOUD_NAME'),
+                            api_key=creds.get('API_KEY'),
+                        )
+                        if signed_url:
+                            return signed_url
             except Exception:
                 pass
             return url
