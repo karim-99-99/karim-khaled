@@ -47,6 +47,9 @@ const FilesManagement = lazy(() => import("./pages/admin/FilesManagement.jsx"));
 const StudentTracker = lazy(() => import("./pages/StudentTracker.jsx"));
 const IncorrectAnswers = lazy(() => import("./pages/IncorrectAnswers.jsx"));
 const AdminTracker = lazy(() => import("./pages/admin/AdminTracker.jsx"));
+const AdminQuizReview = lazy(() =>
+  import("./pages/admin/AdminQuizReview.jsx")
+);
 
 // Loading component
 const LoadingFallback = () => (
@@ -301,6 +304,14 @@ function App() {
                   element={
                     <ProtectedRoute requiredRole="admin" checkActive={false}>
                       <AdminTracker />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/tracker/student/:userId/lesson/:lessonId/review"
+                  element={
+                    <ProtectedRoute requiredRole="admin" checkActive={false}>
+                      <AdminQuizReview />
                     </ProtectedRoute>
                   }
                 />

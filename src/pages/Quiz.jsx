@@ -663,29 +663,27 @@ const Quiz = () => {
                 ))}
               </div>
 
-              {/* Explanation - shown when answer is wrong */}
-              {showResult &&
-                !isUserAnswerCorrect() &&
-                currentQuestion?.explanation && (
-                  <div className="mt-6 p-6 bg-blue-50 border-2 border-blue-300 rounded-xl">
-                    <div className="flex items-start gap-3">
-                      <span className="text-3xl">💡</span>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-bold text-blue-900 mb-3">
-                          {isArabicBrowser()
-                            ? "شرح الإجابة الصحيحة:"
-                            : "Explanation of Correct Answer:"}
-                        </h3>
-                        <div className="text-blue-800 leading-relaxed">
-                          <MathRenderer
-                            html={currentQuestion.explanation}
-                            inline={false}
-                          />
-                        </div>
+              {/* Explanation - shown after answering (whether correct or wrong) */}
+              {showResult && currentQuestion?.explanation && (
+                <div className="mt-6 p-6 bg-blue-50 border-2 border-blue-300 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <span className="text-3xl">💡</span>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-blue-900 mb-3">
+                        {isArabicBrowser()
+                          ? "شرح الإجابة:"
+                          : "Explanation:"}
+                      </h3>
+                      <div className="text-blue-800 leading-relaxed">
+                        <MathRenderer
+                          html={currentQuestion.explanation}
+                          inline={false}
+                        />
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
             </div>
 
             {/* Navigation */}

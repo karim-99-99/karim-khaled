@@ -73,7 +73,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-dark-800 border-t border-dark-600 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]"
+      className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-dark-800 border-t border-dark-600 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]"
       role="navigation"
       aria-label="التنقل الرئيسي"
     >

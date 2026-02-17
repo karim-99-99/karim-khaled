@@ -8,6 +8,7 @@ import {
 import { getVideoFile } from "../services/videoStorage";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
+import { isEmbedVideoUrl, getEmbedVideoSrc } from "../utils/videoUrl";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
 import {
   isBackendOn,
@@ -197,17 +198,9 @@ const Video = () => {
                       : "Loading video..."}
                   </p>
                 </div>
-              ) : actualVideoUrl &&
-                (actualVideoUrl.includes("youtube.com") ||
-                  actualVideoUrl.includes("youtu.be")) ? (
+              ) : actualVideoUrl && isEmbedVideoUrl(actualVideoUrl) ? (
                 <iframe
-                  src={
-                    actualVideoUrl.includes("embed")
-                      ? actualVideoUrl
-                      : `https://www.youtube.com/embed/${
-                          actualVideoUrl.split("/").pop().split("?")[0]
-                        }`
-                  }
+                  src={getEmbedVideoSrc(actualVideoUrl) || actualVideoUrl}
                   title={video.title || "فيديو تعليمي"}
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

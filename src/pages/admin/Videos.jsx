@@ -5,6 +5,7 @@ import { saveVideoFile, getVideoFile, deleteVideoFile } from '../../services/vid
 import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
+import { normalizeVideoUrl, isEmbedVideoUrl, getEmbedVideoSrc } from '../../utils/videoUrl';
 
 const Videos = () => {
   const navigate = useNavigate();
@@ -295,7 +296,7 @@ const Videos = () => {
         return;
       }
     } else {
-      // URL method
+      // URL method: link (YouTube, Google Drive, cloud, or direct)
       let videoUrl = formData.url.trim();
 
       if (!videoUrl) {
@@ -303,17 +304,12 @@ const Videos = () => {
         return;
       }
 
-      // Convert YouTube URLs to embed format
-      if (videoUrl.includes('youtube.com/watch?v=')) {
-        const videoId = videoUrl.split('v=')[1].split('&')[0];
-        videoUrl = `https://www.youtube.com/embed/${videoId}`;
-      } else if (videoUrl.includes('youtu.be/')) {
-        const videoId = videoUrl.split('youtu.be/')[1].split('?')[0];
-        videoUrl = `https://www.youtube.com/embed/${videoId}`;
-      } else if (videoUrl.includes('youtube.com/embed/')) {
-        // Already in embed format
-      } else if (!videoUrl.startsWith('http')) {
-        alert('يرجى إدخال رابط صحيح / Please enter a valid URL');
+      if (!videoUrl.startsWith('http') && !videoUrl.startsWith('https')) {
+        videoUrl = 'https://' + videoUrl;
+      }
+      videoUrl = normalizeVideoUrl(videoUrl);
+      if (!videoUrl.startsWith('http')) {
+        alert('يرجى إدخال رابط صحيح (YouTube، Drive، أو رابط مباشر) / Please enter a valid URL');
         return;
       }
 
@@ -531,9 +527,9 @@ const Videos = () => {
                   <p className="text-sm md:text-base text-dark-500 mb-4">{videos[0].titleEn}</p>
                 )}
                 <div className="aspect-video w-full max-w-2xl">
-                  {(videos[0].url.includes('youtube.com') || videos[0].url.includes('youtu.be')) ? (
+                  {isEmbedVideoUrl(videos[0].url) ? (
                     <iframe
-                      src={videos[0].url}
+                      src={getEmbedVideoSrc(videos[0].url) || videos[0].url}
                       className="w-full h-full rounded"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
@@ -583,7 +579,7 @@ const Videos = () => {
                             : 'bg-gray-200 text-dark-600 hover:bg-gray-300'
                         }`}
                       >
-                        رابط / URL
+                        رابط (Drive / سحابة / YouTube) / Link
                       </button>
                       <button
                         type="button"
@@ -597,7 +593,7 @@ const Videos = () => {
                             : 'bg-gray-200 text-dark-600 hover:bg-gray-300'
                         }`}
                       >
-                        رفع ملف / Upload File
+                        رفع ملف فيديو / Upload File
                       </button>
                     </div>
                   </div>
@@ -606,18 +602,21 @@ const Videos = () => {
                   {uploadMethod === 'url' && (
                     <div>
                       <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                        رابط الفيديو / Video URL (YouTube, Vimeo, or direct link)
+                        رابط الفيديو / Video link
                       </label>
                       <input
                         type="url"
                         value={formData.url}
                         onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                         required={uploadMethod === 'url'}
-                        placeholder="https://www.youtube.com/watch?v=..."
+                        placeholder="YouTube أو Google Drive أو رابط سحابة أو رابط مباشر..."
                         className="w-full px-4 py-2 border rounded-lg"
                       />
                       <p className="text-xs md:text-sm text-dark-500 mt-1">
-                        يمكنك إدخال رابط YouTube أو رابط مباشر للفيديو / You can enter a YouTube link or direct video URL
+                        يمكنك إدخال: رابط YouTube، أو رابط فيديو من Google Drive، أو رابط من أي سحابة، أو رابط مباشر للفيديو
+                      </p>
+                      <p className="text-xs md:text-sm text-dark-500">
+                        You can enter: YouTube link, Google Drive video link, cloud link, or direct video URL
                       </p>
                     </div>
                   )}

@@ -502,6 +502,8 @@ const mapQuestionFromBackend = (q) => {
       imageAlign: imageAlign,
       itemId: lessonId,
       levelId: lessonId,
+      createdAt: q.created_at || null,
+      orderIndex: q.order_index ?? q.order ?? null,
       answers: (q.answers || []).map((a) => ({
         id: a.answer_id || "a",
         key: a.answer_id || "a",
@@ -558,6 +560,22 @@ export const getQuestions = async (filters = {}) => {
   }
 };
 
+/** Sort questions by sequence: 1, 2, 3... (orderIndex or createdAt oldest-first, then by id). */
+export const sortQuestionsBySequence = (questions) => {
+  if (!Array.isArray(questions)) return [];
+  return [...questions].sort((a, b) => {
+    const orderA = a.orderIndex ?? a.order_index;
+    const orderB = b.orderIndex ?? b.order_index;
+    if (orderA != null && orderB != null) return orderA - orderB;
+    if (orderA != null) return -1;
+    if (orderB != null) return 1;
+    const dateA = new Date(a.createdAt || 0).getTime();
+    const dateB = new Date(b.createdAt || 0).getTime();
+    if (dateA !== dateB) return dateA - dateB;
+    return String(a.id || "").localeCompare(String(b.id || ""), undefined, { numeric: true });
+  });
+};
+
 export const getQuestionsByLevel = async (levelId) => {
   try {
     if (!levelId) {
@@ -565,7 +583,7 @@ export const getQuestionsByLevel = async (levelId) => {
       return [];
     }
     const arr = await getQuestions({ lesson_id: levelId });
-    return Array.isArray(arr) ? arr : [];
+    return sortQuestionsBySequence(Array.isArray(arr) ? arr : []);
   } catch (err) {
     console.error("Error in getQuestionsByLevel:", err);
     return [];
@@ -937,6 +955,21 @@ export const getQuizAttempts = async (filters = {}) => {
   const path = qs ? `/tracker/quiz-attempts/?${qs}` : "/tracker/quiz-attempts/";
   const list = await request(path);
   return Array.isArray(list) ? list : list?.results || [];
+};
+
+/** Current user's lesson progress (in-progress, not yet completed). */
+export const getLessonProgressList = async () => {
+  const list = await request("/lesson-progress/");
+  return Array.isArray(list) ? list : list?.results || [];
+};
+
+/** Admin: get incorrect answers for a student, optional lesson_id filter. */
+export const getAdminIncorrectAnswers = async (userId, lessonId = null) => {
+  const params = new URLSearchParams();
+  params.set("user_id", userId);
+  if (lessonId) params.set("lesson_id", lessonId);
+  const list = await request(`/tracker/admin-incorrect-answers/?${params}`);
+  return Array.isArray(list) ? list : [];
 };
 
 export const getIncorrectAnswers = async () => {

@@ -1050,3 +1050,32 @@ class IncorrectAnswerDetailView(APIView):
             user=request.user, question_id=question_id
         ).delete()
         return Response({'deleted': deleted > 0}, status=status.HTTP_200_OK)
+
+
+class AdminIncorrectAnswersView(APIView):
+    """Admin: list incorrect answers for a student, optionally filtered by lesson_id."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        user_id = request.query_params.get('user_id')
+        lesson_id = request.query_params.get('lesson_id')
+        if not user_id:
+            return Response({'error': 'user_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = IncorrectAnswer.objects.filter(user_id=user_id).select_related('lesson').order_by('-created_at')
+        if lesson_id:
+            qs = qs.filter(lesson_id=lesson_id)
+        out = []
+        for ia in qs:
+            out.append({
+                'id': ia.id,
+                'question_id': ia.question_id,
+                'lesson_id': ia.lesson_id,
+                'lesson_name': ia.lesson_name,
+                'category_name': ia.category_name,
+                'subject_name': ia.subject_name,
+                'question_snapshot': ia.question_snapshot,
+                'user_answer_id': ia.user_answer_id,
+                'correct_answer_id': ia.correct_answer_id,
+                'created_at': ia.created_at.isoformat() if ia.created_at else None,
+            })
+        return Response(out)

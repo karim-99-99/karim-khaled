@@ -6,7 +6,6 @@ import {
   getAdminTrackerSummary,
   getAdminStudentDetail,
 } from "../../services/backendApi";
-import AverageChart from "../../components/AverageChart";
 
 const formatDuration = (seconds) => {
   if (!seconds || seconds < 60) return `${Math.round(seconds || 0)} ث`;
@@ -271,15 +270,17 @@ const AdminTracker = () => {
                 ) : (
                   <StudentDetailContent
                     items={detailData.items || []}
-                    chartData={detailData.chart_data}
-                    performanceBySubject={
-                      detailData.performance_by_subject || []
-                    }
                     formatDuration={formatDuration}
                     incorrectCount={
                       selectedStudent.incorrect_answers_count ?? 0
                     }
                     attemptCount={selectedStudent.total_exam_attempts ?? 0}
+                    onOpenLessonReview={(lessonId) => {
+                      closeDetail();
+                      navigate(
+                        `/admin/tracker/student/${selectedStudent.user_id}/lesson/${lessonId}/review`
+                      );
+                    }}
                   />
                 )}
               </div>
@@ -291,229 +292,109 @@ const AdminTracker = () => {
   );
 };
 
-/** Groups items by subject -> category -> chapter and renders detail rows */
+/** Two lists: (1) Passed exams with attempts + video watches, (2) Not attempted. Click lesson → open read-only quiz review. */
 function StudentDetailContent({
   items,
-  chartData,
-  performanceBySubject,
   formatDuration,
   incorrectCount,
   attemptCount,
+  onOpenLessonReview,
 }) {
-  const groups = {};
-  for (const it of items) {
-    const sk = it.subject_id || "s";
-    const ck = it.category_id || "c";
-    const chk = it.chapter_id || "ch";
-    if (!groups[sk]) groups[sk] = {};
-    if (!groups[sk][ck]) groups[sk][ck] = {};
-    if (!groups[sk][ck][chk]) groups[sk][ck][chk] = [];
-    groups[sk][ck][chk].push(it);
-  }
+  const passed = (items || []).filter((it) => (it.attempt_count || 0) > 0);
+  const notAttempted = (items || []).filter((it) => (it.attempt_count || 0) === 0);
+
+  const renderLessonRow = (it, showAttemptsAndVideo = true) => (
+    <div
+      key={it.lesson_id}
+      onClick={() => onOpenLessonReview(it.lesson_id)}
+      className="px-4 py-3 hover:bg-primary-50 border-b border-gray-100 last:border-b-0 cursor-pointer transition-colors flex flex-wrap items-center justify-between gap-2"
+    >
+      <div className="flex-1 min-w-0">
+        <span className="font-medium text-dark-700">{it.lesson_name}</span>
+        <span className="text-xs text-gray-500 mr-2">
+          {" "}
+          ({it.is_bank ? "بنك" : "درس"}) — {it.subject_name} / {it.category_name} / {it.chapter_name}
+        </span>
+      </div>
+      {showAttemptsAndVideo && (
+        <div className="flex flex-wrap items-center gap-4 md:gap-6 text-sm">
+          <span>
+            <span className="text-gray-500">عدد المحاولات:</span>{" "}
+            <span className="font-bold text-green-600">{it.attempt_count}</span>
+          </span>
+          <span>
+            <span className="text-gray-500">مشاهدة الفيديو:</span>{" "}
+            <span className="font-bold text-purple-600">{it.video_watch_count ?? 0}</span>
+          </span>
+          {it.last_score != null && (
+            <span>
+              <span className="text-gray-500">آخر درجة:</span>{" "}
+              <span
+                className={`font-bold ${
+                  (it.last_score || 0) >= 80
+                    ? "text-green-600"
+                    : (it.last_score || 0) >= 60
+                    ? "text-amber-600"
+                    : "text-red-600"
+                }`}
+              >
+                {it.last_score}%
+              </span>
+            </span>
+          )}
+        </div>
+      )}
+      <span className="text-primary-600 font-medium text-sm">عرض إجابات الطالب ←</span>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
-      {/* عدد المحاولات و الأجوبة الخاطئة */}
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-green-50 rounded-xl p-4 border-t-4 border-green-500">
-          <div className="text-2xl font-bold text-green-600">
-            {attemptCount}
-          </div>
-          <div className="text-sm text-gray-600">عدد المحاولات</div>
+          <div className="text-2xl font-bold text-green-600">{attemptCount}</div>
+          <div className="text-sm text-gray-600">عدد المحاولات الإجمالي</div>
         </div>
         <div className="bg-red-50 rounded-xl p-4 border-t-4 border-red-500">
-          <div className="text-2xl font-bold text-red-600">
-            {incorrectCount}
-          </div>
+          <div className="text-2xl font-bold text-red-600">{incorrectCount}</div>
           <div className="text-sm text-gray-600">الأجوبة الخاطئة</div>
         </div>
       </div>
 
-      {/* Charts لفظي و كمي - تقدم هذا الطالب */}
-      <div className="space-y-6">
-        {(performanceBySubject?.length > 0
-          ? performanceBySubject
-          : [
-              { subject: "اللفظي", items: [] },
-              { subject: "الكمي", items: [] },
-            ]
-        ).map((subj) => (
-          <div
-            key={subj.subject}
-            className={`rounded-2xl shadow-lg overflow-hidden ${
-              subj.subject?.includes("لفظ") ? "bg-blue-50" : "bg-green-50"
-            }`}
-          >
-            <div
-              className={`p-4 ${
-                subj.subject?.includes("لفظ") ? "bg-blue-100" : "bg-green-100"
-              }`}
-            >
-              <h3 className="text-lg font-bold text-dark-700">
-                {subj.subject}
-              </h3>
+      {/* قائمة الواجبات التي اجتازها الطالب */}
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-green-100 px-4 py-3 font-bold text-dark-700">
+          الواجبات التي اجتازها (عدد المحاولات + مشاهدة الفيديو)
+        </div>
+        <div className="divide-y divide-gray-100">
+          {passed.length === 0 ? (
+            <div className="px-4 py-6 text-center text-gray-500">
+              لم يجتز أي واجب بعد
             </div>
-            <div className="p-4 sm:p-6">
-              <div className="flex flex-wrap gap-4 sm:gap-6 justify-center">
-                {subj.items?.length > 0 ? (
-                  subj.items.map((item) => (
-                    <div
-                      key={item.name}
-                      className="flex flex-col items-center gap-2 min-w-[80px]"
-                    >
-                      <div className="w-12 h-32 bg-gray-200 rounded-lg overflow-hidden flex flex-col-reverse">
-                        <div
-                          className={`w-full transition-all ${
-                            subj.subject?.includes("لفظ")
-                              ? "bg-blue-500"
-                              : "bg-green-500"
-                          }`}
-                          style={{
-                            height: `${Math.min(100, item.progress || 0)}%`,
-                          }}
-                        />
-                      </div>
-                      <span className="text-xs sm:text-sm font-medium text-dark-600 text-center">
-                        {item.name}
-                      </span>
-                      <span
-                        className={`text-sm font-bold ${
-                          subj.subject?.includes("لفظ")
-                            ? "text-blue-600"
-                            : "text-green-600"
-                        }`}
-                      >
-                        {item.progress || 0}%
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-gray-500 py-4">
-                    ابدأ التدريب لرصد تقدمك في هذا القسم
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
+          ) : (
+            passed.map((it) => renderLessonRow(it, true))
+          )}
+        </div>
       </div>
 
-      {/* Average charts */}
-      {(chartData?.overall_avg > 0 ||
-        chartData?.by_subject?.length > 0 ||
-        chartData?.by_category?.length > 0) && (
-        <div className="space-y-4 mb-6">
-          {chartData?.overall_avg > 0 && (
-            <div className="bg-white rounded-xl shadow p-6 border-t-4 border-primary-500">
-              <h3 className="text-lg font-bold text-dark-600 mb-2">
-                المتوسط الإجمالي
-              </h3>
-              <div className="text-4xl font-bold text-primary-600">
-                {chartData.overall_avg}%
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {chartData?.by_subject?.length > 0 && (
-              <AverageChart
-                data={chartData.by_subject}
-                title="متوسط الدرجات حسب المادة"
-              />
-            )}
-            {chartData?.by_category?.length > 0 && (
-              <AverageChart
-                data={chartData.by_category}
-                title="متوسط الدرجات حسب التصنيف"
-              />
-            )}
-          </div>
+      {/* قائمة الواجبات التي لم يختبرها من قبل */}
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <div className="bg-gray-200 px-4 py-3 font-bold text-dark-700">
+          الواجبات التي لم يختبرها من قبل
         </div>
-      )}
+        <div className="divide-y divide-gray-100">
+          {notAttempted.length === 0 ? (
+            <div className="px-4 py-6 text-center text-gray-500">
+              لا يوجد — الطالب بدأ كل الواجبات
+            </div>
+          ) : (
+            notAttempted.map((it) => renderLessonRow(it, false))
+          )}
+        </div>
+      </div>
 
-      {Object.entries(groups).map(([_, cats]) =>
-        Object.entries(cats).map(([__, chaps]) =>
-          Object.entries(chaps).map(([___, less]) => {
-            const first = less[0];
-            const catName = first?.category_name || "";
-            const subjName = first?.subject_name || "";
-            const chapName = first?.chapter_name || "";
-            const isBank = first?.is_bank ?? false;
-            const itemLabel = isBank ? "بنك" : "درس";
-            return (
-              <div
-                key={`${subjName}-${catName}-${chapName}`}
-                className="border border-gray-200 rounded-xl overflow-hidden"
-              >
-                <div className="bg-gray-100 px-4 py-2 font-bold text-dark-700">
-                  {subjName} / {catName} / {chapName}
-                </div>
-                <div className="divide-y divide-gray-100">
-                  {less.map((it) => (
-                    <div
-                      key={it.lesson_id}
-                      className="px-4 py-3 hover:bg-gray-50 border-b border-gray-50 last:border-b-0"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <span className="font-medium text-dark-700">
-                            {it.lesson_name}
-                          </span>
-                          <span className="text-xs text-gray-500 mr-2">
-                            {" "}
-                            ({itemLabel})
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-4 md:gap-6 text-sm">
-                          <span>
-                            <span className="text-gray-500">محاولات:</span>{" "}
-                            <span className="font-bold text-green-600">
-                              {it.attempt_count}
-                            </span>
-                          </span>
-                          {it.attempt_count > 0 && (
-                            <>
-                              <span>
-                                <span className="text-gray-500">آخر درجة:</span>{" "}
-                                <span
-                                  className={`font-bold ${
-                                    (it.last_score || 0) >= 80
-                                      ? "text-green-600"
-                                      : (it.last_score || 0) >= 60
-                                      ? "text-amber-600"
-                                      : "text-red-600"
-                                  }`}
-                                >
-                                  {it.last_score ?? 0}%
-                                </span>
-                              </span>
-                              <span className="text-gray-600">
-                                متوسط الوقت:{" "}
-                                {formatDuration(it.avg_duration_seconds)}
-                              </span>
-                            </>
-                          )}
-                          <span>
-                            <span className="text-gray-500">
-                              مشاهدة الفيديو:
-                            </span>{" "}
-                            <span className="font-bold text-purple-600">
-                              {it.video_watch_count}
-                            </span>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })
-        )
-      )}
       {items.length === 0 && (
-        <p className="text-center text-gray-500 py-8">
-          لا توجد بيانات لهذا الطالب
-        </p>
+        <p className="text-center text-gray-500 py-8">لا توجد بيانات لهذا الطالب</p>
       )}
     </div>
   );

@@ -16,6 +16,7 @@ import {
   getSections,
 } from "../../services/storageService";
 import * as backendApi from "../../services/backendApi";
+const { sortQuestionsBySequence } = backendApi;
 import * as ReactQuillNamespace from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
@@ -567,12 +568,8 @@ const Questions = () => {
 
         if (!alive) return;
 
-        // Sort questions by createdAt to maintain order
-        let sortedQuestions = (levelQuestions || []).sort((a, b) => {
-          const dateA = new Date(a.createdAt || 0);
-          const dateB = new Date(b.createdAt || 0);
-          return dateA - dateB;
-        });
+        // Sort questions by sequence (1, 2, 3...): orderIndex or createdAt (oldest first)
+        let sortedQuestions = sortQuestionsBySequence(levelQuestions || []);
 
         // Refetch passage detail when list omits passage_text / passage_questions (e.g. pagination)
         if (
@@ -640,11 +637,7 @@ const Questions = () => {
       } else {
         levelQuestions = getQuestionsByLevel(levelId);
       }
-      let sorted = (levelQuestions || []).sort((a, b) => {
-        const dateA = new Date(a.createdAt || 0);
-        const dateB = new Date(b.createdAt || 0);
-        return dateA - dateB;
-      });
+      let sorted = sortQuestionsBySequence(levelQuestions || []);
       if (
         useBackend &&
         backendApi.isBackendOn() &&

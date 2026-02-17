@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getVideoFile } from "../services/videoStorage";
 import { isArabicBrowser } from "../utils/language";
+import { isEmbedVideoUrl, getEmbedVideoSrc } from "../utils/videoUrl";
 import { isBackendOn, recordVideoWatch } from "../services/backendApi";
 
 const VideoModal = ({
@@ -91,17 +92,9 @@ const VideoModal = ({
                     : "Loading video..."}
                 </p>
               </div>
-            ) : actualVideoUrl &&
-              (actualVideoUrl.includes("youtube.com") ||
-                actualVideoUrl.includes("youtu.be")) ? (
+            ) : actualVideoUrl && isEmbedVideoUrl(actualVideoUrl) ? (
               <iframe
-                src={
-                  actualVideoUrl.includes("embed")
-                    ? actualVideoUrl
-                    : `https://www.youtube.com/embed/${
-                        actualVideoUrl.split("/").pop().split("?")[0]
-                      }`
-                }
+                src={getEmbedVideoSrc(actualVideoUrl) || actualVideoUrl}
                 className="w-full h-full rounded"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen

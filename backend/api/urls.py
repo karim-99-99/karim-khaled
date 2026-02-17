@@ -28,4 +28,5 @@ urlpatterns = [
     path('tracker/admin-student-detail/', views.TrackerAdminStudentDetailView.as_view(), name='tracker-admin-student-detail'),
     path('tracker/incorrect-answers/', views.IncorrectAnswerListCreateView.as_view(), name='incorrect-answers-list'),
     path('tracker/incorrect-answers/<str:question_id>/', views.IncorrectAnswerDetailView.as_view(), name='incorrect-answers-detail'),
+    path('tracker/admin-incorrect-answers/', views.AdminIncorrectAnswersView.as_view(), name='tracker-admin-incorrect-answers'),
 ]

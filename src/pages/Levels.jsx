@@ -29,6 +29,8 @@ import {
   getVideos,
   getFiles,
   getQuestions,
+  getQuizAttempts,
+  getLessonProgressList,
 } from "../services/backendApi";
 
 const Levels = () => {
@@ -49,6 +51,8 @@ const Levels = () => {
   const [editName, setEditName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newLessonName, setNewLessonName] = useState("");
+  /** For students: lessonId -> 'completed' | 'started' | 'not_started' (backend only) */
+  const [lessonStatusMap, setLessonStatusMap] = useState({});
 
   const useBackend = !!import.meta.env.VITE_API_URL;
 
@@ -136,10 +140,55 @@ const Levels = () => {
   };
 
   const getItemStatus = (itemId) => {
-    if (!currentUser) return "available"; // Allow viewing for non-authenticated users
+    if (!currentUser) return "not_started";
+    if (useBackend && !isAdmin && lessonStatusMap[itemId])
+      return lessonStatusMap[itemId];
     const progress = getLevelProgress(currentUser.id, itemId);
-    return progress ? "completed" : "available";
+    if (progress) return "completed";
+    if (!useBackend && currentUser) {
+      try {
+        const key = `quiz_progress_${itemId}_${currentUser.id || "guest"}`;
+        const saved = localStorage.getItem(key);
+        if (saved) return "started";
+      } catch (_) {}
+    }
+    return "not_started";
   };
+
+  /** Load student lesson status (completed / started / not_started) when using backend */
+  useEffect(() => {
+    if (!useBackend || !currentUser || isAdmin) return;
+    let c = false;
+    (async () => {
+      try {
+        const [attempts, progressList] = await Promise.all([
+          getQuizAttempts(),
+          getLessonProgressList(),
+        ]);
+        if (c) return;
+        const lessonId = (x) => (x && typeof x === "object" ? x.id : x);
+        const completedIds = new Set(
+          (attempts || [])
+            .map((a) => lessonId(a.lesson))
+            .filter((id) => id != null)
+        );
+        const startedIds = new Set(
+          (progressList || [])
+            .map((p) => lessonId(p.lesson))
+            .filter((id) => id != null)
+        );
+        const map = {};
+        completedIds.forEach((id) => { map[id] = "completed"; });
+        startedIds.forEach((id) => {
+          if (!completedIds.has(id)) map[id] = "started";
+        });
+        setLessonStatusMap(map);
+      } catch (e) {
+        if (!c) setLessonStatusMap({});
+      }
+    })();
+    return () => { c = true; };
+  }, [useBackend, currentUser?.id, isAdmin]);
 
   const handleVideoClick = (itemId) => {
     if (!currentUser) {
@@ -447,13 +496,20 @@ const Levels = () => {
               const progress = currentUser
                 ? getLevelProgress(currentUser.id, item.id)
                 : null;
+              const isCompleted = status === "completed";
+              const isStarted = status === "started";
+              const cardBg = isAdmin
+                ? "bg-secondary-100 border-secondary-300"
+                : isCompleted
+                ? "bg-green-100 border-green-400"
+                : isStarted
+                ? "bg-yellow-100 border-yellow-400"
+                : "bg-secondary-100 border-secondary-300";
 
               return (
                 <div
                   key={item.id}
-                  className={`
-                  relative bg-secondary-100 border-2 border-secondary-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6
-                `}
+                  className={`relative border-2 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 ${cardBg}`}
                 >
                   {isAdmin && (
                     <div className="absolute top-2 left-2 flex gap-2 z-10">
