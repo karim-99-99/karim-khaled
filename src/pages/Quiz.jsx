@@ -184,6 +184,7 @@ const Quiz = () => {
 
   const handleAnswerSelect = (answerId) => {
     if (showResult) return;
+    if (currentQuestion?.id && answers[currentQuestion.id]) return;
 
     setSelectedAnswer(answerId);
     setShowResult(true);
@@ -631,16 +632,18 @@ const Quiz = () => {
                   backgroundColor: "white",
                 }}
               >
-                {(currentQuestion?.answers || []).map((answer) => (
+                {(currentQuestion?.answers || []).map((answer) => {
+                  const alreadyAnswered = !!(currentQuestion?.id && answers[currentQuestion.id]);
+                  return (
                   <button
                     key={answer.id}
                     onClick={() => handleAnswerSelect(answer.id)}
-                    disabled={showResult}
+                    disabled={alreadyAnswered}
                     style={{ position: "relative", zIndex: 21 }}
                     className={`
                   w-full text-right p-4 rounded-lg transition-all duration-200
                   ${getAnswerStyle(answer)}
-                  ${showResult ? "cursor-default" : "cursor-pointer"}
+                  ${alreadyAnswered ? "cursor-default" : "cursor-pointer"}
                 `}
                   >
                     <div className="flex items-center justify-between">
@@ -652,7 +655,8 @@ const Quiz = () => {
                       </span>
                     </div>
                   </button>
-                ))}
+                );
+                })}
               </div>
 
               {/* Explanation - shown after answering (whether correct or wrong) */}
