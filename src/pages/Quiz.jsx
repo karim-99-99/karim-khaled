@@ -563,14 +563,6 @@ const Quiz = () => {
                   <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
                     {level?.name || "المستوى"}
                   </h1>
-                  {video && canAccessMedia && (
-                    <button
-                      onClick={() => setShowVideo(true)}
-                      className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition flex items-center gap-2"
-                    >
-                      🎥 {isArabicBrowser() ? "مشاهدة الفيديو" : " "}
-                    </button>
-                  )}
                 </div>
                 <ProgressBar
                   current={currentIndex + 1}
