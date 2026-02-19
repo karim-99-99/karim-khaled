@@ -91,9 +91,9 @@ const Header = () => {
               الدورات المجانية
             </Link>
             <Link
-              to="/about"
+              to="/#about"
               className={`px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
-                location.pathname === "/about"
+                location.pathname === "/" && location.hash === "#about"
                   ? "text-primary-500 border-2 border-primary-500"
                   : "text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
               }`}
@@ -102,9 +102,9 @@ const Header = () => {
               من نحن
             </Link>
             <Link
-              to="/contact"
+              to="/#contact"
               className={`px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
-                location.pathname === "/contact"
+                location.pathname === "/" && location.hash === "#contact"
                   ? "text-primary-500 border-2 border-primary-500"
                   : "text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
               }`}
@@ -200,7 +200,7 @@ const Header = () => {
                       </>
                     )}
                     <Link
-                      to="/about"
+                      to="/#about"
                       className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                       onClick={() => {
                         setIsUserMenuOpen(false);
@@ -210,7 +210,7 @@ const Header = () => {
                       من نحن
                     </Link>
                     <Link
-                      to="/contact"
+                      to="/#contact"
                       className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                       onClick={() => {
                         setIsUserMenuOpen(false);
@@ -367,7 +367,7 @@ const Header = () => {
                         الدورات المجانية
                       </Link>
                       <Link
-                        to="/about"
+                        to="/#about"
                         className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                         onClick={() => {
                           setIsUserMenuOpen(false);
@@ -377,7 +377,7 @@ const Header = () => {
                         من نحن
                       </Link>
                       <Link
-                        to="/contact"
+                        to="/#contact"
                         className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                         onClick={() => {
                           setIsUserMenuOpen(false);
@@ -545,14 +545,14 @@ const Header = () => {
                 الدورات المجانية
               </Link>
               <Link
-                to="/about"
+                to="/#about"
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
                 من نحن
               </Link>
               <Link
-                to="/contact"
+                to="/#contact"
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >

@@ -398,6 +398,11 @@ export const getChapterById = async (chapterId) => {
   }
 };
 
+export const getAllLessons = async () => {
+  const list = await request("/lessons/");
+  return Array.isArray(list) ? list : list?.results || [];
+};
+
 export const getItemById = async (itemId) => {
   try {
     const data = await request(`/lessons/${encodeURIComponent(itemId)}/`);
@@ -961,6 +966,47 @@ export const getQuizAttempts = async (filters = {}) => {
 export const getLessonProgressList = async () => {
   const list = await request("/lesson-progress/");
   return Array.isArray(list) ? list : list?.results || [];
+};
+
+// ——— Student Groups (admin) ———
+export const getStudentGroups = async () => {
+  const list = await request("/student-groups/");
+  return Array.isArray(list) ? list : list?.results || [];
+};
+
+export const createStudentGroup = async (data) => {
+  return request("/student-groups/", { method: "POST", body: JSON.stringify(data) });
+};
+
+export const updateStudentGroup = async (id, data) => {
+  return request(`/student-groups/${encodeURIComponent(id)}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+};
+
+export const deleteStudentGroup = async (id) => {
+  return request(`/student-groups/${encodeURIComponent(id)}/`, { method: "DELETE" });
+};
+
+export const addGroupMember = async (groupId, userId) => {
+  return request(`/student-groups/${encodeURIComponent(groupId)}/add_member/`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+};
+
+export const removeGroupMember = async (groupId, userId) => {
+  return request(`/student-groups/${encodeURIComponent(groupId)}/remove_member/`, {
+    method: "POST",
+    body: JSON.stringify({ user_id: userId }),
+  });
+};
+
+/** Admin: tracker by lesson — group_id + lesson_id → table with per-question scores */
+export const getTrackerByLesson = async (groupId, lessonId) => {
+  const params = new URLSearchParams({ group_id: groupId, lesson_id: lessonId });
+  return request(`/tracker/by-lesson/?${params}`);
 };
 
 /** Admin: get incorrect answers for a student, optional lesson_id filter. */

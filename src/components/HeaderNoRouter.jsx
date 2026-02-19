@@ -214,6 +214,16 @@ const HeaderNoRouter = ({
                         >
                           إدارة المستخدمين
                         </Link>
+                        <Link
+                          to="/admin/tracker"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          تتبع الطلاب
+                        </Link>
                       </>
                     )}
                     <div className="border-t border-gray-200" />
@@ -370,6 +380,16 @@ const HeaderNoRouter = ({
                             }}
                           >
                             إدارة المستخدمين
+                          </Link>
+                          <Link
+                            to="/admin/tracker"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            تتبع الطلاب
                           </Link>
                         </>
                       )}

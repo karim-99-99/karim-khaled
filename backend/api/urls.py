@@ -16,6 +16,7 @@ router.register(r'progress', views.StudentProgressViewSet, basename='progress')
 router.register(r'lesson-progress', views.LessonProgressViewSet, basename='lesson-progress')
 router.register(r'tracker/quiz-attempts', views.QuizAttemptViewSet, basename='quiz-attempt')
 router.register(r'tracker/video-watches', views.VideoWatchViewSet, basename='video-watch')
+router.register(r'student-groups', views.StudentGroupViewSet, basename='student-group')
 
 urlpatterns = [
     path('', include(router.urls)),
@@ -29,4 +30,5 @@ urlpatterns = [
     path('tracker/incorrect-answers/', views.IncorrectAnswerListCreateView.as_view(), name='incorrect-answers-list'),
     path('tracker/incorrect-answers/<str:question_id>/', views.IncorrectAnswerDetailView.as_view(), name='incorrect-answers-detail'),
     path('tracker/admin-incorrect-answers/', views.AdminIncorrectAnswersView.as_view(), name='tracker-admin-incorrect-answers'),
+    path('tracker/by-lesson/', views.TrackerByLessonView.as_view(), name='tracker-by-lesson'),
 ]

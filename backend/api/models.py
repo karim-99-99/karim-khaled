@@ -392,3 +392,46 @@ class IncorrectAnswer(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.question_id}"
+
+
+class StudentGroup(models.Model):
+    """Group of students (can be nested: group inside group)."""
+    name = models.CharField(max_length=200)
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='children'
+    )
+    order = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['order', 'name']
+
+    def __str__(self):
+        return self.name
+
+
+class StudentGroupMembership(models.Model):
+    """Which students belong to which group (many-to-many)."""
+    group = models.ForeignKey(
+        StudentGroup,
+        on_delete=models.CASCADE,
+        related_name='memberships'
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='group_memberships'
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [['group', 'user']]
+        ordering = ['added_at']
+
+    def __str__(self):
+        return f"{self.group.name} - {self.user.username}"

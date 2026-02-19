@@ -1,8 +1,14 @@
 """
 Load initial structure: Sections, Subjects, Categories, Chapters, Lessons.
 Matches the default structure expected by the frontend (storageService.initializeDefaultData).
-Run: python manage.py seed_initial_data
+
+- Run once for a fresh DB: python manage.py seed_initial_data
+- Without --clear: only creates missing records (get_or_create). Does NOT delete existing
+  sections/chapters/lessons — so your renames and structure stay in PostgreSQL.
+- With --clear: DELETES all Section/Subject/Category/Chapter/Lesson. Use only for a full
+  reset. In production set SEED_ALLOW_CLEAR=1 to allow --clear (safety guard).
 """
+import os
 from django.core.management.base import BaseCommand
 from api.models import Section, Subject, Category, Chapter, Lesson, User
 
@@ -46,6 +52,12 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options.get('clear'):
+            if os.environ.get('SEED_ALLOW_CLEAR') != '1':
+                self.stdout.write(self.style.ERROR(
+                    'Refusing to run --clear unless SEED_ALLOW_CLEAR=1 is set (safety). '
+                    'This prevents accidental deletion of sections/chapters/lessons in production.'
+                ))
+                return
             self.stdout.write('Clearing existing structure...')
             Lesson.objects.all().delete()
             Chapter.objects.all().delete()

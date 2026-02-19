@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   initializeDefaultData,
   getUserByEmail,
@@ -12,6 +12,7 @@ import boyImage from "../assets/boy.png";
 
 const SinglePage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showLogin, setShowLogin] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -22,6 +23,18 @@ const SinglePage = () => {
     initializeDefaultData();
     setCurrentUserState(getCurrentUser());
   }, []);
+
+  // عند فتح الصفحة بـ #about أو #contact نمرّر مباشرة للقسم المطلوب
+  useEffect(() => {
+    const hash = (location.hash || "").slice(1);
+    if (hash && ["about", "contact"].includes(hash)) {
+      const t = setTimeout(() => {
+        const el = document.getElementById(hash);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 150);
+      return () => clearTimeout(t);
+    }
+  }, [location.hash]);
 
   // Features for landing page
   const features = [

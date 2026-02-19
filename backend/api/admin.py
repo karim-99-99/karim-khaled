@@ -2,7 +2,8 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
-    Question, Answer, Video, File, StudentProgress, LessonProgress
+    Question, Answer, Video, File, StudentProgress, LessonProgress,
+    StudentGroup, StudentGroupMembership
 )
 
 
@@ -115,3 +116,26 @@ class LessonProgressAdmin(admin.ModelAdmin):
     list_filter = ['lesson', 'last_activity']
     search_fields = ['user__username', 'lesson__name']
     readonly_fields = ['started_at', 'last_activity', 'completed_at']
+
+
+class StudentGroupMembershipInline(admin.TabularInline):
+    model = StudentGroupMembership
+    extra = 0
+    raw_id_fields = ['user']
+
+
+@admin.register(StudentGroup)
+class StudentGroupAdmin(admin.ModelAdmin):
+    list_display = ['name', 'parent', 'order', 'created_at']
+    list_filter = ['parent']
+    search_fields = ['name']
+    inlines = [StudentGroupMembershipInline]
+    raw_id_fields = ['parent']
+
+
+@admin.register(StudentGroupMembership)
+class StudentGroupMembershipAdmin(admin.ModelAdmin):
+    list_display = ['group', 'user', 'added_at']
+    list_filter = ['group']
+    search_fields = ['user__username', 'group__name']
+    raw_id_fields = ['group', 'user']

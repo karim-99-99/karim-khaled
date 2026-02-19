@@ -115,16 +115,16 @@ exit()
 
 ## 7. Seed initial data (sections, subjects, categories, chapters, lessons)
 
-This creates the same structure as the frontend’s default data (تحصيل, قدرات, مواد, تصنيفات, فصول, دروس):
+This creates the same structure; without --clear only missing records are added and existing sections/chapters/lessons stay. Same as the frontend’s default data (تحصيل, قدرات, مواد, تصنيفات, فصول, دروس):
 
 ```bash
 python manage.py seed_initial_data
 ```
 
-To **clear** existing structure and reseed from scratch (use with care):
+To clear all structure and reseed (only when you intend to wipe). The command refuses unless `SEED_ALLOW_CLEAR=1` is set:
 
 ```bash
-python manage.py seed_initial_data --clear
+SEED_ALLOW_CLEAR=1 python manage.py seed_initial_data --clear
 ```
 
 ---

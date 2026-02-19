@@ -12,7 +12,8 @@ from django.utils import timezone
 from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
     Question, Answer, Video, File, StudentProgress, LessonProgress,
-    QuizAttempt, VideoWatch, IncorrectAnswer
+    QuizAttempt, VideoWatch, IncorrectAnswer,
+    StudentGroup, StudentGroupMembership
 )
 from .utils import get_client_ip
 from .permissions import IsAuthenticatedDeviceAllowed
@@ -22,7 +23,8 @@ from .serializers import (
     QuestionSerializer, QuestionCreateUpdateSerializer,
     VideoSerializer, FileSerializer,
     StudentProgressSerializer, LessonProgressSerializer,
-    QuizAttemptSerializer, QuizAttemptCreateSerializer, VideoWatchSerializer
+    QuizAttemptSerializer, QuizAttemptCreateSerializer, VideoWatchSerializer,
+    StudentGroupSerializer, StudentGroupMembershipSerializer
 )
 
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
@@ -654,6 +656,43 @@ class LessonProgressViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(serializer.data)
 
 
+# ——— Student Groups (admin only) ———
+
+class StudentGroupViewSet(viewsets.ModelViewSet):
+    """CRUD for student groups; nested groups; add/remove members."""
+    permission_classes = [IsAdminUser]
+    serializer_class = StudentGroupSerializer
+    queryset = StudentGroup.objects.prefetch_related('children', 'memberships__user').order_by('order', 'name')
+
+    def get_queryset(self):
+        qs = StudentGroup.objects.prefetch_related('children', 'memberships__user').order_by('order', 'name')
+        if self.action == 'list':
+            return qs.filter(parent__isnull=True)
+        return qs
+
+    @action(detail=True, methods=['post'])
+    def add_member(self, request, pk=None):
+        group = self.get_object()
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(id=user_id, role='student')
+        except User.DoesNotExist:
+            return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
+        _, created = StudentGroupMembership.objects.get_or_create(group=group, user=user)
+        return Response({'added': created, 'user_id': user_id})
+
+    @action(detail=True, methods=['post'])
+    def remove_member(self, request, pk=None):
+        group = self.get_object()
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'error': 'user_id required'}, status=status.HTTP_400_BAD_REQUEST)
+        deleted, _ = StudentGroupMembership.objects.filter(group=group, user_id=user_id).delete()
+        return Response({'removed': deleted > 0})
+
+
 # ——— Tracker (QuizAttempt, VideoWatch, summaries) ———
 
 class QuizAttemptViewSet(viewsets.ModelViewSet):
@@ -1079,3 +1118,124 @@ class AdminIncorrectAnswersView(APIView):
                 'created_at': ia.created_at.isoformat() if ia.created_at else None,
             })
         return Response(out)
+
+
+def _flatten_lesson_question_ids(lesson):
+    """Return ordered list of (question_id, label) for lesson (main + passage sub-questions)."""
+    from .models import Question
+    questions = list(lesson.questions.all().order_by('created_at'))
+    out = []
+    for i, q in enumerate(questions):
+        if getattr(q, 'question_type', None) == 'passage' or getattr(q, 'passage_questions', None):
+            pq_list = q.passage_questions if isinstance(getattr(q, 'passage_questions', None), list) else []
+            if not pq_list:
+                out.append((q.id, f'س {len(out) + 1}'))
+                continue
+            for idx, pq in enumerate(pq_list):
+                qid = pq.get('id') or f'passage_{q.id}_{idx}'
+                out.append((qid, f'س {len(out) + 1}'))
+        else:
+            out.append((q.id, f'س {len(out) + 1}'))
+    return out
+
+
+class TrackerByLessonView(APIView):
+    """Admin: for a group and lesson, return table of students with per-question scores (like the image)."""
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        group_id = request.query_params.get('group_id')
+        lesson_id = request.query_params.get('lesson_id')
+        if not group_id or not lesson_id:
+            return Response(
+                {'error': 'group_id and lesson_id required'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            group = StudentGroup.objects.get(pk=group_id)
+        except StudentGroup.DoesNotExist:
+            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            lesson = Lesson.objects.get(pk=lesson_id)
+        except Lesson.DoesNotExist:
+            return Response({'error': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        question_slots = _flatten_lesson_question_ids(lesson)
+        q_ids = [qid for qid, _ in question_slots]
+        points_per_question = 1.0
+        max_score = len(q_ids) * points_per_question if q_ids else 0
+
+        member_user_ids = list(
+            StudentGroupMembership.objects.filter(group=group).values_list('user_id', flat=True)
+        )
+        students = User.objects.filter(id__in=member_user_ids, role='student').order_by('first_name', 'username')
+
+        all_attempts = list(
+            QuizAttempt.objects.filter(
+                user_id__in=member_user_ids,
+                lesson_id=lesson_id
+            ).order_by('user_id', '-completed_at')
+        )
+        attempts = {}
+        for att in all_attempts:
+            if att.user_id not in attempts:
+                attempts[att.user_id] = {
+                    'last_started': att.started_at,
+                    'last_completed': att.completed_at,
+                    'last_score': att.score,
+                    'last_duration': att.duration_seconds or 0,
+                }
+        incorrect_by_user = {}
+        for ia in IncorrectAnswer.objects.filter(
+            user_id__in=member_user_ids,
+            lesson_id=lesson_id
+        ).values('user_id', 'question_id'):
+            incorrect_by_user.setdefault(ia['user_id'], set()).add(ia['question_id'])
+
+        rows = []
+        for user in students:
+            uid = user.id
+            att = attempts.get(uid, {})
+            wrong_ids = incorrect_by_user.get(uid, set())
+            started_at = att.get('last_started')
+            completed_at = att.get('last_completed')
+            status_ar = 'مكتمل' if completed_at else ('قيد التنفيذ' if started_at else 'لم يبدأ')
+            duration = att.get('last_duration') or 0
+            score_pct = att.get('last_score')
+            score_total = round((len(q_ids) - len(wrong_ids)) * points_per_question, 1) if q_ids else 0
+            if score_pct is not None and max_score and max_score > 0:
+                score_total = round(score_pct / 100 * max_score, 1)
+
+            q_scores = {}
+            for qid in q_ids:
+                if qid in wrong_ids:
+                    q_scores[qid] = {'score': 0.0, 'correct': False}
+                elif started_at or completed_at:
+                    q_scores[qid] = {'score': points_per_question, 'correct': True}
+                else:
+                    q_scores[qid] = {'score': None, 'correct': None}
+
+            rows.append({
+                'user_id': uid,
+                'first_name': user.first_name or '',
+                'last_name': user.last_name or '',
+                'username': user.username,
+                'email': user.email or '',
+                'status': status_ar,
+                'started_at': started_at.isoformat() if hasattr(started_at, 'isoformat') and started_at else None,
+                'completed_at': completed_at.isoformat() if hasattr(completed_at, 'isoformat') and completed_at else None,
+                'duration_seconds': duration,
+                'score_total': score_total,
+                'score_max': max_score,
+                'questions': q_scores,
+            })
+
+        return Response({
+            'lesson_id': lesson_id,
+            'lesson_name': lesson.name,
+            'group_id': group_id,
+            'group_name': group.name,
+            'questions': [{'id': qid, 'label': label} for qid, label in question_slots],
+            'points_per_question': points_per_question,
+            'rows': rows,
+        })

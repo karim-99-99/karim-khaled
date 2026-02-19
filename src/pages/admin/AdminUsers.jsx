@@ -9,6 +9,7 @@ import {
 import * as backendApi from "../../services/backendApi";
 import Header from "../../components/Header";
 import { isArabicBrowser } from "../../utils/language";
+import AdminGroupsSection from "../../components/admin/AdminGroupsSection";
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -456,6 +457,11 @@ const AdminUsers = () => {
               </div>
             )}
           </div>
+
+          {/* Groups (backend only) */}
+          {useBackend && (
+            <AdminGroupsSection students={users} />
+          )}
 
           {/* Stats */}
           <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">

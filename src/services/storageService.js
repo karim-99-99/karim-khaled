@@ -360,11 +360,10 @@ export const initializeDefaultData = () => {
       }
     }
 
-    // Initialize sections if they don't exist or if structure is invalid
+    // Initialize sections only when missing or truly broken — لا نعيد التعيين لمجرد اختلاف عدد الفصول/الدروس
     const existingSections = localStorage.getItem(STORAGE_KEYS.SECTIONS);
     let shouldInitialize = !existingSections;
-    
-    // Check if existing sections have the correct structure (with categories, 10 chapters, 20 lessons each)
+
     if (existingSections && !shouldInitialize) {
       try {
         // Remove "تحصيلي" section entirely (migration for existing users).
@@ -376,24 +375,21 @@ export const initializeDefaultData = () => {
           localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
         }
 
-        // If after removal we don't have "قدرات", re-initialize.
         if (!sections.some((s) => s?.id === 'قسم_قدرات')) {
           shouldInitialize = true;
         }
 
-        // Check if any section has subjects with empty or missing categories
-        const needsUpdate = sections.some(section => 
-          section.subjects.some(subject => 
-            !subject.categories || subject.categories.length === 0 ||
-            subject.categories.some(category => 
-              !category.chapters || category.chapters.length !== 10 ||
-              category.chapters.some(chapter => 
-                !chapter.items || chapter.items.length !== 20
-              )
+        // Only re-initialize if structure is broken (no subjects/categories), not when chapter/lesson count differs
+        const structureBroken = sections.some(
+          (section) =>
+            !section.subjects ||
+            section.subjects.length === 0 ||
+            section.subjects.some(
+              (subject) =>
+                !subject.categories || subject.categories.length === 0
             )
-          )
         );
-        shouldInitialize = needsUpdate;
+        if (structureBroken) shouldInitialize = true;
       } catch (e) {
         shouldInitialize = true;
       }

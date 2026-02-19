@@ -5,6 +5,10 @@ import { isArabicBrowser } from "../../utils/language";
 import {
   getAdminTrackerSummary,
   getAdminStudentDetail,
+  getStudentGroups,
+  getSections,
+  getTrackerByLesson,
+  isBackendOn,
 } from "../../services/backendApi";
 
 const formatDuration = (seconds) => {
@@ -12,6 +16,14 @@ const formatDuration = (seconds) => {
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
   return s ? `${m} د ${s} ث` : `${m} د`;
+};
+
+const flattenGroups = (list, out = []) => {
+  (list || []).forEach((g) => {
+    out.push(g);
+    if (g.children?.length) flattenGroups(g.children, out);
+  });
+  return out;
 };
 
 const AdminTracker = () => {
@@ -22,6 +34,24 @@ const AdminTracker = () => {
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [byLessonGroupId, setByLessonGroupId] = useState("");
+  const [byLessonSubjectId, setByLessonSubjectId] = useState("");
+  const [byLessonCategoryId, setByLessonCategoryId] = useState("");
+  const [byLessonChapterId, setByLessonChapterId] = useState("");
+  const [byLessonLessonId, setByLessonLessonId] = useState("");
+  const [byLessonData, setByLessonData] = useState(null);
+  const [byLessonLoading, setByLessonLoading] = useState(false);
+  const [expandedGroupIds, setExpandedGroupIds] = useState(new Set());
+
+  const subjects = (sections || []).flatMap((s) => s.subjects || []);
+  const selectedSubject = subjects.find((s) => s.id === byLessonSubjectId);
+  const categories = selectedSubject?.categories || [];
+  const selectedCategory = categories.find((c) => c.id === byLessonCategoryId);
+  const chapters = selectedCategory?.chapters || [];
+  const selectedChapter = chapters.find((ch) => ch.id === byLessonChapterId);
+  const lessons = selectedChapter?.items || [];
 
   useEffect(() => {
     getAdminTrackerSummary()
@@ -31,6 +61,38 @@ const AdminTracker = () => {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!isBackendOn()) return;
+    getStudentGroups().then((list) => setGroups(Array.isArray(list) ? list : []));
+  }, []);
+
+  useEffect(() => {
+    if (!isBackendOn()) return;
+    getSections().then((list) => setSections(Array.isArray(list) ? list : list?.results || []));
+  }, []);
+
+  const loadTrackerByLesson = async () => {
+    if (!byLessonGroupId || !byLessonLessonId) return;
+    setByLessonLoading(true);
+    try {
+      const res = await getTrackerByLesson(byLessonGroupId, byLessonLessonId);
+      setByLessonData(res);
+    } catch (e) {
+      setByLessonData(null);
+    } finally {
+      setByLessonLoading(false);
+    }
+  };
+
+  const toggleGroup = (id) => {
+    setExpandedGroupIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const handleStudentClick = (s) => {
     setSelectedStudent(s);
@@ -136,6 +198,208 @@ const AdminTracker = () => {
             <div className="text-sm text-gray-600">إجمالي مشاهدة الفيديو</div>
           </div>
         </div>
+
+        {/* Groups (backend only) */}
+        {isBackendOn() && groups.length > 0 && (
+          <div className="bg-white rounded-xl shadow overflow-hidden mb-8">
+            <h2 className="text-lg font-bold text-dark-700 p-4 border-b">المجموعات</h2>
+            <div className="p-4">
+              {groups.map((g) => {
+                const expanded = expandedGroupIds.has(g.id);
+                const members = g.members || [];
+                const studentMap = (data?.students || []).reduce((acc, s) => { acc[s.user_id] = s; return acc; }, {});
+                return (
+                  <div key={g.id} className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => toggleGroup(g.id)}
+                      className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 flex justify-between items-center text-right font-bold text-dark-700"
+                    >
+                      <span>{g.name}</span>
+                      <span>{expanded ? "▼" : "◀"} ({members.length} طالب)</span>
+                    </button>
+                    {expanded && (
+                      <div className="divide-y">
+                        {members.map((m) => {
+                          const uid = m.user_id || m.user;
+                          const stats = studentMap[uid];
+                          const row = stats ? { ...stats, user_id: uid } : { user_id: uid, first_name: m.first_name || m.username, username: m.username };
+                          return (
+                            <div
+                              key={uid}
+                              onClick={() => handleStudentClick(row)}
+                              className="px-4 py-3 hover:bg-primary-50 cursor-pointer flex justify-between items-center"
+                            >
+                              <span className="font-medium">{m.first_name || m.username} — {m.email}</span>
+                              <span className="text-primary-600 text-sm">عرض التفاصيل ←</span>
+                            </div>
+                          );
+                        })}
+                        {members.length === 0 && <p className="px-4 py-3 text-gray-500">لا يوجد طلاب في هذه المجموعة</p>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* تتبع حسب الدرس */}
+        {isBackendOn() && (
+          <div className="bg-white rounded-xl shadow overflow-hidden mb-8">
+            <h2 className="text-lg font-bold text-dark-700 p-4 border-b">تتبع حسب الدرس</h2>
+            <div className="p-4 flex flex-wrap gap-3 items-end">
+              <div>
+                <label className="block text-sm font-medium text-dark-600 mb-1">المجموعة</label>
+                <select
+                  value={byLessonGroupId}
+                  onChange={(e) => setByLessonGroupId(e.target.value)}
+                  className="px-3 py-2 border rounded-lg min-w-[160px]"
+                >
+                  <option value="">اختر المجموعة</option>
+                  {flattenGroups(groups).map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-dark-600 mb-1">لفظي أو كمي</label>
+                <select
+                  value={byLessonSubjectId}
+                  onChange={(e) => {
+                    setByLessonSubjectId(e.target.value);
+                    setByLessonCategoryId("");
+                    setByLessonChapterId("");
+                    setByLessonLessonId("");
+                  }}
+                  className="px-3 py-2 border rounded-lg min-w-[140px]"
+                >
+                  <option value="">اختر القسم</option>
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-dark-600 mb-1">تأسيس أو تجميع</label>
+                <select
+                  value={byLessonCategoryId}
+                  onChange={(e) => {
+                    setByLessonCategoryId(e.target.value);
+                    setByLessonChapterId("");
+                    setByLessonLessonId("");
+                  }}
+                  className="px-3 py-2 border rounded-lg min-w-[140px]"
+                  disabled={!byLessonSubjectId}
+                >
+                  <option value="">اختر التصنيف</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-dark-600 mb-1">أقسام أو مستويات</label>
+                <select
+                  value={byLessonChapterId}
+                  onChange={(e) => {
+                    setByLessonChapterId(e.target.value);
+                    setByLessonLessonId("");
+                  }}
+                  className="px-3 py-2 border rounded-lg min-w-[140px]"
+                  disabled={!byLessonCategoryId}
+                >
+                  <option value="">اختر الفصل</option>
+                  {chapters.map((ch) => (
+                    <option key={ch.id} value={ch.id}>{ch.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-dark-600 mb-1">الواجبات أو البنوك</label>
+                <select
+                  value={byLessonLessonId}
+                  onChange={(e) => setByLessonLessonId(e.target.value)}
+                  className="px-3 py-2 border rounded-lg min-w-[160px]"
+                  disabled={!byLessonChapterId}
+                >
+                  <option value="">اختر الدرس / الواجب</option>
+                  {lessons.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={loadTrackerByLesson}
+                disabled={!byLessonGroupId || !byLessonLessonId || byLessonLoading}
+                className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 disabled:opacity-50"
+              >
+                {byLessonLoading ? "جاري التحميل..." : "عرض"}
+              </button>
+            </div>
+            {byLessonData && (
+              <div className="overflow-x-auto p-4 border-t">
+                <h3 className="font-bold text-dark-700 mb-2">{byLessonData.lesson_name} — {byLessonData.group_name}</h3>
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="px-2 py-2 text-right font-bold">الاسم</th>
+                      <th className="px-2 py-2 text-right font-bold">البريد</th>
+                      <th className="px-2 py-2 text-right font-bold">الحالة</th>
+                      <th className="px-2 py-2 text-right font-bold">بدأ</th>
+                      <th className="px-2 py-2 text-right font-bold">تم</th>
+                      <th className="px-2 py-2 text-right font-bold">الفترة</th>
+                      <th className="px-2 py-2 text-right font-bold">الدرجة</th>
+                      {(byLessonData.questions || []).map((q) => (
+                        <th key={q.id} className="px-2 py-2 text-right font-bold">{q.label}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(byLessonData.rows || []).map((r) => (
+                      <tr key={r.user_id} className="border-t">
+                        <td className="px-2 py-2">{r.first_name} {r.last_name}</td>
+                        <td className="px-2 py-2">{r.email}</td>
+                        <td className="px-2 py-2">{r.status}</td>
+                        <td className="px-2 py-2 text-xs">{r.started_at ? new Date(r.started_at).toLocaleString("ar-SA") : "—"}</td>
+                        <td className="px-2 py-2 text-xs">{r.completed_at ? new Date(r.completed_at).toLocaleString("ar-SA") : "—"}</td>
+                        <td className="px-2 py-2">{r.duration_seconds ? `${Math.floor(r.duration_seconds / 60)} د` : "—"}</td>
+                        <td className="px-2 py-2 font-bold">{r.score_total != null ? `${r.score_total} / ${r.score_max}` : "—"}</td>
+                        {(byLessonData.questions || []).map((q) => {
+                          const cell = r.questions?.[q.id];
+                          const score = cell?.score;
+                          const correct = cell?.correct;
+                          const pts = byLessonData.points_per_question ?? 0.5;
+                          return (
+                            <td key={q.id} className="px-2 py-2 text-center">
+                              {score == null ? "—" : correct ? <span className="text-green-600 font-bold">✓ {(score ?? pts).toFixed(2)}</span> : <span className="text-red-600 font-bold">✗ {(score ?? 0).toFixed(2)}</span>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                  {byLessonData.rows?.length > 0 && byLessonData.questions?.length > 0 && (
+                    <tfoot className="bg-gray-50 border-t-2">
+                      <tr>
+                        <td colSpan={7} className="px-2 py-2 font-bold">المتوسط العام</td>
+                        {(byLessonData.questions || []).map((q) => {
+                          const total = (byLessonData.rows || []).reduce((s, r) => s + (r.questions?.[q.id]?.score ?? 0), 0);
+                          const n = (byLessonData.rows || []).filter((r) => r.questions?.[q.id]?.score != null).length;
+                          return (
+                            <td key={q.id} className="px-2 py-2 text-center font-bold">
+                              {n ? `(${n}) ${(total / n).toFixed(2)}` : "—"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Students table - مع عدد المحاولات و الأجوبة الخاطئة */}
         <div className="bg-white rounded-xl shadow overflow-hidden">

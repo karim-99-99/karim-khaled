@@ -4,7 +4,7 @@ from django.contrib.auth.password_validation import validate_password
 from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
     Question, Answer, Video, File, StudentProgress, LessonProgress,
-    QuizAttempt, VideoWatch
+    QuizAttempt, VideoWatch, StudentGroup, StudentGroupMembership
 )
 
 
@@ -345,3 +345,36 @@ class VideoWatchSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'lesson', 'lesson_name', 'video', 'video_title',
                   'watch_count', 'last_watched_at']
         read_only_fields = ['user', 'watch_count', 'last_watched_at']
+
+
+class StudentGroupMembershipSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = StudentGroupMembership
+        fields = ['id', 'group', 'user', 'user_id', 'username', 'first_name', 'last_name', 'email', 'added_at']
+
+
+class StudentGroupSerializer(serializers.ModelSerializer):
+    children = serializers.SerializerMethodField()
+    members = serializers.SerializerMethodField()
+
+    class Meta:
+        model = StudentGroup
+        fields = ['id', 'name', 'parent', 'order', 'children', 'members', 'created_at', 'updated_at']
+
+    def get_children(self, obj):
+        children = obj.children.all()
+        depth = self.context.get('_group_depth', 0)
+        if depth >= 2:
+            return [{'id': c.id, 'name': c.name, 'parent': c.parent_id, 'order': c.order, 'members': [], 'children': []} for c in children]
+        ctx = {**self.context, '_group_depth': depth + 1}
+        return StudentGroupSerializer(children, many=True, context=ctx).data
+
+    def get_members(self, obj):
+        memberships = obj.memberships.select_related('user').all()
+        return StudentGroupMembershipSerializer(memberships, many=True).data
