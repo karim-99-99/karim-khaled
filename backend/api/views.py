@@ -421,6 +421,15 @@ class QuestionViewSet(viewsets.ModelViewSet):
         validated_data = serializer.validated_data.copy()
         answers_data = validated_data.pop('answers', [])
         
+        # Set order_index if not provided: use max + 1 for same lesson, or 1 if first
+        from django.db.models import Max
+        lesson_id = validated_data.get('lesson_id') or (validated_data.get('lesson') and validated_data['lesson'].id)
+        if lesson_id and 'order_index' not in validated_data:
+            max_order = Question.objects.filter(lesson_id=lesson_id).aggregate(
+                max_order=Max('order_index')
+            )['max_order']
+            validated_data['order_index'] = (max_order or 0) + 1
+        
         # Create question with id
         question = Question.objects.create(
             id=qid,

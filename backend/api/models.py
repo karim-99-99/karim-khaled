@@ -160,12 +160,14 @@ class Question(models.Model):
     passage_text = models.TextField(blank=True, null=True)
     passage_questions = models.JSONField(default=list, blank=True)  # [{"question":"...","answers":[...]}]
 
+    order_index = models.IntegerField(default=0, null=True, blank=True)  # ترتيب السؤال (1, 2, 3...)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='created_questions')
     
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['order_index', '-created_at']
     
     def __str__(self):
         return f"Question {self.id}"

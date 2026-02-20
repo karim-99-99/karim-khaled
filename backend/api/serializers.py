@@ -92,7 +92,7 @@ class QuestionSerializer(serializers.ModelSerializer):
         fields = ['id', 'lesson', 'chapter', 'category', 'subject', 'section',
                   'question_type', 'question', 'question_en', 'question_image', 'question_image_url',
                   'explanation', 'answers', 'passage_text', 'passage_questions',
-                  'created_at', 'updated_at', 'created_by']
+                  'order_index', 'created_at', 'updated_at', 'created_by']
         read_only_fields = ['created_at', 'updated_at', 'created_by']
 
     def get_question_image_url(self, obj):
@@ -113,27 +113,47 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = ['id', 'lesson', 'question_type', 'question', 'question_en', 'question_image',
-                  'explanation', 'answers', 'passage_text', 'passage_questions']
+                  'explanation', 'answers', 'passage_text', 'passage_questions', 'order_index']
         read_only_fields = ['id']
         extra_kwargs = {'question': {'required': False}}
 
     def validate(self, attrs):
-        qtype = (attrs.get('question_type') or '').strip() or Question.QUESTION_TYPE_SINGLE
-        if qtype == Question.QUESTION_TYPE_PASSAGE:
-            pt = (attrs.get('passage_text') or '').strip()
-            if not pt:
-                raise serializers.ValidationError({'passage_text': 'مطلوب لنوع القطعة.'})
-            attrs['question'] = attrs.get('question') or '(قطعة)'
-            attrs['answers'] = attrs.get('answers') or []
-            attrs['passage_questions'] = attrs.get('passage_questions') or []
+        # For partial updates (PATCH), only validate fields that are being updated
+        # If updating order_index only, skip all validation
+        if self.partial and len(attrs) == 1 and 'order_index' in attrs:
             return attrs
-        # single
-        q = (attrs.get('question') or '').strip()
-        if not q:
-            raise serializers.ValidationError({'question': 'مطلوب للسؤال العادي.'})
-        ans = attrs.get('answers') or []
-        if not ans:
-            raise serializers.ValidationError({'answers': 'يجب إضافة إجابة واحدة على الأقل.'})
+        
+        # Get question_type from attrs or existing instance
+        qtype = attrs.get('question_type')
+        if not qtype and self.instance:
+            qtype = self.instance.question_type
+        qtype = (qtype or '').strip() or Question.QUESTION_TYPE_SINGLE
+        
+        if qtype == Question.QUESTION_TYPE_PASSAGE:
+            # Only validate passage_text if it's being updated
+            if 'passage_text' in attrs:
+                pt = (attrs.get('passage_text') or '').strip()
+                if not pt:
+                    raise serializers.ValidationError({'passage_text': 'مطلوب لنوع القطعة.'})
+            # Set defaults only if creating (not partial update)
+            if not self.partial:
+                attrs['question'] = attrs.get('question') or '(قطعة)'
+                attrs['answers'] = attrs.get('answers') or []
+                attrs['passage_questions'] = attrs.get('passage_questions') or []
+            return attrs
+        
+        # single question type - only validate if field is being updated
+        if 'question' in attrs:
+            q = (attrs.get('question') or '').strip()
+            if not q:
+                raise serializers.ValidationError({'question': 'مطلوب للسؤال العادي.'})
+        
+        # Only validate answers if they're being updated
+        if 'answers' in attrs:
+            ans = attrs.get('answers') or []
+            if not ans:
+                raise serializers.ValidationError({'answers': 'يجب إضافة إجابة واحدة على الأقل.'})
+        
         return attrs
 
     def create(self, validated_data):

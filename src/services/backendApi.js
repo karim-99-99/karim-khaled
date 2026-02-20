@@ -641,7 +641,7 @@ export const addQuestion = async (
 
 export const updateQuestion = async (
   questionId,
-  { question, questionEn, explanation, answers },
+  { question, questionEn, explanation, answers, orderIndex },
   questionImageFile = null
 ) => {
   const body = {
@@ -654,6 +654,9 @@ export const updateQuestion = async (
       is_correct: !!a.isCorrect,
     })),
   };
+  if (orderIndex != null) {
+    body.order_index = orderIndex;
+  }
   await request(`/questions/${encodeURIComponent(questionId)}/`, {
     method: "PATCH",
     body: JSON.stringify(body),
@@ -669,6 +672,19 @@ export const updateQuestion = async (
   return mapQuestionFromBackend(
     await request(`/questions/${encodeURIComponent(questionId)}/`)
   );
+};
+
+export const updateQuestionOrder = async (questionId, orderIndex) => {
+  try {
+    const response = await request(`/questions/${encodeURIComponent(questionId)}/`, {
+      method: "PATCH",
+      body: JSON.stringify({ order_index: orderIndex }),
+    });
+    return response;
+  } catch (error) {
+    console.error(`Error updating question ${questionId} order to ${orderIndex}:`, error);
+    throw error;
+  }
 };
 
 export const deleteQuestion = async (questionId) => {

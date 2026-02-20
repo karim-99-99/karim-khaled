@@ -16,7 +16,7 @@ import {
   getSections,
 } from "../../services/storageService";
 import * as backendApi from "../../services/backendApi";
-const { sortQuestionsBySequence } = backendApi;
+const { sortQuestionsBySequence, updateQuestionOrder } = backendApi;
 import * as ReactQuillNamespace from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
@@ -1182,6 +1182,64 @@ const Questions = () => {
     }
   };
 
+  const handleMoveQuestion = async (questionId, direction) => {
+    if (!selectedLevel) {
+      console.warn("No selected level");
+      return;
+    }
+    const currentIndex = questions.findIndex((q) => q.id === questionId);
+    if (currentIndex === -1) {
+      console.warn("Question not found:", questionId);
+      return;
+    }
+    
+    const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= questions.length) {
+      console.warn("Invalid new index:", newIndex);
+      return;
+    }
+
+    console.log(`Moving question ${questionId} from index ${currentIndex} to ${newIndex} (${direction})`);
+
+    try {
+      if (useBackend && backendApi.isBackendOn()) {
+        // Swap order_index values between the two questions
+        const currentQ = questions[currentIndex];
+        const targetQ = questions[newIndex];
+        
+        // Use actual orderIndex if available, otherwise use index + 1
+        const currentOrder = currentQ.orderIndex != null ? currentQ.orderIndex : currentIndex + 1;
+        const targetOrder = targetQ.orderIndex != null ? targetQ.orderIndex : newIndex + 1;
+        
+        console.log(`Updating orders: ${questionId} -> ${targetOrder}, ${targetQ.id} -> ${currentOrder}`);
+        
+        // Update both questions' order_index
+        await Promise.all([
+          updateQuestionOrder(questionId, targetOrder),
+          updateQuestionOrder(targetQ.id, currentOrder)
+        ]);
+        
+        console.log("Orders updated, refetching questions...");
+        
+        // Reload questions to reflect the new order
+        await refetchQuestionsForLevel(selectedLevel);
+        
+        console.log("Questions refetched");
+      } else {
+        // For localStorage: swap positions in array
+        const updated = [...questions];
+        [updated[currentIndex], updated[newIndex]] = [updated[newIndex], updated[currentIndex]];
+        setQuestions(updated);
+        
+        // TODO: Update localStorage if storageService supports orderIndex
+        // For now, just update the UI state
+      }
+    } catch (error) {
+      console.error("Error moving question:", error);
+      alert("حدث خطأ أثناء تغيير ترتيب السؤال: " + (error.message || "يرجى المحاولة مرة أخرى."));
+    }
+  };
+
   const handleAnswerChange = (index, field, value) => {
     const newAnswers = [...formData.answers];
     newAnswers[index] = { ...newAnswers[index], [field]: value };
@@ -1613,7 +1671,34 @@ const Questions = () => {
                               </div>
                             )}
                           </div>
-                          <div className="flex gap-2 w-full sm:w-auto">
+                          <div className="flex gap-2 w-full sm:w-auto items-center">
+                            {/* ترتيب الأسئلة */}
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => handleMoveQuestion(question.id, "up")}
+                                disabled={index === 0}
+                                className={`px-2 py-1 rounded text-xs transition ${
+                                  index === 0
+                                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                    : "bg-blue-500 text-white hover:bg-blue-600"
+                                }`}
+                                title="نقل لأعلى"
+                              >
+                                ▲
+                              </button>
+                              <button
+                                onClick={() => handleMoveQuestion(question.id, "down")}
+                                disabled={index === questions.length - 1}
+                                className={`px-2 py-1 rounded text-xs transition ${
+                                  index === questions.length - 1
+                                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                                    : "bg-blue-500 text-white hover:bg-blue-600"
+                                }`}
+                                title="نقل لأسفل"
+                              >
+                                ▼
+                              </button>
+                            </div>
                             <button
                               onClick={() => handleEdit(question)}
                               className="flex-1 sm:flex-none bg-yellow-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-yellow-600 text-sm sm:text-base transition"
