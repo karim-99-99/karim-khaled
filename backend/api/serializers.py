@@ -118,9 +118,9 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
         extra_kwargs = {'question': {'required': False}}
 
     def validate(self, attrs):
-        # For partial updates (PATCH), only validate fields that are being updated
-        # If updating order_index only, skip all validation
-        if self.partial and len(attrs) == 1 and 'order_index' in attrs:
+        # For partial updates (PATCH): if only order_index is being updated, skip question/answers validation
+        # (avoids "مطلوب للسؤال العادي" when request has extra keys or proxy adds fields)
+        if self.partial and 'order_index' in attrs and 'question' not in attrs and 'answers' not in attrs:
             return attrs
         
         # Get question_type from attrs or existing instance

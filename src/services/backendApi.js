@@ -689,13 +689,20 @@ export const updateQuestionOrder = async (questionId, orderIndex) => {
   }
 };
 
-/** Reorder all questions in a lesson. order = array of question ids in desired order (1-based positions). */
+/** Reorder all questions in a lesson. order = array of question ids in desired order.
+ * Tries POST /questions/reorder/ first; if that fails (e.g. 405 on deploy), falls back to PATCH per question. */
 export const reorderQuestionsForLesson = async (lessonId, order) => {
-  const response = await request("/questions/reorder/", {
-    method: "POST",
-    body: JSON.stringify({ lesson_id: lessonId, order }),
-  });
-  return response;
+  try {
+    return await request("/questions/reorder/", {
+      method: "POST",
+      body: JSON.stringify({ lesson_id: lessonId, order }),
+    });
+  } catch (_err) {
+    for (let i = 0; i < order.length; i++) {
+      await updateQuestionOrder(order[i], i + 1);
+    }
+    return { updated: order.length };
+  }
 };
 
 export const deleteQuestion = async (questionId) => {
