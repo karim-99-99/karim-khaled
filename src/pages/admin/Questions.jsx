@@ -16,7 +16,7 @@ import {
   getSections,
 } from "../../services/storageService";
 import * as backendApi from "../../services/backendApi";
-const { sortQuestionsBySequence, updateQuestionOrder } = backendApi;
+const { sortQuestionsBySequence, updateQuestionOrder, reorderQuestionsForLesson } = backendApi;
 import * as ReactQuillNamespace from "react-quill";
 import "react-quill/dist/quill.snow.css";
 
@@ -1183,60 +1183,55 @@ const Questions = () => {
   };
 
   const handleMoveQuestion = async (questionId, direction) => {
-    if (!selectedLevel) {
-      console.warn("No selected level");
-      return;
-    }
+    if (!selectedLevel) return;
     const currentIndex = questions.findIndex((q) => q.id === questionId);
-    if (currentIndex === -1) {
-      console.warn("Question not found:", questionId);
-      return;
-    }
-    
+    if (currentIndex === -1) return;
     const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
-    if (newIndex < 0 || newIndex >= questions.length) {
-      console.warn("Invalid new index:", newIndex);
-      return;
-    }
+    if (newIndex < 0 || newIndex >= questions.length) return;
 
-    console.log(`Moving question ${questionId} from index ${currentIndex} to ${newIndex} (${direction})`);
+    const updated = [...questions];
+    [updated[currentIndex], updated[newIndex]] = [updated[newIndex], updated[currentIndex]];
+    setQuestions(updated);
 
+    if (!useBackend || !backendApi.isBackendOn()) return;
     try {
-      if (useBackend && backendApi.isBackendOn()) {
-        // Swap order_index values between the two questions
-        const currentQ = questions[currentIndex];
-        const targetQ = questions[newIndex];
-        
-        // Use actual orderIndex if available, otherwise use index + 1
-        const currentOrder = currentQ.orderIndex != null ? currentQ.orderIndex : currentIndex + 1;
-        const targetOrder = targetQ.orderIndex != null ? targetQ.orderIndex : newIndex + 1;
-        
-        console.log(`Updating orders: ${questionId} -> ${targetOrder}, ${targetQ.id} -> ${currentOrder}`);
-        
-        // Update both questions' order_index
-        await Promise.all([
-          updateQuestionOrder(questionId, targetOrder),
-          updateQuestionOrder(targetQ.id, currentOrder)
-        ]);
-        
-        console.log("Orders updated, refetching questions...");
-        
-        // Reload questions to reflect the new order
-        await refetchQuestionsForLevel(selectedLevel);
-        
-        console.log("Questions refetched");
-      } else {
-        // For localStorage: swap positions in array
-        const updated = [...questions];
-        [updated[currentIndex], updated[newIndex]] = [updated[newIndex], updated[currentIndex]];
-        setQuestions(updated);
-        
-        // TODO: Update localStorage if storageService supports orderIndex
-        // For now, just update the UI state
-      }
+      const currentQ = questions[currentIndex];
+      const targetQ = questions[newIndex];
+      const currentOrder = currentQ.orderIndex != null ? currentQ.orderIndex : currentIndex + 1;
+      const targetOrder = targetQ.orderIndex != null ? targetQ.orderIndex : newIndex + 1;
+      await Promise.all([
+        updateQuestionOrder(questionId, targetOrder),
+        updateQuestionOrder(targetQ.id, currentOrder),
+      ]);
+      await refetchQuestionsForLevel(selectedLevel);
     } catch (error) {
       console.error("Error moving question:", error);
-      alert("حدث خطأ أثناء تغيير ترتيب السؤال: " + (error.message || "يرجى المحاولة مرة أخرى."));
+      setQuestions([...questions]);
+      alert("حدث خطأ أثناء تغيير ترتيب السؤال. " + (error?.message || ""));
+    }
+  };
+
+  /** نقل السؤال إلى رقم معيّن (مثلاً السؤال 10 يصبح رقم 2) */
+  const handleMoveQuestionToPosition = async (questionId, targetPositionOneBased) => {
+    if (!selectedLevel) return;
+    const currentIndex = questions.findIndex((q) => q.id === questionId);
+    if (currentIndex === -1) return;
+    const targetIndex = Math.max(0, Math.min(questions.length, targetPositionOneBased - 1));
+    if (currentIndex === targetIndex) return;
+
+    const updated = [...questions];
+    const [moved] = updated.splice(currentIndex, 1);
+    updated.splice(targetIndex, 0, moved);
+    setQuestions(updated);
+
+    if (!useBackend || !backendApi.isBackendOn()) return;
+    try {
+      await reorderQuestionsForLesson(selectedLevel, updated.map((q) => q.id));
+      await refetchQuestionsForLevel(selectedLevel);
+    } catch (error) {
+      console.error("Error reordering questions:", error);
+      setQuestions([...questions]);
+      alert("حدث خطأ أثناء تغيير ترتيب السؤال. " + (error?.message || ""));
     }
   };
 
@@ -1675,6 +1670,7 @@ const Questions = () => {
                             {/* ترتيب الأسئلة */}
                             <div className="flex flex-col gap-1">
                               <button
+                                type="button"
                                 onClick={() => handleMoveQuestion(question.id, "up")}
                                 disabled={index === 0}
                                 className={`px-2 py-1 rounded text-xs transition ${
@@ -1687,6 +1683,7 @@ const Questions = () => {
                                 ▲
                               </button>
                               <button
+                                type="button"
                                 onClick={() => handleMoveQuestion(question.id, "down")}
                                 disabled={index === questions.length - 1}
                                 className={`px-2 py-1 rounded text-xs transition ${
@@ -1699,6 +1696,23 @@ const Questions = () => {
                                 ▼
                               </button>
                             </div>
+                            <select
+                              value=""
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (v) handleMoveQuestionToPosition(question.id, parseInt(v, 10));
+                                e.target.value = "";
+                              }}
+                              className="text-xs border rounded px-2 py-1 bg-white min-w-0 max-w-[4rem]"
+                              title="نقل السؤال إلى رقم معيّن"
+                            >
+                              <option value="">نقل إلى...</option>
+                              {Array.from({ length: questions.length }, (_, i) => i + 1).map((n) => (
+                                <option key={n} value={n}>
+                                  {n}
+                                </option>
+                              ))}
+                            </select>
                             <button
                               onClick={() => handleEdit(question)}
                               className="flex-1 sm:flex-none bg-yellow-500 text-white px-3 py-1.5 sm:py-1 rounded hover:bg-yellow-600 text-sm sm:text-base transition"

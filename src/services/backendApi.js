@@ -675,16 +675,27 @@ export const updateQuestion = async (
 };
 
 export const updateQuestionOrder = async (questionId, orderIndex) => {
+  const url = `/questions/${encodeURIComponent(questionId)}/`;
+  const body = JSON.stringify({ order_index: orderIndex });
   try {
-    const response = await request(`/questions/${encodeURIComponent(questionId)}/`, {
+    const response = await request(url, {
       method: "PATCH",
-      body: JSON.stringify({ order_index: orderIndex }),
+      body,
     });
     return response;
   } catch (error) {
     console.error(`Error updating question ${questionId} order to ${orderIndex}:`, error);
     throw error;
   }
+};
+
+/** Reorder all questions in a lesson. order = array of question ids in desired order (1-based positions). */
+export const reorderQuestionsForLesson = async (lessonId, order) => {
+  const response = await request("/questions/reorder/", {
+    method: "POST",
+    body: JSON.stringify({ lesson_id: lessonId, order }),
+  });
+  return response;
 };
 
 export const deleteQuestion = async (questionId) => {

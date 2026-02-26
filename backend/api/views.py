@@ -381,7 +381,9 @@ class QuestionViewSet(viewsets.ModelViewSet):
     """Questions management"""
     queryset = Question.objects.select_related('lesson', 'chapter', 'category', 'subject', 'section', 'created_by').prefetch_related('answers').all()
     permission_classes = [IsAuthenticatedDeviceAllowed]
-    
+    lookup_field = 'id'
+    lookup_url_kwarg = 'pk'
+
     def get_serializer_class(self):
         if self.action in ['create', 'update', 'partial_update']:
             return QuestionCreateUpdateSerializer
@@ -412,9 +414,41 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'set_order', 'reorder']:
             return [IsAdminUser()]
         return [IsAuthenticatedDeviceAllowed()]
+    
+    @action(detail=True, methods=['post', 'patch'], url_path='set-order')
+    def set_order(self, request, pk=None):
+        """Update only order_index for a question (no other validation)."""
+        question = self.get_object()
+        order_index = request.data.get('order_index')
+        if order_index is None:
+            return Response({'order_index': ['This field is required.']}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            question.order_index = int(order_index)
+        except (TypeError, ValueError):
+            return Response({'order_index': ['Must be an integer.']}, status=status.HTTP_400_BAD_REQUEST)
+        question.save(update_fields=['order_index'])
+        return Response(QuestionSerializer(question).data)
+
+    @action(detail=False, methods=['post'], url_path='reorder')
+    def reorder(self, request):
+        """Set order of all questions for a lesson. Body: { lesson_id: "...", order: ["id1", "id2", ...] }"""
+        lesson_id = request.data.get('lesson_id')
+        order_ids = request.data.get('order')
+        if not lesson_id or not isinstance(order_ids, list) or len(order_ids) == 0:
+            return Response(
+                {'detail': 'lesson_id and order (list of question ids) are required.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        questions = list(Question.objects.filter(lesson_id=lesson_id))
+        id_to_question = {q.id: q for q in questions}
+        for i, qid in enumerate(order_ids):
+            if qid in id_to_question:
+                id_to_question[qid].order_index = i + 1
+                id_to_question[qid].save(update_fields=['order_index'])
+        return Response({'updated': len(order_ids)})
     
     def perform_create(self, serializer):
         qid = self.request.data.get('id') or f"q_{int(timezone.now().timestamp())}_{uuid.uuid4().hex[:8]}"

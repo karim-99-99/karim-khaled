@@ -422,12 +422,20 @@ const MathRenderer = memo(({ html }) => {
       ".math-equation[data-latex]",
     );
 
+    // KaTeX has no metrics for Arabic-Indic digits (٠-٩); use Western digits in LaTeX
+    const arabicToWesternDigits = (str) =>
+      String(str).replace(/[\u0660-\u0669]/g, (c) =>
+        String(c.charCodeAt(0) - 0x0660 + 0x30)
+      );
+
     mathElements.forEach((element) => {
       const latex = element.getAttribute("data-latex");
       if (!latex) return;
 
+      const normalizedLatex = arabicToWesternDigits(latex);
+
       try {
-        element.innerHTML = katex.renderToString(latex, {
+        element.innerHTML = katex.renderToString(normalizedLatex, {
           throwOnError: false,
           displayMode: false,
         });
