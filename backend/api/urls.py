@@ -23,6 +23,7 @@ urlpatterns = [
     path('auth/register/', views.RegisterView.as_view(), name='register'),
     path('auth/login/', views.LoginView.as_view(), name='login'),
     path('auth/logout/', views.LogoutView.as_view(), name='logout'),
+    path('export-db/', views.ExportDbView.as_view(), name='export-db'),
     path('public/foundation/', views.PublicFoundationView.as_view(), name='public-foundation'),
     path('tracker/student-summary/', views.TrackerStudentSummaryView.as_view(), name='tracker-student-summary'),
     path('tracker/admin-summary/', views.TrackerAdminSummaryView.as_view(), name='tracker-admin-summary'),

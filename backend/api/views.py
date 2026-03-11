@@ -1,10 +1,13 @@
+import os
 import uuid
+from io import StringIO
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import authenticate, login, logout
+from django.core.management import call_command
 from django.db.models import Q, Count, Avg, Max, Sum
 from django.http import HttpResponse
 from django.utils import timezone
@@ -121,6 +124,35 @@ class LogoutView(APIView):
             pass
         logout(request)
         return Response({'message': 'Logged out successfully'})
+
+
+class ExportDbView(APIView):
+    """
+    Export database as JSON for migration (e.g. Render → Neon).
+    Only works if request has ?secret=... matching DB_EXPORT_SECRET env var.
+    Call this from the browser while your backend is on Render (server can connect to Render Postgres).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        secret = os.environ.get('DB_EXPORT_SECRET')
+        if not secret or request.query_params.get('secret') != secret:
+            return Response({'detail': 'Forbidden.'}, status=status.HTTP_403_FORBIDDEN)
+        buf = StringIO()
+        try:
+            call_command(
+                'dumpdata',
+                '--natural-foreign',
+                '--exclude', 'contenttypes',
+                '--exclude', 'auth.Permission',
+                stdout=buf,
+            )
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        json_str = buf.getvalue()
+        response = HttpResponse(json_str, content_type='application/json; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="backup.json"'
+        return response
 
 
 class PublicFoundationView(APIView):
