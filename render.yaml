@@ -1,0 +1,9 @@
+# Optional: use this if you deploy with Render Blueprint.
+# Important: do NOT run migrate in buildCommand — the build environment cannot resolve
+# the Postgres hostname (dpg-xxx-a). Run migrate in startCommand instead.
+
+services:
+  - type: web
+    name: backend
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate && python manage.py seed_initial_data && gunicorn config.wsgi:application
