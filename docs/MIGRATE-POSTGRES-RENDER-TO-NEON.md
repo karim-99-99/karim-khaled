@@ -177,7 +177,7 @@ After redeploy finishes:
 | **SSL error on Neon restore** | Add `?sslmode=require` to the end of your Neon URL |
 | **Tables missing after restore** | Re-run the `psql ... < backup.sql` command (large dumps sometimes need a second pass) |
 | **App crashes after update** | Check `DATABASE_URL` has no extra spaces or missing characters; check Render logs for the exact error |
-| **could not translate host name "dpg-xxx-a" to address** | `DATABASE_URL` is truncated. Paste the **full** URL (host must end with `.frankfurt-postgres.render.com` or similar). One line, no line break in the middle. |
+| **could not translate host name "dpg-xxx-a" to address** | If using **External** URL: paste the full URL (host should end with `.frankfurt-postgres.render.com`). One line, no line break. If using **Internal** URL on Render, the short hostname is normal; the error may mean the DB is unreachable during build (retry deploy). |
 
 ### Workaround for Render SSL (when pg_dump fails locally)
 

@@ -69,12 +69,6 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # Database — Postgres in production (DATABASE_URL), SQLite locally
 DATABASES = {'default': {}}
 _db_url = (os.environ.get('DATABASE_URL') or '').strip()
-# Guard: Render hostnames must be full FQDN (e.g. dpg-xxx-a.frankfurt-postgres.render.com)
-if _db_url and '@' in _db_url and 'dpg-' in _db_url and '.render.com' not in _db_url:
-    raise ValueError(
-        'DATABASE_URL host is truncated. Use the full URL from Render Dashboard → Postgres → Connect '
-        '(e.g. ...@dpg-xxx-a.frankfurt-postgres.render.com/...). One line, no spaces/newlines.'
-    )
 if _db_url:
     DATABASES['default'] = dj_database_url.parse(_db_url, conn_max_age=600)
 else:
