@@ -92,6 +92,8 @@ const Questions = () => {
       { id: "d", text: "", isCorrect: false },
     ],
   });
+  const [isSavingPassage, setIsSavingPassage] = useState(false);
+  const [isSavingPassageQuestion, setIsSavingPassageQuestion] = useState(false);
   const [passageFormData, setPassageFormData] = useState({
     passageText: "",
     questions: [
@@ -896,6 +898,7 @@ const Questions = () => {
     e.preventDefault();
     e.stopPropagation();
 
+    if (isSavingPassage) return;
     if (!selectedLevel) {
       alert("يرجى اختيار المستوى أولاً");
       return;
@@ -940,6 +943,7 @@ const Questions = () => {
       question: convertPlainTextNumbersToArabic(q.question) ?? q.question,
     }));
 
+    setIsSavingPassage(true);
     try {
       if (useBackend && backendApi.isBackendOn()) {
         if (editingPassage) {
@@ -1000,6 +1004,8 @@ const Questions = () => {
           ? `حدث خطأ أثناء حفظ القطعة:\n${msg}`
           : "حدث خطأ أثناء حفظ القطعة. يرجى المحاولة مرة أخرى."
       );
+    } finally {
+      setIsSavingPassage(false);
     }
   };
 
@@ -1019,6 +1025,7 @@ const Questions = () => {
   const handleSaveNewPassageQuestion = async (e) => {
     e.preventDefault();
     if (!addingQuestionToPassage) return;
+    if (isSavingPassageQuestion) return;
     const q = newPassageQuestionForm;
     if (!q.question.trim()) {
       alert("يرجى إدخال نص السؤال");
@@ -1840,9 +1847,14 @@ const Questions = () => {
                     <div className="flex gap-2">
                       <button
                         type="submit"
-                        className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600"
+                        disabled={isSavingPassageQuestion}
+                        className={`flex-1 bg-primary-500 text-white py-2 rounded-lg transition ${
+                          isSavingPassageQuestion
+                            ? "opacity-60 cursor-not-allowed"
+                            : "hover:bg-primary-600"
+                        }`}
                       >
-                        حفظ
+                        {isSavingPassageQuestion ? "جاري الحفظ..." : "حفظ"}
                       </button>
                       <button
                         type="button"
@@ -2053,9 +2065,14 @@ const Questions = () => {
                     <div className="flex gap-3">
                       <button
                         type="submit"
-                        className="flex-1 bg-primary-500 text-white py-2 rounded-lg hover:bg-primary-600 transition font-medium"
+                        disabled={isSavingPassage}
+                        className={`flex-1 bg-primary-500 text-white py-2 rounded-lg transition font-medium ${
+                          isSavingPassage
+                            ? "opacity-60 cursor-not-allowed"
+                            : "hover:bg-primary-600"
+                        }`}
                       >
-                        حفظ
+                        {isSavingPassage ? "جاري الحفظ..." : "حفظ"}
                       </button>
                       <button
                         type="button"
