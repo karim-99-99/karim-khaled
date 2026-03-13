@@ -166,6 +166,8 @@ export const mapUserFromBackend = (u) => ({
   phone: u.phone,
   role: u.role,
   isActive: u.is_active_account,
+  accountActiveFrom: u.account_active_from || null,
+  accountActiveUntil: u.account_active_until || null,
   avatarChoice: u.avatar_choice || null,
   createdAt: u.date_joined,
   permissions: {
@@ -237,6 +239,10 @@ export const updateUser = async (userId, updates) => {
   }
   if (updates.allowMultiDevice !== undefined)
     backendUpdates.allow_multi_device = !!updates.allowMultiDevice;
+  if (updates.accountActiveFrom !== undefined)
+    backendUpdates.account_active_from = updates.accountActiveFrom || null;
+  if (updates.accountActiveUntil !== undefined)
+    backendUpdates.account_active_until = updates.accountActiveUntil || null;
 
   const data = await request(`/users/${encodeURIComponent(userId)}/`, {
     method: "PATCH",
@@ -541,6 +547,7 @@ export const getQuestions = async (filters = {}) => {
     if (filters.chapter_id) params.set("chapter_id", filters.chapter_id);
     if (filters.category_id) params.set("category_id", filters.category_id);
     if (filters.subject_id) params.set("subject_id", filters.subject_id);
+    if (filters.lesson_id) params.set("page_size", "2000");
     const path = params.toString() ? `/questions/?${params}` : "/questions/";
     const list = await request(path);
     const arr = Array.isArray(list) ? list : list?.results || [];

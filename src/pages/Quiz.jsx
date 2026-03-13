@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   getQuestionsByLevel,
   getVideoByLevel,
@@ -67,6 +67,7 @@ function flattenQuestionsForQuiz(raw) {
 const Quiz = () => {
   const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } =
     useParams();
+  const location = useLocation();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -97,6 +98,10 @@ const Quiz = () => {
     isAdmin || (currentUser && hasCategoryAccess(currentUser, categoryName));
 
   useEffect(() => {
+    if (location.state?.retake) {
+      localStorage.removeItem(progressKey);
+      return;
+    }
     const savedProgress = localStorage.getItem(progressKey);
     if (savedProgress) {
       try {
@@ -111,7 +116,7 @@ const Quiz = () => {
         console.error("Error loading saved progress:", e);
       }
     }
-  }, [progressKey]);
+  }, [progressKey, location.state]);
 
   useEffect(() => {
     let c = false;

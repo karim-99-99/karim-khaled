@@ -27,6 +27,10 @@ class IsAuthenticatedDeviceAllowed(permissions.IsAuthenticated):
             return True
         if user.role != 'student':
             return True
+        if not user.is_within_account_period():
+            raise PermissionDenied(
+                detail='Account access is not valid for the current period. Please contact administrator.'
+            )
         if getattr(user, 'allow_multi_device', False):
             return True
         reg = getattr(user, 'registered_ip', None) or ''

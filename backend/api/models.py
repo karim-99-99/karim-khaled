@@ -14,6 +14,9 @@ class User(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
     phone = models.CharField(max_length=20, blank=True, null=True)
     is_active_account = models.BooleanField(default=False)  # Admin controls this
+    # Optional: limit student access to a date range (admin sets from/until)
+    account_active_from = models.DateField(null=True, blank=True, help_text='Student account active from this date (inclusive)')
+    account_active_until = models.DateField(null=True, blank=True, help_text='Student account active until this date (inclusive)')
     
     # Permissions (for students, controlled by admin)
     has_abilities_access = models.BooleanField(default=False)
@@ -47,6 +50,18 @@ class User(AbstractUser):
     @property
     def is_student(self):
         return self.role == 'student'
+
+    def is_within_account_period(self):
+        """For students: if account_active_from/until are set, today must be in [from, until]. Admins always True."""
+        if self.role != 'student':
+            return True
+        from django.utils import timezone
+        today = timezone.now().date()
+        if self.account_active_from is not None and today < self.account_active_from:
+            return False
+        if self.account_active_until is not None and today > self.account_active_until:
+            return False
+        return True
 
 
 class Section(models.Model):

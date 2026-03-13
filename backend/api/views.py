@@ -3,6 +3,7 @@ import uuid
 from io import StringIO
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
@@ -32,6 +33,13 @@ from .serializers import (
 
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
 PUBLIC_FOUNDATION_SUBJECT_IDS = ['مادة_اللفظي', 'مادة_الكمي']
+
+
+class QuestionPagination(PageNumberPagination):
+    """Allow many questions per lesson (admin can add as many as needed)."""
+    page_size = 500
+    page_size_query_param = 'page_size'
+    max_page_size = 2000
 
 
 class IsAdminUser(permissions.BasePermission):
@@ -86,6 +94,11 @@ class LoginView(APIView):
                 if not user.is_active_account and user.role == 'student':
                     return Response(
                         {'error': 'Account is not active. Please contact administrator.'},
+                        status=status.HTTP_403_FORBIDDEN
+                    )
+                if user.role == 'student' and not user.is_within_account_period():
+                    return Response(
+                        {'error': 'Account access is not valid for the current period. Please contact administrator.'},
                         status=status.HTTP_403_FORBIDDEN
                     )
                 if user.role == 'student' and not getattr(user, 'allow_multi_device', False):
@@ -413,6 +426,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
     """Questions management"""
     queryset = Question.objects.select_related('lesson', 'chapter', 'category', 'subject', 'section', 'created_by').prefetch_related('answers').all()
     permission_classes = [IsAuthenticatedDeviceAllowed]
+    pagination_class = QuestionPagination
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
 

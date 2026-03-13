@@ -4,7 +4,7 @@ import { isArabicBrowser } from '../utils/language';
 
 const Result = () => {
   // Support both new structure and legacy
-  const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } = useParams();
+  const { sectionId, subjectId, categoryId, chapterId, itemId, levelId, quizId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -65,9 +65,26 @@ const Result = () => {
             <button
               onClick={() => {
                 if (sectionId && categoryId && itemId) {
+                  navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`, { state: { retake: true } });
+                } else if (levelId) {
+                  navigate(`/level/${levelId}/quiz`, { state: { retake: true } });
+                } else if (quizId) {
+                  navigate(`/level/${quizId}/quiz`, { state: { retake: true } });
+                } else {
+                  navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
+                }
+              }}
+              className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition text-lg"
+            >
+              {isArabicBrowser() ? 'إعادة الاختبار' : 'Retake test'}
+            </button>
+
+            <button
+              onClick={() => {
+                if (sectionId && categoryId && itemId) {
                   navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
                 } else {
-                  navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);
+                  navigate(levelId ? `/subject/${subjectId}/chapter/${chapterId}/levels` : `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
                 }
               }}
               className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition text-lg"

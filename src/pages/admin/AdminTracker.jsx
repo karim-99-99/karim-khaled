@@ -586,6 +586,12 @@ function StudentDetailContent({
             <span className="text-gray-500">عدد المحاولات:</span>{" "}
             <span className="font-bold text-green-600">{it.attempt_count}</span>
           </span>
+          {(it.attempt_count || 0) > 1 && (
+            <span>
+              <span className="text-gray-500">إعادة الاختبار:</span>{" "}
+              <span className="font-bold text-amber-600">{(it.attempt_count || 0) - 1} مرة</span>
+            </span>
+          )}
           <span>
             <span className="text-gray-500">مشاهدة الفيديو:</span>{" "}
             <span className="font-bold text-purple-600">{it.video_watch_count ?? 0}</span>
@@ -628,7 +634,7 @@ function StudentDetailContent({
       {/* قائمة الواجبات التي اجتازها الطالب */}
       <div className="border border-gray-200 rounded-xl overflow-hidden">
         <div className="bg-green-100 px-4 py-3 font-bold text-dark-700">
-          الواجبات التي اجتازها (عدد المحاولات + مشاهدة الفيديو)
+          الواجبات التي اجتازها (عدد المحاولات + مرات إعادة الاختبار + مشاهدة الفيديو)
         </div>
         <div className="divide-y divide-gray-100">
           {passed.length === 0 ? (

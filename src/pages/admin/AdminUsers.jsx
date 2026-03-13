@@ -25,6 +25,8 @@ const AdminUsers = () => {
     abilitiesCategories: { foundation: false, collections: false },
   });
   const [allowMultiDevice, setAllowMultiDevice] = useState(false);
+  const [accountActiveFrom, setAccountActiveFrom] = useState("");
+  const [accountActiveUntil, setAccountActiveUntil] = useState("");
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
   const useBackend = backendApi.isBackendOn();
@@ -142,6 +144,8 @@ const AdminUsers = () => {
       },
     });
     setAllowMultiDevice(!!user.allowMultiDevice);
+    setAccountActiveFrom(user.accountActiveFrom ? String(user.accountActiveFrom).slice(0, 10) : "");
+    setAccountActiveUntil(user.accountActiveUntil ? String(user.accountActiveUntil).slice(0, 10) : "");
     setShowPermissionsModal(true);
   };
 
@@ -187,6 +191,8 @@ const AdminUsers = () => {
         await backendApi.updateUser(selectedUser.id, {
           permissions: merged,
           allowMultiDevice,
+          accountActiveFrom: accountActiveFrom.trim() || null,
+          accountActiveUntil: accountActiveUntil.trim() || null,
         });
       } else {
         updateUserLocal(selectedUser.id, { permissions: merged });
@@ -368,6 +374,12 @@ const AdminUsers = () => {
                                   ? "غير مفعّل"
                                   : "Inactive"}
                             </span>
+                            {(user.accountActiveFrom || user.accountActiveUntil) && (
+                              <div className="text-xs text-gray-500 mt-1">
+                                {isArabicBrowser() ? "فترة:" : "Period:"}{" "}
+                                {user.accountActiveFrom ? String(user.accountActiveFrom).slice(0, 10) : "—"} → {user.accountActiveUntil ? String(user.accountActiveUntil).slice(0, 10) : "—"}
+                              </div>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <div className="flex flex-col gap-1 items-center">
@@ -649,6 +661,41 @@ const AdminUsers = () => {
               </div>
 
               {useBackend && (
+                <>
+                <div className="border-b pb-4 mb-4">
+                  <h3 className="text-lg font-semibold text-dark-600 mb-3">
+                    {isArabicBrowser() ? "فترة تفعيل الحساب" : "Account activation period"}
+                  </h3>
+                  <p className="text-sm text-dark-500 mb-3">
+                    {isArabicBrowser()
+                      ? "اختياري: حدد من تاريخ إلى تاريخ يكون فيها الحساب مفعّلاً. اتركهما فارغين لعدم التحديد."
+                      : "Optional: set a date range when the account is active. Leave empty for no limit."}
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-dark-600 mb-1">
+                        {isArabicBrowser() ? "من تاريخ" : "From date"}
+                      </label>
+                      <input
+                        type="date"
+                        value={accountActiveFrom}
+                        onChange={(e) => setAccountActiveFrom(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-dark-600 mb-1">
+                        {isArabicBrowser() ? "إلى تاريخ" : "To date"}
+                      </label>
+                      <input
+                        type="date"
+                        value={accountActiveUntil}
+                        onChange={(e) => setAccountActiveUntil(e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                  </div>
+                </div>
                 <div className="border-b pb-4 mb-6">
                   <h3 className="text-lg font-semibold text-dark-600 mb-3">
                     {isArabicBrowser() ? "الوصول من الأجهزة" : "Device Access"}
@@ -672,6 +719,7 @@ const AdminUsers = () => {
                       : "Without this, student can only log in from the device they registered on."}
                   </p>
                 </div>
+                </>
               )}
 
               {/* Action Buttons */}
