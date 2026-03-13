@@ -88,7 +88,7 @@ function App() {
       >
         <div className="App" dir="rtl">
           <AvatarOnboarding />
-          <main className="pb-20 lg:pb-0">
+          <main className="min-h-screen">
             <Suspense fallback={<LoadingFallback />}>
               <Routes>
                 {/* Public routes */}
@@ -341,6 +341,8 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
+            {/* Spacer so content can scroll above fixed bottom nav; does not reduce content area */}
+            <div className="xl:hidden h-16 flex-shrink-0" aria-hidden="true" />
           </main>
           <BottomNav />
         </div>

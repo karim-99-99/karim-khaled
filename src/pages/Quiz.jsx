@@ -474,8 +474,13 @@ const Quiz = () => {
               {/* Question Grid */}
               <div className="grid grid-cols-5 gap-2 max-h-[60vh] overflow-y-auto">
                 {questions.map((question, index) => {
-                  const isAnswered = !!answers[question.id];
+                  const answerId = answers[question.id];
+                  const isAnswered = answerId != null;
                   const isCurrent = index === currentIndex;
+                  const selectedAnswer = (question.answers || []).find(
+                    (a) => (a.id || a.key) === answerId
+                  );
+                  const isCorrect = !!selectedAnswer?.isCorrect;
 
                   return (
                     <button
@@ -485,9 +490,11 @@ const Quiz = () => {
                           aspect-square rounded-lg font-bold text-sm transition-all
                           ${isCurrent ? "ring-4 ring-primary-500" : ""}
                           ${
-                            isAnswered
-                              ? "bg-green-500 text-white hover:bg-green-600"
-                              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            !isAnswered
+                              ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                              : isCorrect
+                                ? "bg-green-500 text-white hover:bg-green-600"
+                                : "bg-red-500 text-white hover:bg-red-600"
                           }
                         `}
                     >
@@ -689,6 +696,22 @@ const Quiz = () => {
 
             {/* Navigation */}
             <div className="flex justify-between">
+              {showResult ? (
+                <button
+                  onClick={handleNext}
+                  className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition font-medium"
+                >
+                  {currentIndex < questions.length - 1
+                    ? isArabicBrowser()
+                      ? "← التالي"
+                      : "Next →"
+                    : isArabicBrowser()
+                    ? "إنهاء الواجب"
+                    : "Finish"}
+                </button>
+              ) : (
+                <span className="flex-1" aria-hidden="true" />
+              )}
               <button
                 onClick={() => {
                   if (currentIndex > 0) {
@@ -702,23 +725,8 @@ const Quiz = () => {
                 disabled={currentIndex === 0}
                 className="bg-gray-400 text-white px-6 py-3 rounded-lg hover:bg-gray-500 transition disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                ← {isArabicBrowser() ? "السابق" : ""}
+                {isArabicBrowser() ? "السابق →" : "← Previous"}
               </button>
-
-              {showResult && (
-                <button
-                  onClick={handleNext}
-                  className="bg-primary-500 text-white px-6 py-3 rounded-lg hover:bg-primary-600 transition font-medium"
-                >
-                  {currentIndex < questions.length - 1
-                    ? isArabicBrowser()
-                      ? "التالي →"
-                      : " "
-                    : isArabicBrowser()
-                    ? "إنهاء الواجب"
-                    : " "}
-                </button>
-              )}
             </div>
           </div>
         </div>
