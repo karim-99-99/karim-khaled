@@ -49,6 +49,14 @@ class IsAdminUser(permissions.BasePermission):
         return request.user and request.user.is_authenticated and request.user.role == 'admin'
 
 
+class HealthView(APIView):
+    """Lightweight health check for keep-alive pings (no DB, no auth)."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response({"status": "ok"}, status=status.HTTP_200_OK)
+
+
 class RegisterView(APIView):
     """User registration endpoint"""
     permission_classes = [permissions.AllowAny]

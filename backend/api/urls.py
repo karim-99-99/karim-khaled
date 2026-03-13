@@ -20,6 +20,7 @@ router.register(r'student-groups', views.StudentGroupViewSet, basename='student-
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('health/', views.HealthView.as_view(), name='health'),
     path('auth/register/', views.RegisterView.as_view(), name='register'),
     path('auth/login/', views.LoginView.as_view(), name='login'),
     path('auth/logout/', views.LogoutView.as_view(), name='logout'),

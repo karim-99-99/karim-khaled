@@ -64,6 +64,8 @@ const LoadingFallback = () => (
 function App() {
   useEffect(() => {
     initializeDefaultData();
+    // Wake backend early (Render cold start) so later navigations feel faster
+    if (import.meta.env.VITE_API_URL) backendApi.pingHealth();
     // Refresh current user from API when using backend (so admin permission updates apply without re-login)
     const u = getCurrentUser();
     if (u?.token && import.meta.env.VITE_API_URL) {

@@ -101,6 +101,14 @@ const request = async (path, options = {}) => {
 
 export const isBackendOn = () => !!(import.meta.env.VITE_API_URL && getToken());
 
+/** Ping backend health endpoint to wake Render from cold start (fire-and-forget). */
+export const pingHealth = () => {
+  const base = getBase();
+  if (!base) return;
+  const url = `${base}/health/`;
+  fetch(url, { method: "GET", keepalive: true }).catch(() => {});
+};
+
 /** Build URL for GET /api/files/<id>/content/ (auth-only, no X-Frame-Options issues). */
 export const getFileContentApiUrl = (fileId) => {
   const base = getBase();
