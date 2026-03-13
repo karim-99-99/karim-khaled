@@ -159,7 +159,7 @@ const Quiz = () => {
         setQuestions(sampleQuestions);
       } else {
         const flattened = flattenQuestionsForQuiz(quizQuestions);
-        setQuestions(flattened.slice(0, 50));
+        setQuestions(flattened);
       }
       if (
         levelVideo &&
