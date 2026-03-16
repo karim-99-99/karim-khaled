@@ -53,8 +53,15 @@ const Levels = () => {
   const [newLessonName, setNewLessonName] = useState("");
   /** For students: lessonId -> 'completed' | 'started' | 'not_started' (backend only) */
   const [lessonStatusMap, setLessonStatusMap] = useState({});
+  /** للزائر: عرض نافذة "يرجى تسجيل الدخول أو إنشاء حساب" عند الضغط على أي خيار */
+  const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
+  /** للحساب غير المفعل: عرض نافذة التواصل مع الإدارة + واتساب */
+  const [showActivationRequiredModal, setShowActivationRequiredModal] = useState(false);
 
   const useBackend = !!import.meta.env.VITE_API_URL;
+  const isStudentNotActive =
+    currentUser?.role === "student" &&
+    (currentUser?.isActive === false || currentUser?.is_active_account === false);
 
   const items = (chapter?.items || []).map((i) => ({
     ...i,
@@ -79,29 +86,21 @@ const Levels = () => {
         if (useBackend) {
           const ch = await getChapterByIdApi(chapterId);
           if (!c) setChapter(ch || null);
-          if (user) {
-            const [v, f, q] = await Promise.all([
-              getVideos({ chapter_id: chapterId }),
-              getFiles({ chapter_id: chapterId }),
-              getQuestions({ chapter_id: chapterId }),
-            ]);
-            if (!c) {
-              setVideos(Array.isArray(v) ? v : []);
-              setFiles(Array.isArray(f) ? f : []);
-              setQuestions(Array.isArray(q) ? q : []);
-            }
-          } else {
-            if (!c) {
-              setVideos([]);
-              setFiles([]);
-              setQuestions([]);
-            }
+          const [v, f, q] = await Promise.all([
+            getVideos({ chapter_id: chapterId }),
+            getFiles({ chapter_id: chapterId }),
+            getQuestions({ chapter_id: chapterId }),
+          ]);
+          if (!c) {
+            setVideos(Array.isArray(v) ? v : []);
+            setFiles(Array.isArray(f) ? f : []);
+            setQuestions(Array.isArray(q) ? q : []);
           }
         } else {
           if (!c) setChapter(getChapterById(chapterId) || null);
         }
       } catch (e) {
-        if (!c) setChapter(null);
+        // لا نمسح الفصل: إن فشل جلب الفيديوهات/الملفات/الأسئلة (مثلاً للزائر) نبقى على الفصل المُحمّل
       } finally {
         if (!c) setLoading(false);
       }
@@ -192,10 +191,11 @@ const Levels = () => {
 
   const handleVideoClick = (itemId) => {
     if (!currentUser) {
-      // Redirect to login with return path
-      navigate(
-        `/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`
-      );
+      setShowLoginRequiredModal(true);
+      return;
+    }
+    if (isStudentNotActive) {
+      setShowActivationRequiredModal(true);
       return;
     }
     if (isAdmin) {
@@ -221,10 +221,11 @@ const Levels = () => {
 
     try {
       if (!currentUser) {
-        // Redirect to login with return path
-        navigate(
-          `/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`
-        );
+        setShowLoginRequiredModal(true);
+        return;
+      }
+      if (isStudentNotActive) {
+        setShowActivationRequiredModal(true);
         return;
       }
       if (isAdmin) {
@@ -254,10 +255,11 @@ const Levels = () => {
 
   const handleFileClick = (itemId) => {
     if (!currentUser) {
-      // Redirect to login with return path
-      navigate(
-        `/login?redirect=/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/file`
-      );
+      setShowLoginRequiredModal(true);
+      return;
+    }
+    if (isStudentNotActive) {
+      setShowActivationRequiredModal(true);
       return;
     }
     if (isAdmin) {
@@ -505,12 +507,56 @@ const Levels = () => {
                 : isStarted
                 ? "bg-yellow-100 border-yellow-400"
                 : "bg-secondary-100 border-secondary-300";
+              const isVerbal = subjectId === "مادة_اللفظي";
+              const isQuantitative = subjectId === "مادة_الكمي";
+              const lessonBgLetters = "د ر و س أ ب ت ث ج ح";
+              const lessonBgMath = [
+                "١+٢=٣", "٤×٥", "٦−٧", "٨÷٢", "٠", "√٤=٢", "π", "٩", "∑", "٤٩",
+              ];
 
               return (
                 <div
                   key={item.id}
-                  className={`relative border-2 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 ${cardBg}`}
+                  className={`relative overflow-hidden border-2 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 ${cardBg}`}
                 >
+                  {isVerbal && (
+                    <div
+                      className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
+                      aria-hidden
+                      style={{ fontFamily: "'Amiri', serif" }}
+                    >
+                      {lessonBgLetters.split(" ").map((char, i) => (
+                        <span
+                          key={`item-${item.id}-${i}`}
+                          className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
+                          style={{
+                            transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                          }}
+                        >
+                          {char}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {isQuantitative && (
+                    <div
+                      className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
+                      aria-hidden
+                      style={{ fontFamily: "'Amiri', serif" }}
+                    >
+                      {lessonBgMath.map((num, i) => (
+                        <span
+                          key={`item-q-${item.id}-${i}`}
+                          className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
+                          style={{
+                            transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                          }}
+                        >
+                          {num}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {isAdmin && (
                     <div className="absolute top-2 left-2 flex gap-2 z-10">
                       <button
@@ -552,11 +598,12 @@ const Levels = () => {
                     </div>
                   )}
                   {progress && (
-                    <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
+                    <div className="absolute top-2 left-2 z-10 bg-green-500 text-white text-xs px-2 py-1 rounded">
                       {progress.score}%
                     </div>
                   )}
 
+                  <div className="relative z-10">
                   <div className="text-center mb-4">
                     <div className="text-3xl md:text-4xl mb-2">📚</div>
                     {editingItem === item.id ? (
@@ -609,24 +656,20 @@ const Levels = () => {
                     ) : (
                       <>
                         {(() => {
-                          if (!currentUser) {
-                            return (
-                              <p className="text-dark-600 text-sm font-medium">
-                                {isArabicBrowser()
-                                  ? "سجّل الدخول لمشاهدة المحتوى وحل الواجبات"
-                                  : "Sign in to view content and take quizzes"}
-                              </p>
-                            );
-                          }
                           const video = getVideoForItem(item.id);
                           const file = getFileForItem(item.id);
                           const qs = getQuestionsForItem(item.id);
                           const hasExam = qs && qs.length > 0;
+                          const isGuest = !currentUser;
+                          const showVideo = isGuest
+                            ? true
+                            : !!(video && canAccessMedia);
+                          const showFile = isGuest
+                            ? true
+                            : !!(file && canAccessMedia);
+                          const showQuiz = isGuest ? true : hasExam;
 
-                          const showVideo = video && canAccessMedia;
-                          const showFile = file && canAccessMedia;
-
-                          if (!showVideo && !showFile && !hasExam) {
+                          if (!showVideo && !showFile && !showQuiz) {
                             return null;
                           }
 
@@ -656,7 +699,7 @@ const Levels = () => {
                                 </button>
                               )}
 
-                              {hasExam && (
+                              {showQuiz && (
                                 <button
                                   type="button"
                                   onClick={(e) => handleQuizClick(item.id, e)}
@@ -672,12 +715,105 @@ const Levels = () => {
                       </>
                     )}
                   </div>
+                  </div>
                 </div>
               );
             })}
           </div>
         </div>
       </div>
+
+      {/* نافذة للزائر: يرجى تسجيل الدخول أو إنشاء حساب */}
+      {showLoginRequiredModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setShowLoginRequiredModal(false)}
+          aria-modal="true"
+          role="dialog"
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 text-center border-2 border-primary-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-dark-800 font-bold text-lg md:text-xl mb-4">
+              {isArabicBrowser()
+                ? "الرجاء تسجيل الدخول أو إنشاء حساب جديد"
+                : "Please log in or create a new account"}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link
+                to={`/login?redirect=${encodeURIComponent(
+                  location.pathname + location.search
+                )}`}
+                className="px-5 py-2.5 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition"
+              >
+                {isArabicBrowser() ? "تسجيل الدخول" : "Log in"}
+              </Link>
+              <Link
+                to={`/register?redirect=${encodeURIComponent(
+                  location.pathname + location.search
+                )}`}
+                className="px-5 py-2.5 bg-secondary-500 text-white rounded-lg font-medium hover:bg-secondary-600 transition"
+              >
+                {isArabicBrowser() ? "إنشاء حساب" : "Create account"}
+              </Link>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowLoginRequiredModal(false)}
+              className="mt-4 text-dark-600 hover:text-dark-800 text-sm font-medium"
+            >
+              {isArabicBrowser() ? "إلغاء" : "Cancel"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* نافذة للحساب غير المفعل: التواصل مع الإدارة عبر واتساب */}
+      {showActivationRequiredModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setShowActivationRequiredModal(false)}
+          aria-modal="true"
+          role="dialog"
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 text-center border-2 border-primary-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-5xl mb-3">🔒</div>
+            <p className="text-dark-800 font-bold text-lg md:text-xl mb-2">
+              {isArabicBrowser()
+                ? "يرجى التواصل مع الإدارة لتفعيل الحساب"
+                : "Please contact administration to activate your account"}
+            </p>
+            <p className="text-dark-600 text-sm mb-4">
+              {isArabicBrowser()
+                ? "حسابك قيد المراجعة. تواصل معنا عبر واتساب لتفعيله."
+                : "Your account is under review. Contact us via WhatsApp to activate it."}
+            </p>
+            <a
+              href="https://wa.me/966502403757"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-[#25D366] text-white rounded-xl font-bold hover:bg-[#20BD5A] transition shadow-lg"
+            >
+              <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+              </svg>
+              {isArabicBrowser() ? "تواصل عبر واتساب" : "Contact via WhatsApp"}
+            </a>
+            <button
+              type="button"
+              onClick={() => setShowActivationRequiredModal(false)}
+              className="mt-4 block w-full text-dark-600 hover:text-dark-800 text-sm font-medium"
+            >
+              {isArabicBrowser() ? "إلغاء" : "Cancel"}
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

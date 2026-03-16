@@ -1002,8 +1002,14 @@ const SinglePage = () => {
 
               {/* Social Media Buttons */}
               <div className="flex justify-center items-center gap-4 md:gap-6 flex-wrap">
-                {/* WhatsApp Button */}
-                <button className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-transparent hover:bg-white/10 transition-all duration-300 text-white font-semibold text-base md:text-lg group">
+                {/* WhatsApp Button - مربوط برقم +966502403757 */}
+                <a
+                  href="https://wa.me/966502403757"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-transparent hover:bg-white/10 transition-all duration-300 text-white font-semibold text-base md:text-lg group"
+                  aria-label="تواصل معنا عبر واتساب"
+                >
                   <svg
                     className="w-6 h-6 md:w-7 md:h-7"
                     fill="currentColor"
@@ -1014,7 +1020,7 @@ const SinglePage = () => {
                   <span className="group-hover:scale-105 transition-transform">
                     واتس اب
                   </span>
-                </button>
+                </a>
 
                 {/* Instagram Button */}
                 {/* <button className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-transparent hover:bg-white/10 transition-all duration-300 text-white font-semibold text-base md:text-lg group">

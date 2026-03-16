@@ -504,38 +504,90 @@ const Home = () => {
 
               {/* اختيار التأسيس / التجميعات */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {categories.map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => handleCategoryClick(category.id)}
-                    className={`border-2 rounded-2xl p-5 hover:shadow-xl transition-all duration-300 text-right ${
-                      selectedCategoryId === category.id
-                        ? "bg-primary-50 border-primary-300"
-                        : "bg-secondary-50 border-secondary-200"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="text-4xl">
-                        {category.name === "التأسيس" ? "🧩" : "🧠"}
+                {categories.map((category) => {
+                  const isTasis = category.name === "التأسيس";
+                  const isVerbal = selectedSubjectId === "مادة_اللفظي";
+                  const isQuantitative = selectedSubjectId === "مادة_الكمي";
+                  const bgLetters = isTasis
+                    ? "أ ب ت ث ج ح خ د ذ ر"
+                    : "ت ج م ع ي ا ت ج م ع";
+                  const bgMath = [
+                    "١+٢=٣",
+                    "٤×٥",
+                    "٦−٧",
+                    "٨÷٢",
+                    "٠",
+                    "√٤=٢",
+                    "π",
+                    "٩",
+                    "∑",
+                    "٤٩",
+                  ];
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => handleCategoryClick(category.id)}
+                      className={`relative overflow-hidden border-2 rounded-2xl p-5 hover:shadow-xl transition-all duration-300 text-right ${
+                        selectedCategoryId === category.id
+                          ? "bg-primary-50 border-primary-300"
+                          : "bg-secondary-50 border-secondary-200"
+                      }`}
+                    >
+                      {/* خلفية لفظي: حروف عربية | كمي: معادلات وأرقام عربية */}
+                      <div
+                        className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
+                        aria-hidden
+                        style={{ fontFamily: "'Amiri', serif" }}
+                      >
+                        {isQuantitative
+                          ? bgMath.map((item, i) => (
+                              <span
+                                key={`${category.id}-m-${i}`}
+                                className="font-bold text-dark-800 text-4xl sm:text-5xl md:text-6xl"
+                                style={{
+                                  transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                                }}
+                              >
+                                {item}
+                              </span>
+                            ))
+                          : bgLetters.split(" ").map((char, i) => (
+                              <span
+                                key={`${category.id}-${i}`}
+                                className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
+                                style={{
+                                  transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                                }}
+                              >
+                                {char}
+                              </span>
+                            ))}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs md:text-sm px-3 py-1 rounded-full bg-accent-50 text-accent-800 border border-accent-200 font-semibold">
-                          {category.chapters?.length || 0}{" "}
-                          {category.name === "التجميعات" ? "مستويات" : "أقسام"}
-                        </span>
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="text-4xl">
+                            {isTasis ? "🧩" : "🧠"}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs md:text-sm px-3 py-1 rounded-full bg-accent-50 text-accent-800 border border-accent-200 font-semibold">
+                              {category.chapters?.length || 0}{" "}
+                              {category.name === "التجميعات" ? "مستويات" : "أقسام"}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-xl md:text-2xl font-extrabold text-dark-900 mb-1">
+                          {category.name}
+                        </div>
+                        <div className="text-sm md:text-base text-dark-600 font-medium">
+                          {isTasis
+                            ? "ابدأ من الصفر خطوة بخطوة"
+                            : "تدريبات وتجميعات مطابقة للاختبار"}
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-xl md:text-2xl font-extrabold text-dark-900 mb-1">
-                      {category.name}
-                    </div>
-                    <div className="text-sm md:text-base text-dark-600 font-medium">
-                      {category.name === "التأسيس"
-                        ? "ابدأ من الصفر خطوة بخطوة"
-                        : "تدريبات وتجميعات مطابقة للاختبار"}
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
 
               {/* زر الدروس المجانية */}
@@ -631,103 +683,150 @@ const Home = () => {
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {chapters.map((ch) => (
-                        <div
-                          key={ch.id}
-                          className="bg-white border-2 border-gray-200 rounded-2xl p-4 text-right hover:shadow-lg hover:border-primary-300 transition"
-                        >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="text-2xl">📘</div>
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs px-2 py-1 rounded-full bg-secondary-100 text-dark-700 border border-secondary-200 font-semibold">
-                                {(ch.items || ch.lessons || []).length}{" "}
-                                {selectedCategory?.name === "التجميعات"
-                                  ? "بنك"
-                                  : "درس"}
-                              </span>
-                              {isAdmin && (
-                                <>
-                                  {editingChapterId === ch.id ? (
+                      {chapters.map((ch) => {
+                        const isVerbal = selectedSubjectId === "مادة_اللفظي";
+                        const isQuantitative = selectedSubjectId === "مادة_الكمي";
+                        const chapterBgLetters = "ف ص و ل أ ب ت ث ج ح";
+                        const chapterBgMath = [
+                          "١+٢=٣", "٤×٥", "٦−٧", "٨÷٢", "٠", "√٤=٢", "π", "٩", "∑", "٤٩",
+                        ];
+                        return (
+                          <div
+                            key={ch.id}
+                            className="relative overflow-hidden bg-white border-2 border-gray-200 rounded-2xl p-4 text-right hover:shadow-lg hover:border-primary-300 transition"
+                          >
+                            {isVerbal && (
+                              <div
+                                className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
+                                aria-hidden
+                                style={{ fontFamily: "'Amiri', serif" }}
+                              >
+                                {chapterBgLetters.split(" ").map((char, i) => (
+                                  <span
+                                    key={`ch-${ch.id}-${i}`}
+                                    className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
+                                    style={{
+                                      transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                                    }}
+                                  >
+                                    {char}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {isQuantitative && (
+                              <div
+                                className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
+                                aria-hidden
+                                style={{ fontFamily: "'Amiri', serif" }}
+                              >
+                                {chapterBgMath.map((item, i) => (
+                                  <span
+                                    key={`ch-q-${ch.id}-${i}`}
+                                    className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
+                                    style={{
+                                      transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                                    }}
+                                  >
+                                    {item}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            <div className="relative z-10">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-2xl">📘</div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs px-2 py-1 rounded-full bg-secondary-100 text-dark-700 border border-secondary-200 font-semibold">
+                                    {(ch.items || ch.lessons || []).length}{" "}
+                                    {selectedCategory?.name === "التجميعات"
+                                      ? "بنك"
+                                      : "درس"}
+                                  </span>
+                                  {isAdmin && (
                                     <>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleSaveEditChapter(ch.id)
-                                        }
-                                        className="text-xs px-2 py-1 rounded bg-green-500 text-white hover:bg-green-600 transition font-bold disabled:opacity-60"
-                                        disabled={
-                                          chaptersBusy ||
-                                          !editingChapterName.trim()
-                                        }
-                                        title="حفظ"
-                                      >
-                                        حفظ
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={handleCancelEditChapter}
-                                        className="text-xs px-2 py-1 rounded bg-gray-400 text-white hover:bg-gray-500 transition font-bold"
-                                        title="إلغاء"
-                                      >
-                                        إلغاء
-                                      </button>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleStartEditChapter(ch)
-                                        }
-                                        className="text-xs px-2 py-1 rounded bg-primary-500 text-white hover:bg-primary-600 transition font-bold"
-                                        title="تعديل الاسم"
-                                      >
-                                        تعديل
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() =>
-                                          handleDeleteChapterInline(ch.id)
-                                        }
-                                        className="text-xs px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600 transition font-bold disabled:opacity-60"
-                                        disabled={chaptersBusy}
-                                        title="حذف"
-                                      >
-                                        حذف
-                                      </button>
+                                      {editingChapterId === ch.id ? (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleSaveEditChapter(ch.id)
+                                            }
+                                            className="text-xs px-2 py-1 rounded bg-green-500 text-white hover:bg-green-600 transition font-bold disabled:opacity-60"
+                                            disabled={
+                                              chaptersBusy ||
+                                              !editingChapterName.trim()
+                                            }
+                                            title="حفظ"
+                                          >
+                                            حفظ
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={handleCancelEditChapter}
+                                            className="text-xs px-2 py-1 rounded bg-gray-400 text-white hover:bg-gray-500 transition font-bold"
+                                            title="إلغاء"
+                                          >
+                                            إلغاء
+                                          </button>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleStartEditChapter(ch)
+                                            }
+                                            className="text-xs px-2 py-1 rounded bg-primary-500 text-white hover:bg-primary-600 transition font-bold"
+                                            title="تعديل الاسم"
+                                          >
+                                            تعديل
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleDeleteChapterInline(ch.id)
+                                            }
+                                            className="text-xs px-2 py-1 rounded bg-red-500 text-white hover:bg-red-600 transition font-bold disabled:opacity-60"
+                                            disabled={chaptersBusy}
+                                            title="حذف"
+                                          >
+                                            حذف
+                                          </button>
+                                        </>
+                                      )}
                                     </>
                                   )}
-                                </>
+                                </div>
+                              </div>
+                              {isAdmin && editingChapterId === ch.id ? (
+                                <input
+                                  type="text"
+                                  value={editingChapterName}
+                                  onChange={(e) =>
+                                    setEditingChapterName(e.target.value)
+                                  }
+                                  className="w-full font-extrabold text-dark-900 border-2 border-primary-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary-500"
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChapterClick(ch.id)}
+                                  className="w-full text-right"
+                                  title="فتح الدروس"
+                                >
+                                  <div className="font-extrabold text-dark-900">
+                                    {ch.name}
+                                  </div>
+                                  <div className="text-sm text-dark-600 font-medium mt-1">
+                                    اضغط لعرض الدروس
+                                  </div>
+                                </button>
                               )}
                             </div>
                           </div>
-
-                          {isAdmin && editingChapterId === ch.id ? (
-                            <input
-                              type="text"
-                              value={editingChapterName}
-                              onChange={(e) =>
-                                setEditingChapterName(e.target.value)
-                              }
-                              className="w-full font-extrabold text-dark-900 border-2 border-primary-300 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-primary-500"
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleChapterClick(ch.id)}
-                              className="w-full text-right"
-                              title="فتح الدروس"
-                            >
-                              <div className="font-extrabold text-dark-900">
-                                {ch.name}
-                              </div>
-                              <div className="text-sm text-dark-600 font-medium mt-1">
-                                اضغط لعرض الدروس
-                              </div>
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -98,35 +98,98 @@ const Categories = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {categories.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => handleCategoryClick(category.id)}
-                  className="bg-accent-100 border-2 border-accent-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-center relative"
-                >
-                  <div className="text-5xl md:text-6xl mb-4">
-                    {category.hasTests ? "📚" : "🎥"}
-                  </div>
-                  {!category.hasTests && (
-                    <div className="absolute top-4 left-4 bg-pink-200 text-dark-700 px-3 py-1 rounded-full text-sm font-semibold">
-                      مجانا
-                    </div>
-                  )}
-                  <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-900 mb-2">
-                    {category.name}
-                  </h2>
+              {categories.map((category) => {
+                const isVerbal = subjectId === "مادة_اللفظي";
+                const isQuantitative = subjectId === "مادة_الكمي";
+                const isTasis = category.name === "التأسيس";
+                const isTajmiat = category.name === "التجميعات";
+                const showLetterBg = isVerbal && (isTasis || isTajmiat);
+                const showMathBg = isQuantitative && (isTasis || isTajmiat);
+                const bgLetters = isTasis
+                  ? "أ ب ت ث ج ح خ د ذ ر"
+                  : "ت ج م ع ي ا ت ج م ع";
+                const bgMath = [
+                  "١+٢=٣",
+                  "٤×٥",
+                  "٦−٧",
+                  "٨÷٢",
+                  "٠",
+                  "√٤=٢",
+                  "π",
+                  "٩",
+                  "∑",
+                  "٤٩",
+                ];
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => handleCategoryClick(category.id)}
+                    className="bg-accent-100 border-2 border-accent-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-center relative overflow-hidden"
+                  >
+                    {showLetterBg && (
+                      <div
+                        className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
+                        aria-hidden
+                        style={{ fontFamily: "'Amiri', serif" }}
+                      >
+                        {bgLetters.split(" ").map((char, i) => (
+                          <span
+                            key={`${category.id}-${i}`}
+                            className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
+                            style={{
+                              transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                            }}
+                          >
+                            {char}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {showMathBg && (
+                      <div
+                        className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
+                        aria-hidden
+                        style={{ fontFamily: "'Amiri', serif" }}
+                      >
+                        {bgMath.map((item, i) => (
+                          <span
+                            key={`${category.id}-m-${i}`}
+                            className="font-bold text-dark-800 text-4xl sm:text-5xl md:text-6xl"
+                            style={{
+                              transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                            }}
+                          >
+                            {item}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {!category.hasTests && (
+                      <div className="absolute top-4 left-4 z-10 bg-pink-200 text-dark-700 px-3 py-1 rounded-full text-sm font-semibold">
+                        مجانا
+                      </div>
+                    )}
+                    <div className="relative z-10">
+                      <div className="text-5xl md:text-6xl mb-4">
+                        {category.hasTests ? "📚" : "🎥"}
+                      </div>
+                      <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-dark-900 mb-2">
+                        {category.name}
+                      </h2>
 
-                  <div className="mt-4 text-sm md:text-base text-dark-600 font-medium">
-                    {category.chapters?.length || 0}{" "}
-                    {category.name === "التجميعات" ? "مستويات" : "أقسام"}
-                  </div>
-                  {!category.hasTests && (
-                    <div className="mt-2 text-xs md:text-sm text-primary-600 font-medium">
-                      فيديوهات فقط
+                      <div className="mt-4 text-sm md:text-base text-dark-600 font-medium">
+                        {category.chapters?.length || 0}{" "}
+                        {category.name === "التجميعات" ? "مستويات" : "أقسام"}
+                      </div>
+                      {!category.hasTests && (
+                        <div className="mt-2 text-xs md:text-sm text-primary-600 font-medium">
+                          فيديوهات فقط
+                        </div>
+                      )}
                     </div>
-                  )}
-                </button>
-              ))}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

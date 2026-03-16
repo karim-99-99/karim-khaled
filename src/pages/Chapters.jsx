@@ -246,12 +246,57 @@ const Chapters = () => {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {(category.chapters || []).map((chapter, index) => (
+            {(category.chapters || []).map((chapter, index) => {
+              const isVerbal = subjectId === "مادة_اللفظي";
+              const isQuantitative = subjectId === "مادة_الكمي";
+              const chapterBgLetters = "ف ص و ل أ ب ت ث ج ح";
+              const chapterBgMath = [
+                "١+٢=٣", "٤×٥", "٦−٧", "٨÷٢", "٠", "√٤=٢", "π", "٩", "∑", "٤٩",
+              ];
+              return (
               <div
                 key={chapter.id}
                 onClick={(e) => handleChapterClick(chapter.id, e)}
-                className="bg-secondary-100 border-2 border-secondary-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-right cursor-pointer relative"
+                className="bg-secondary-100 border-2 border-secondary-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-right cursor-pointer relative overflow-hidden"
               >
+                {isVerbal && (
+                  <div
+                    className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
+                    aria-hidden
+                    style={{ fontFamily: "'Amiri', serif" }}
+                  >
+                    {chapterBgLetters.split(" ").map((char, i) => (
+                      <span
+                        key={`ch-${chapter.id}-${i}`}
+                        className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
+                        style={{
+                          transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                        }}
+                      >
+                        {char}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {isQuantitative && (
+                  <div
+                    className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
+                    aria-hidden
+                    style={{ fontFamily: "'Amiri', serif" }}
+                  >
+                    {chapterBgMath.map((item, i) => (
+                      <span
+                        key={`ch-q-${chapter.id}-${i}`}
+                        className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
+                        style={{
+                          transform: `rotate(${(i % 3) * 6 - 6}deg)`,
+                        }}
+                      >
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {isAdmin && (
                   <div className="absolute top-2 left-2 flex gap-2 z-10">
                     <button
@@ -285,6 +330,7 @@ const Chapters = () => {
                     ✕
                   </button>
                 )}
+                <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-12 h-12 bg-primary-500 text-white rounded-full flex items-center justify-center font-bold text-xl">
                     {index + 1}
@@ -308,8 +354,10 @@ const Chapters = () => {
                 <div className="mt-4 text-sm md:text-base text-dark-600 font-medium">
                   {chapter.items?.length || 0} {isTajmiat ? "بنك" : "درس"}
                 </div>
+                </div>
               </div>
-            ))}
+            );
+            })}
           </div>
         </div>
       </div>
