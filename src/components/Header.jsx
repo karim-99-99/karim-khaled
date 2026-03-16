@@ -30,7 +30,7 @@ const Header = () => {
   };
 
   return (
-    <header className="bg-transparent sticky top-0 z-50">
+    <header className="bg-white sticky top-0 z-50 shadow-sm border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 relative">
         <div className="flex items-center justify-center h-16 relative">
           {/* Logo/Brand - positioned on the right */}
