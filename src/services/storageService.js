@@ -396,33 +396,13 @@ export const initializeDefaultData = () => {
     }
     
     if (shouldInitialize) {
-      // Helper function to create category with 10 chapters, each with 20 lessons
-      const createSampleCategory = (id, name, hasTests = true) => {
-        const chapters = [];
-        // Create 10 chapters
-        for (let ch = 1; ch <= 10; ch++) {
-          const items = [];
-          // Create 20 lessons for each chapter
-          for (let lesson = 1; lesson <= 20; lesson++) {
-            items.push({
-              id: `${id}_فصل_${ch}_درس_${lesson}`,
-              name: `الدرس ${lesson}`,
-              hasTest: hasTests
-            });
-          }
-          chapters.push({
-            id: `${id}_فصل_${ch}`,
-            name: `الفصل ${ch}`,
-            items: items
-          });
-        }
-        return {
-          id,
-          name,
-          hasTests,
-          chapters: chapters
-        };
-      };
+      // إنشاء تصنيف بدون أقسام/مستويات ثابتة — المستخدم يضيف ما يريد ولا تظهر عناصر محذوفة مرة أخرى
+      const createSampleCategory = (id, name, hasTests = true) => ({
+        id,
+        name,
+        hasTests,
+        chapters: []
+      });
 
       // Only "قدرات" section remains (تحصيلي removed).
       const defaultSections = [
@@ -907,6 +887,7 @@ export const addChapterToCategory = (categoryId, chapterName) => {
           const newChapter = {
             id: `${categoryId}_chapter_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
             name: chapterName,
+            order: (category.chapters || []).length,
             items: []
           };
           if (!category.chapters) {
@@ -954,6 +935,7 @@ export const deleteChapterFromCategory = (chapterId) => {
     
     if (updated) {
       localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
       return true;
     }
     return false;
@@ -977,6 +959,7 @@ export const addItemToChapter = (chapterId, itemName, hasTest = true) => {
             const newItem = {
               id: `${chapterId}_item_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               name: itemName,
+              order: (chapter.items || []).length,
               hasTest: hasTest
             };
             if (!chapter.items) {
@@ -999,6 +982,64 @@ export const addItemToChapter = (chapterId, itemName, hasTest = true) => {
     return false;
   } catch (error) {
     console.error('Error adding item:', error);
+    return false;
+  }
+};
+
+// تغيير ترتيب قسم ضمن التصنيف (أعلى / أسفل)
+export const reorderChapterInCategory = (categoryId, chapterId, direction) => {
+  try {
+    const sections = getSections();
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        for (const category of (subject.categories || [])) {
+          if (category.id !== categoryId) continue;
+          const chList = category.chapters || [];
+          const idx = chList.findIndex((ch) => ch.id === chapterId);
+          if (idx === -1) return false;
+          const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+          if (newIdx < 0 || newIdx >= chList.length) return false;
+          [chList[idx], chList[newIdx]] = [chList[newIdx], chList[idx]];
+          chList.forEach((ch, i) => { ch.order = i; });
+          localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+          memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error('Error reordering chapter:', error);
+    return false;
+  }
+};
+
+// تغيير ترتيب درس/مستوى ضمن القسم (أعلى / أسفل)
+export const reorderItemInChapter = (chapterId, itemId, direction) => {
+  try {
+    const sections = getSections();
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        for (const category of (subject.categories || [])) {
+          for (const chapter of (category.chapters || [])) {
+            if (chapter.id !== chapterId) continue;
+            const items = chapter.items || [];
+            const idx = items.findIndex((i) => i.id === itemId);
+            if (idx === -1) return false;
+            const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+            if (newIdx < 0 || newIdx >= items.length) return false;
+            [items[idx], items[newIdx]] = [items[newIdx], items[idx]];
+            items.forEach((item, i) => { item.order = i; });
+            localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+            memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error('Error reordering item:', error);
     return false;
   }
 };
@@ -1029,6 +1070,7 @@ export const deleteItemFromChapter = (itemId) => {
     
     if (updated) {
       localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+      memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
       return true;
     }
     return false;

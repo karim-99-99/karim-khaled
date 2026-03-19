@@ -346,10 +346,13 @@ export const addChapter = async (categoryId, name) => {
   return data;
 };
 
-export const updateChapter = async (chapterId, { name }) => {
+export const updateChapter = async (chapterId, { name, order }) => {
+  const body = {};
+  if (name != null) body.name = name;
+  if (order != null) body.order = order;
   const data = await request(`/chapters/${encodeURIComponent(chapterId)}/`, {
     method: "PATCH",
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(body),
   });
   return data;
 };
@@ -374,10 +377,11 @@ export const addLesson = async (chapterId, name, hasTest = true) => {
   return data;
 };
 
-export const updateLesson = async (lessonId, { name, has_test }) => {
+export const updateLesson = async (lessonId, { name, has_test, order }) => {
   const body = {};
   if (name != null) body.name = name;
   if (has_test != null) body.has_test = has_test;
+  if (order != null) body.order = order;
   const data = await request(`/lessons/${encodeURIComponent(lessonId)}/`, {
     method: "PATCH",
     body: JSON.stringify(body),

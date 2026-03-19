@@ -6,6 +6,7 @@ import {
   getSections,
   getCurrentUser,
   updateChapterName,
+  reorderChapterInCategory,
 } from "../services/storageService";
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
@@ -284,6 +285,37 @@ const Home = () => {
             ? "حدث خطأ أثناء حذف المستوى"
             : "حدث خطأ أثناء حذف القسم")
       );
+    } finally {
+      setChaptersBusy(false);
+    }
+  };
+
+  const handleMoveChapterInline = async (chapterId, direction) => {
+    if (!chapterId || !selectedCategoryId) return;
+
+    const list = Array.isArray(chaptersState) ? [...chaptersState] : [];
+    list.sort((a, b) => (a?.order ?? 0) - (b?.order ?? 0));
+    const idx = list.findIndex((x) => x?.id === chapterId);
+    if (idx === -1) return;
+
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= list.length) return;
+
+    setChaptersBusy(true);
+    try {
+      if (useBackend) {
+        const a = list[idx];
+        const b = list[newIdx];
+        await Promise.all([
+          updateChapter(a.id, { order: b.order ?? 0 }),
+          updateChapter(b.id, { order: a.order ?? 0 }),
+        ]);
+      } else {
+        reorderChapterInCategory(selectedCategoryId, chapterId, direction);
+      }
+      await refreshSelectedCategory();
+    } catch (e) {
+      alert(e?.message || "حدث خطأ أثناء تغيير الترتيب");
     } finally {
       setChaptersBusy(false);
     }
@@ -690,6 +722,12 @@ const Home = () => {
                         const chapterBgMath = [
                           "١+٢=٣", "٤×٥", "٦−٧", "٨÷٢", "٠", "√٤=٢", "π", "٩", "∑", "٤٩",
                         ];
+                        const chapterIndex = chapters.findIndex(
+                          (x) => x?.id === ch.id
+                        );
+                        const canMoveUp = chapterIndex > 0;
+                        const canMoveDown =
+                          chapterIndex !== -1 && chapterIndex < chapters.length - 1;
                         return (
                           <div
                             key={ch.id}
@@ -772,6 +810,38 @@ const Home = () => {
                                         </>
                                       ) : (
                                         <>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleMoveChapterInline(
+                                                ch.id,
+                                                "up"
+                                              )
+                                            }
+                                            disabled={
+                                              chaptersBusy || !canMoveUp
+                                            }
+                                            className="text-xs px-2 py-1 rounded bg-gray-400 text-white hover:bg-gray-500 transition font-bold disabled:opacity-60"
+                                            title="تحريك لأعلى"
+                                          >
+                                            ↑
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              handleMoveChapterInline(
+                                                ch.id,
+                                                "down"
+                                              )
+                                            }
+                                            disabled={
+                                              chaptersBusy || !canMoveDown
+                                            }
+                                            className="text-xs px-2 py-1 rounded bg-gray-400 text-white hover:bg-gray-500 transition font-bold disabled:opacity-60"
+                                            title="تحريك لأسفل"
+                                          >
+                                            ↓
+                                          </button>
                                           <button
                                             type="button"
                                             onClick={() =>

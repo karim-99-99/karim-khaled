@@ -16,6 +16,7 @@ import {
   getQuestionsByLevel,
   addItemToChapter,
   deleteItemFromChapter,
+  reorderItemInChapter,
 } from "../services/storageService";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
@@ -67,6 +68,9 @@ const Levels = () => {
     ...i,
     hasTest: i.has_test ?? i.hasTest,
   }));
+  const sortedItems = [...items].sort(
+    (a, b) => (a?.order ?? 0) - (b?.order ?? 0)
+  );
 
   const categoryName = (categoryId || "").includes("تأسيس")
     ? "التأسيس"
@@ -355,6 +359,37 @@ const Levels = () => {
     }
   };
 
+  const handleMoveLessonInline = async (itemId, direction) => {
+    if (!itemId || !chapterId) return;
+
+    const idx = sortedItems.findIndex((x) => x?.id === itemId);
+    if (idx === -1) return;
+
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= sortedItems.length) return;
+
+    setBusy(true);
+    try {
+      if (useBackend) {
+        const a = sortedItems[idx];
+        const b = sortedItems[newIdx];
+        await Promise.all([
+          updateLesson(a.id, { order: b.order ?? 0 }),
+          updateLesson(b.id, { order: a.order ?? 0 }),
+        ]);
+        const ch = await getChapterByIdApi(chapterId);
+        setChapter(ch || null);
+      } else {
+        reorderItemInChapter(chapterId, itemId, direction);
+        setChapter(getChapterById(chapterId) || null);
+      }
+    } catch (err) {
+      alert(err?.message || "حدث خطأ أثناء تغيير الترتيب");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -493,8 +528,12 @@ const Levels = () => {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {items.map((item) => {
+            {sortedItems.map((item) => {
               const status = getItemStatus(item.id);
+              const itemIndex = sortedItems.findIndex((x) => x?.id === item.id);
+              const canMoveUp = itemIndex > 0;
+              const canMoveDown =
+                itemIndex !== -1 && itemIndex < sortedItems.length - 1;
               const progress = currentUser
                 ? getLevelProgress(currentUser.id, item.id)
                 : null;
@@ -571,16 +610,42 @@ const Levels = () => {
                         {editingItem === item.id ? "💾" : "✏️"}
                       </button>
                       {editingItem !== item.id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteLesson(item.id);
-                          }}
-                          disabled={busy}
-                          className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg text-sm font-medium disabled:opacity-60"
-                        >
-                          🗑️
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveLessonInline(item.id, "up");
+                            }}
+                            disabled={busy || !canMoveUp}
+                            className="bg-gray-400 hover:bg-gray-500 text-white p-2 rounded-lg text-sm font-medium disabled:opacity-60"
+                            title="تحريك لأعلى"
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveLessonInline(item.id, "down");
+                            }}
+                            disabled={busy || !canMoveDown}
+                            className="bg-gray-400 hover:bg-gray-500 text-white p-2 rounded-lg text-sm font-medium disabled:opacity-60"
+                            title="تحريك لأسفل"
+                          >
+                            ↓
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteLesson(item.id);
+                            }}
+                            disabled={busy}
+                            className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg text-sm font-medium disabled:opacity-60"
+                          >
+                            🗑️
+                          </button>
+                        </>
                       )}
                       {editingItem === item.id && (
                         <button
