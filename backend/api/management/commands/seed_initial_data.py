@@ -49,8 +49,21 @@ class Command(BaseCommand):
             action='store_true',
             help='Delete all Section/Subject/Category/Chapter/Lesson before seeding (use with care)',
         )
+        parser.add_argument(
+            '--only-if-empty',
+            action='store_true',
+            help='Skip seeding entirely if any Section already exists in the database. '
+                 'Safe to add to the server startCommand so re-seeds never overwrite user edits.',
+        )
 
     def handle(self, *args, **options):
+        if options.get('only_if_empty') and Section.objects.exists():
+            self.stdout.write(self.style.WARNING(
+                'Database already has data — skipping seed (--only-if-empty). '
+                'Run without --only-if-empty or with --clear to force a reseed.'
+            ))
+            return
+
         if options.get('clear'):
             if os.environ.get('SEED_ALLOW_CLEAR') != '1':
                 self.stdout.write(self.style.ERROR(

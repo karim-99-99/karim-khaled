@@ -814,6 +814,22 @@ export const getBunnySignedUrl = async (bunnyVideoId) => {
 };
 
 /**
+ * Check Bunny Stream configuration status on the backend (no auth required).
+ * Returns { embed_ready: bool, library_id_set: bool, embed_token_key_set: bool }
+ */
+export const getBunnyHealth = async () => {
+  try {
+    const base = getBase();
+    if (!base) return null;
+    const res = await fetch(`${base}/health/?bunny=1`);
+    const data = await res.json();
+    return data?.bunny ?? null;
+  } catch {
+    return null;
+  }
+};
+
+/**
  * Admin-only: fetch suspicious video access patterns (multi-IP, high freq, flagged).
  */
 export const getSuspiciousActivity = async () => {
