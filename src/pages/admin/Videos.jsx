@@ -6,6 +6,7 @@ import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
 import { normalizeVideoUrl, isEmbedVideoUrl, getEmbedVideoSrc } from '../../utils/videoUrl';
+import { isBunnyVideoId } from '../../utils/videoUrl';
 
 const Videos = () => {
   const navigate = useNavigate();
@@ -304,13 +305,18 @@ const Videos = () => {
         return;
       }
 
-      if (!videoUrl.startsWith('http') && !videoUrl.startsWith('https')) {
-        videoUrl = 'https://' + videoUrl;
-      }
-      videoUrl = normalizeVideoUrl(videoUrl);
-      if (!videoUrl.startsWith('http')) {
-        alert('يرجى إدخال رابط صحيح (YouTube، Drive، أو رابط مباشر) / Please enter a valid URL');
-        return;
+      // Bunny Stream: allow raw Video ID (UUID / numeric) without forcing https://
+      if (isBunnyVideoId(videoUrl)) {
+        // Keep as-is; backend will generate signed iframe URL at playback time
+      } else {
+        if (!videoUrl.startsWith('http') && !videoUrl.startsWith('https')) {
+          videoUrl = 'https://' + videoUrl;
+        }
+        videoUrl = normalizeVideoUrl(videoUrl);
+        if (!videoUrl.startsWith('http')) {
+          alert('يرجى إدخال رابط صحيح (YouTube، Drive، أو رابط مباشر) أو Video ID من Bunny / Please enter a valid URL or Bunny Video ID');
+          return;
+        }
       }
 
       if (useBackend) {
