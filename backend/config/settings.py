@@ -124,6 +124,8 @@ if _use_cloudinary:
 # Bunny Stream (video hosting & security)
 BUNNY_LIBRARY_ID = os.environ.get('BUNNY_LIBRARY_ID', '').strip()
 BUNNY_SECURITY_KEY = os.environ.get('BUNNY_SECURITY_KEY', '').strip()
+# Stream API key (header AccessKey) — from Library → API in Bunny dashboard; NOT the embed token key
+BUNNY_STREAM_API_KEY = os.environ.get('BUNNY_STREAM_API_KEY', '').strip()
 BUNNY_CDN_HOSTNAME = os.environ.get('BUNNY_CDN_HOSTNAME', '').strip()  # e.g. vz-xxxxx.b-cdn.net
 
 # Default primary key field type

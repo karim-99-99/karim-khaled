@@ -110,3 +110,16 @@ export function getEmbedVideoSrc(url) {
   if (normalized.includes('iframe.mediadelivery.net')) return normalized;
   return null;
 }
+
+/** User-facing Arabic message when signed Bunny URL fails to load. */
+export function formatBunnyLoadError(err) {
+  const m = (err && err.message) || '';
+  if (
+    m.includes('Bunny Stream is not configured') ||
+    m.includes('not configured on this server')
+  ) {
+    return 'لم يُضبط Bunny على الخادم: عيّن BUNNY_LIBRARY_ID و BUNNY_SECURITY_KEY لبيئة Django ثم أعد تشغيل runserver. في لوحة Bunny أضف Allowed Domains: localhost و 127.0.0.1';
+  }
+  if (m.includes('CORS') || m.includes('الاتصال بالخادم')) return m;
+  return m || 'تعذّر تحميل الفيديو. حاول مجدداً.';
+}

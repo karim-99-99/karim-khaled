@@ -23,6 +23,7 @@ from .models import (
     StudentGroup, StudentGroupMembership, VideoAccessLog
 )
 from .utils import get_client_ip
+from .bunny_stream import bunny_create_and_upload, BunnyStreamError
 from .permissions import IsAuthenticatedDeviceAllowed
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, LoginSerializer,
@@ -564,6 +565,77 @@ class VideoViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [IsAuthenticatedDeviceAllowed()]
+
+    def _bunny_stream_key_and_library(self):
+        key = getattr(django_settings, 'BUNNY_STREAM_API_KEY', '').strip()
+        lib = getattr(django_settings, 'BUNNY_LIBRARY_ID', '').strip()
+        if not key or not lib:
+            return None, None
+        try:
+            return key, int(lib)
+        except ValueError:
+            return None, None
+
+    def _sync_video_hierarchy(self, video):
+        if video.lesson:
+            video.chapter = video.lesson.chapter
+            video.category = video.lesson.chapter.category
+            video.subject = video.lesson.chapter.category.subject
+            video.section = video.lesson.chapter.category.subject.section
+            video.save()
+
+    def create(self, request, *args, **kwargs):
+        stream_key, library_id = self._bunny_stream_key_and_library()
+        upload = request.FILES.get('video_file')
+        if upload and stream_key and library_id:
+            lesson_id = request.data.get('lesson')
+            if not lesson_id:
+                return Response({'error': 'lesson required'}, status=status.HTTP_400_BAD_REQUEST)
+            title = (request.data.get('title') or '').strip() or 'Video'
+            description = request.data.get('description', '') or ''
+            try:
+                raw = upload.read()
+                guid = bunny_create_and_upload(library_id, stream_key, title, raw)
+            except BunnyStreamError as e:
+                return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+            vid = request.data.get('id') or f"v_{uuid.uuid4().hex[:12]}"
+            video = Video.objects.create(
+                id=vid,
+                lesson_id=lesson_id,
+                title=title,
+                description=description,
+                video_url=guid,
+                created_by=request.user,
+            )
+            self._sync_video_hierarchy(video)
+            serializer = self.get_serializer(video)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        stream_key, library_id = self._bunny_stream_key_and_library()
+        upload = request.FILES.get('video_file')
+        if upload and stream_key and library_id:
+            instance = self.get_object()
+            title = request.data.get('title')
+            if title is not None:
+                instance.title = (title or '').strip() or instance.title
+            if request.data.get('description') is not None:
+                instance.description = request.data.get('description', '') or ''
+            try:
+                raw = upload.read()
+                guid = bunny_create_and_upload(library_id, stream_key, instance.title, raw)
+            except BunnyStreamError as e:
+                return Response({'error': str(e)}, status=status.HTTP_502_BAD_GATEWAY)
+            if instance.video_file:
+                instance.video_file.delete(save=False)
+            instance.video_file = None
+            instance.video_url = guid
+            instance.save()
+            self._sync_video_hierarchy(instance)
+            serializer = self.get_serializer(instance)
+            return Response(serializer.data)
+        return super().update(request, *args, **kwargs)
     
     def perform_create(self, serializer):
         vid = self.request.data.get('id') or f"v_{uuid.uuid4().hex[:12]}"

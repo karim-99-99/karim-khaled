@@ -5,8 +5,12 @@ import { saveVideoFile, getVideoFile, deleteVideoFile } from '../../services/vid
 import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
 import { isArabicBrowser } from '../../utils/language';
-import { normalizeVideoUrl, isEmbedVideoUrl, getEmbedVideoSrc } from '../../utils/videoUrl';
-import { isBunnyVideoId } from '../../utils/videoUrl';
+import {
+  normalizeVideoUrl,
+  isEmbedVideoUrl,
+  getEmbedVideoSrc,
+  isBunnyVideoId,
+} from '../../utils/videoUrl';
 
 const Videos = () => {
   const navigate = useNavigate();
@@ -608,21 +612,23 @@ const Videos = () => {
                   {uploadMethod === 'url' && (
                     <div>
                       <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                        رابط الفيديو / Video link
+                        رابط أو معرّف الفيديو / Video link or ID
                       </label>
                       <input
-                        type="url"
+                        type="text"
+                        inputMode="url"
+                        autoComplete="off"
                         value={formData.url}
                         onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                         required={uploadMethod === 'url'}
-                        placeholder="YouTube أو Google Drive أو رابط سحابة أو رابط مباشر..."
+                        placeholder="Bunny Video ID (UUID) أو رابط YouTube / Drive / مباشر..."
                         className="w-full px-4 py-2 border rounded-lg"
                       />
                       <p className="text-xs md:text-sm text-dark-500 mt-1">
-                        يمكنك إدخال: رابط YouTube، أو رابط فيديو من Google Drive، أو رابط من أي سحابة، أو رابط مباشر للفيديو
+                        لـ Bunny Stream: الصق <strong>Video ID</strong> فقط (UUID). لباقي المنصات: رابط كامل يبدأ بـ https://
                       </p>
                       <p className="text-xs md:text-sm text-dark-500">
-                        You can enter: YouTube link, Google Drive video link, cloud link, or direct video URL
+                        Bunny: paste the <strong>Video ID</strong> only. Else: full URL (YouTube, Drive, direct).
                       </p>
                     </div>
                   )}
@@ -655,6 +661,12 @@ const Videos = () => {
                       <p className="text-xs md:text-sm text-dark-500">
                         يدعم جميع صيغ الفيديو (MP4, WebM, OGG, etc.) / Supports all video formats (MP4, WebM, OGG, etc.)
                       </p>
+                      {useBackend && (
+                        <p className="text-xs md:text-sm text-primary-600 mt-2 font-medium">
+                          إذا ضبطت على Render المتغير <code className="bg-gray-100 px-1 rounded">BUNNY_STREAM_API_KEY</code> (مفتاح API من Bunny → Library → API)، يُرفع الملف تلقائياً إلى{" "}
+                          <strong>Bunny Stream</strong> ويُحفظ Video ID في الموقع. بدون هذا المفتاح يُخزَّن الملف على Cloudinary/الخادم كالسابق.
+                        </p>
+                      )}
                     </div>
                   )}
 

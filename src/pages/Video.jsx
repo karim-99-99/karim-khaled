@@ -13,11 +13,14 @@ import {
   getEmbedVideoSrc,
   needsBunnySignedUrl,
   extractBunnyVideoId,
+  formatBunnyLoadError,
 } from "../utils/videoUrl";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
 import VideoWatermark from "../components/VideoWatermark";
 import {
   isBackendOn,
+  isApiBaseConfigured,
+  getStoredAuthToken,
   getVideoByLevel as getVideoByLevelApi,
   getItemById as getItemByIdApi,
   recordVideoWatch,
@@ -83,19 +86,29 @@ const Video = () => {
           setVideo(itemVideo);
           setActualVideoUrl(itemVideo.url);
         }
-      } else if (isBackendOn() && needsBunnySignedUrl(itemVideo.url)) {
-        // Bunny Stream: fetch a signed URL from Django (key never touches frontend)
+      } else if (isApiBaseConfigured() && needsBunnySignedUrl(itemVideo.url)) {
+        // Bunny: signed URL من Django (لا يعتمد على isBackendOn فقط — لازم API + توكن)
         setVideo(itemVideo);
-        setBunnyLoading(true);
         setBunnyError(null);
-        try {
-          const bunnyId = extractBunnyVideoId(itemVideo.url);
-          const signedUrl = await getBunnySignedUrl(bunnyId);
-          if (!c) setActualVideoUrl(signedUrl);
-        } catch (err) {
-          if (!c) setBunnyError("تعذّر تحميل الفيديو. حاول مجدداً.");
-        } finally {
-          if (!c) setBunnyLoading(false);
+        const bunnyId = extractBunnyVideoId(itemVideo.url);
+        if (!bunnyId) {
+          if (!c) setBunnyError("معرّف الفيديو (Bunny) غير صالح.");
+        } else if (!getStoredAuthToken()) {
+          if (!c) {
+            setBunnyError(
+              "يرجى تسجيل الدخول لتشغيل فيديوهات Bunny (الرابط الموقّع يصدر من الخادم فقط)."
+            );
+          }
+        } else {
+          setBunnyLoading(true);
+          try {
+            const signedUrl = await getBunnySignedUrl(bunnyId);
+            if (!c) setActualVideoUrl(signedUrl);
+          } catch (err) {
+            if (!c) setBunnyError(formatBunnyLoadError(err));
+          } finally {
+            if (!c) setBunnyLoading(false);
+          }
         }
       } else {
         setActualVideoUrl(itemVideo.url);
@@ -237,8 +250,14 @@ const Video = () => {
                       setBunnyLoading(true);
                       const bunnyId = extractBunnyVideoId(video?.url);
                       getBunnySignedUrl(bunnyId)
-                        .then((url) => { setActualVideoUrl(url); setBunnyLoading(false); })
-                        .catch(() => { setBunnyError("تعذّر تحميل الفيديو. حاول مجدداً."); setBunnyLoading(false); });
+                        .then((url) => {
+                          setActualVideoUrl(url);
+                          setBunnyLoading(false);
+                        })
+                        .catch((err) => {
+                          setBunnyError(formatBunnyLoadError(err));
+                          setBunnyLoading(false);
+                        });
                     }}
                     className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition"
                   >

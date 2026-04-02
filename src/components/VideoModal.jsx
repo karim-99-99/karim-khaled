@@ -6,9 +6,12 @@ import {
   getEmbedVideoSrc,
   needsBunnySignedUrl,
   extractBunnyVideoId,
+  formatBunnyLoadError,
 } from "../utils/videoUrl";
 import {
   isBackendOn,
+  isApiBaseConfigured,
+  getStoredAuthToken,
   recordVideoWatch,
   getBunnySignedUrl,
 } from "../services/backendApi";
@@ -40,10 +43,22 @@ const VideoModal = ({
     setLoading(true);
     try {
       const bunnyId = extractBunnyVideoId(rawUrl);
+      if (!bunnyId) {
+        setBunnyError("معرّف الفيديو (Bunny) غير صالح.");
+        setActualVideoUrl(null);
+        return;
+      }
+      if (!getStoredAuthToken()) {
+        setBunnyError(
+          "يرجى تسجيل الدخول لتشغيل فيديوهات Bunny (الرابط الموقّع يصدر من الخادم فقط)."
+        );
+        setActualVideoUrl(null);
+        return;
+      }
       const signed = await getBunnySignedUrl(bunnyId);
       setActualVideoUrl(signed);
-    } catch {
-      setBunnyError("تعذّر تحميل الفيديو. حاول مجدداً.");
+    } catch (err) {
+      setBunnyError(formatBunnyLoadError(err));
       setActualVideoUrl(null);
     } finally {
       setLoading(false);
@@ -68,7 +83,7 @@ const VideoModal = ({
         } finally {
           setLoading(false);
         }
-      } else if (isBackendOn() && needsBunnySignedUrl(videoUrl)) {
+      } else if (isApiBaseConfigured() && needsBunnySignedUrl(videoUrl)) {
         await fetchBunnyUrl(videoUrl);
       } else {
         setActualVideoUrl(videoUrl);

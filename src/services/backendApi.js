@@ -20,6 +20,15 @@ const getToken = () => {
   }
 };
 
+/** Django API base URL is set (independent of login). Use for Bunny signing etc. */
+export const isApiBaseConfigured = () => {
+  const u = import.meta.env.VITE_API_URL;
+  return typeof u === "string" && u.trim().length > 0;
+};
+
+/** Auth token if user is logged in (same source as API requests). */
+export const getStoredAuthToken = () => getToken();
+
 const request = async (path, options = {}) => {
   const base = getBase();
   if (!base) throw new Error("VITE_API_URL is not set");
@@ -99,7 +108,7 @@ const request = async (path, options = {}) => {
   return res.json();
 };
 
-export const isBackendOn = () => !!(import.meta.env.VITE_API_URL && getToken());
+export const isBackendOn = () => isApiBaseConfigured() && !!getToken();
 
 /** Ping backend health endpoint to wake Render from cold start (fire-and-forget). */
 export const pingHealth = () => {
