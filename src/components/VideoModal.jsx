@@ -152,7 +152,6 @@ const VideoModal = ({
                 className="w-full h-full rounded"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
-                referrerPolicy="strict-origin-when-cross-origin"
               />
             ) : actualVideoUrl ? (
               <video

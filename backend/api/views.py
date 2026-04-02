@@ -58,7 +58,24 @@ class HealthView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
-        return Response({"status": "ok"}, status=status.HTTP_200_OK)
+        payload = {"status": "ok"}
+        # Safe flags for debugging Bunny (never expose secret values)
+        if request.query_params.get("bunny") in ("1", "true", "yes"):
+            lib = bool(getattr(django_settings, "BUNNY_LIBRARY_ID", "").strip())
+            embed = bool(getattr(django_settings, "BUNNY_SECURITY_KEY", "").strip())
+            upload = bool(getattr(django_settings, "BUNNY_STREAM_API_KEY", "").strip())
+            payload["bunny"] = {
+                "library_id_set": lib,
+                "embed_token_key_set": embed,
+                "stream_api_key_set": upload,
+                "embed_ready": lib and embed,
+                "upload_ready": lib and upload,
+                "hint": (
+                    "BUNNY_SECURITY_KEY must be the Token authentication key from Stream → Security "
+                    "(not the Library API Key). Allowed Domains must include your Vercel host, e.g. karim-khaled.vercel.app"
+                ),
+            }
+        return Response(payload, status=status.HTTP_200_OK)
 
 
 class RegisterView(APIView):

@@ -271,7 +271,6 @@ const Video = () => {
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
-                  referrerPolicy="strict-origin-when-cross-origin"
                 />
               ) : actualVideoUrl ? (
                 <>

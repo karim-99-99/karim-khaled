@@ -118,7 +118,7 @@ export function formatBunnyLoadError(err) {
     m.includes('Bunny Stream is not configured') ||
     m.includes('not configured on this server')
   ) {
-    return 'لم يُضبط Bunny على الخادم: عيّن BUNNY_LIBRARY_ID و BUNNY_SECURITY_KEY لبيئة Django ثم أعد تشغيل runserver. في لوحة Bunny أضف Allowed Domains: localhost و 127.0.0.1';
+    return 'لم يُضبط Bunny على الخادم: عيّن BUNNY_LIBRARY_ID و BUNNY_SECURITY_KEY (مفتاح Token من Security وليس مفتاح API) ثم أعد نشر Render. في Bunny → Security أضف Allowed Domains: نطاق Vercel (مثل karim-khaled.vercel.app) و localhost للتجربة المحلية.';
   }
   if (m.includes('CORS') || m.includes('الاتصال بالخادم')) return m;
   return m || 'تعذّر تحميل الفيديو. حاول مجدداً.';
