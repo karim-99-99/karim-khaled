@@ -121,6 +121,11 @@ if _use_cloudinary:
     }
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
+# Bunny Stream (video hosting & security)
+BUNNY_LIBRARY_ID = os.environ.get('BUNNY_LIBRARY_ID', '').strip()
+BUNNY_SECURITY_KEY = os.environ.get('BUNNY_SECURITY_KEY', '').strip()
+BUNNY_CDN_HOSTNAME = os.environ.get('BUNNY_CDN_HOSTNAME', '').strip()  # e.g. vz-xxxxx.b-cdn.net
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

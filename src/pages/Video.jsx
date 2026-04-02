@@ -8,13 +8,20 @@ import {
 import { getVideoFile } from "../services/videoStorage";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
-import { isEmbedVideoUrl, getEmbedVideoSrc } from "../utils/videoUrl";
+import {
+  isEmbedVideoUrl,
+  getEmbedVideoSrc,
+  needsBunnySignedUrl,
+  extractBunnyVideoId,
+} from "../utils/videoUrl";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
+import VideoWatermark from "../components/VideoWatermark";
 import {
   isBackendOn,
   getVideoByLevel as getVideoByLevelApi,
   getItemById as getItemByIdApi,
   recordVideoWatch,
+  getBunnySignedUrl,
 } from "../services/backendApi";
 
 const Video = () => {
@@ -24,6 +31,8 @@ const Video = () => {
   const [video, setVideo] = useState(null);
   const [actualVideoUrl, setActualVideoUrl] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [bunnyLoading, setBunnyLoading] = useState(false);
+  const [bunnyError, setBunnyError] = useState(null);
   const [item, setItem] = useState(null);
   const videoRef = useRef(null);
 
@@ -73,6 +82,20 @@ const Video = () => {
         } catch (e) {
           setVideo(itemVideo);
           setActualVideoUrl(itemVideo.url);
+        }
+      } else if (isBackendOn() && needsBunnySignedUrl(itemVideo.url)) {
+        // Bunny Stream: fetch a signed URL from Django (key never touches frontend)
+        setVideo(itemVideo);
+        setBunnyLoading(true);
+        setBunnyError(null);
+        try {
+          const bunnyId = extractBunnyVideoId(itemVideo.url);
+          const signedUrl = await getBunnySignedUrl(bunnyId);
+          if (!c) setActualVideoUrl(signedUrl);
+        } catch (err) {
+          if (!c) setBunnyError("تعذّر تحميل الفيديو. حاول مجدداً.");
+        } finally {
+          if (!c) setBunnyLoading(false);
         }
       } else {
         setActualVideoUrl(itemVideo.url);
@@ -189,7 +212,7 @@ const Video = () => {
                 : video.titleEn || item?.nameEn || "Educational Video"}
             </h1>
 
-            <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4 relative">
+            <div className="aspect-video bg-black rounded-lg overflow-hidden mb-4 relative" style={{ position: "relative" }}>
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-white font-medium">
@@ -198,6 +221,30 @@ const Video = () => {
                       : "Loading video..."}
                   </p>
                 </div>
+              ) : bunnyLoading ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3">
+                  <div className="w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                  <p className="text-white font-medium text-sm">
+                    جاري تحضير الفيديو...
+                  </p>
+                </div>
+              ) : bunnyError ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3 px-4">
+                  <p className="text-red-400 font-medium text-center">{bunnyError}</p>
+                  <button
+                    onClick={() => {
+                      setBunnyError(null);
+                      setBunnyLoading(true);
+                      const bunnyId = extractBunnyVideoId(video?.url);
+                      getBunnySignedUrl(bunnyId)
+                        .then((url) => { setActualVideoUrl(url); setBunnyLoading(false); })
+                        .catch(() => { setBunnyError("تعذّر تحميل الفيديو. حاول مجدداً."); setBunnyLoading(false); });
+                    }}
+                    className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition"
+                  >
+                    إعادة المحاولة
+                  </button>
+                </div>
               ) : actualVideoUrl && isEmbedVideoUrl(actualVideoUrl) ? (
                 <iframe
                   src={getEmbedVideoSrc(actualVideoUrl) || actualVideoUrl}
@@ -205,6 +252,7 @@ const Video = () => {
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
                 />
               ) : actualVideoUrl ? (
                 <>
@@ -252,6 +300,13 @@ const Video = () => {
                       : "No video available"}
                   </p>
                 </div>
+              )}
+              {/* Watermark: visible in screenshots/recordings — identifies the viewer */}
+              {currentUser && !isAdmin && (
+                <VideoWatermark
+                  name={`${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.username}
+                  email={currentUser.email}
+                />
               )}
             </div>
           </div>

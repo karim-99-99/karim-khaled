@@ -388,6 +388,36 @@ class VideoWatch(models.Model):
         return f"{self.user.username} - {self.lesson.name} (x{self.watch_count})"
 
 
+class VideoAccessLog(models.Model):
+    """
+    Audit trail: every time a user requests a Bunny signed URL.
+    Used for watermark tracing, per-user revocation, and abuse detection.
+    """
+    RISK_OK = 'ok'
+    RISK_WARN = 'warn'
+    RISK_FLAG = 'flag'
+    RISK_CHOICES = [(RISK_OK, 'OK'), (RISK_WARN, 'Warning'), (RISK_FLAG, 'Flagged')]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='video_access_logs')
+    video_id = models.CharField(max_length=200)          # Bunny video UUID
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True)
+    session_key = models.CharField(max_length=64, blank=True)  # frontend session fingerprint
+    token_expires = models.BigIntegerField()             # unix timestamp the signed URL expires
+    requested_at = models.DateTimeField(auto_now_add=True)
+    risk_level = models.CharField(max_length=10, choices=RISK_CHOICES, default=RISK_OK)
+
+    class Meta:
+        ordering = ['-requested_at']
+        indexes = [
+            models.Index(fields=['user', 'video_id', 'requested_at']),
+            models.Index(fields=['ip_address', 'requested_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} → {self.video_id} @ {self.ip_address}"
+
+
 class IncorrectAnswer(models.Model):
     """Store questions the student answered incorrectly for later review."""
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incorrect_answers')

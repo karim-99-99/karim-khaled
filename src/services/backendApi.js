@@ -779,6 +779,38 @@ export const updatePassage = async (passageId, { passageText, questions }) => {
   );
 };
 
+// ——— Bunny Stream ———
+
+/**
+ * Fetch a server-side signed embed URL for a Bunny Stream video.
+ * The BUNNY_SECURITY_KEY never leaves the Django server.
+ * Also sends a lightweight session fingerprint (sk) for abuse tracing.
+ * @param {string} bunnyVideoId - The raw Bunny video UUID / numeric ID
+ * @returns {Promise<string>} A signed iframe.mediadelivery.net URL
+ */
+export const getBunnySignedUrl = async (bunnyVideoId) => {
+  if (!bunnyVideoId) throw new Error("bunnyVideoId is required");
+  // Lightweight session key: tab-scoped random string, stable during the session
+  if (!sessionStorage.getItem("_vsk")) {
+    sessionStorage.setItem(
+      "_vsk",
+      Math.random().toString(36).slice(2) + Date.now().toString(36)
+    );
+  }
+  const sk = sessionStorage.getItem("_vsk") || "";
+  const params = new URLSearchParams({ video_id: bunnyVideoId, sk });
+  const data = await request(`/videos/bunny-signed-url/?${params}`);
+  if (!data?.url) throw new Error("Bunny signed URL not returned by server");
+  return data.url;
+};
+
+/**
+ * Admin-only: fetch suspicious video access patterns (multi-IP, high freq, flagged).
+ */
+export const getSuspiciousActivity = async () => {
+  return request("/videos/abuse-detector/");
+};
+
 // ——— Videos (file upload and URL-based videos) ———
 const videoLessonId = (v) =>
   v.lesson != null && typeof v.lesson === "object"

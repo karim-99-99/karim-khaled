@@ -8,6 +8,7 @@ import {
   getStudentGroups,
   getSections,
   getTrackerByLesson,
+  getSuspiciousActivity,
   isBackendOn,
 } from "../../services/backendApi";
 
@@ -44,6 +45,9 @@ const AdminTracker = () => {
   const [byLessonData, setByLessonData] = useState(null);
   const [byLessonLoading, setByLessonLoading] = useState(false);
   const [expandedGroupIds, setExpandedGroupIds] = useState(new Set());
+  const [abuseData, setAbuseData] = useState(null);
+  const [abuseLoading, setAbuseLoading] = useState(false);
+  const [showAbusePanel, setShowAbusePanel] = useState(false);
 
   const subjects = (sections || []).flatMap((s) => s.subjects || []);
   const selectedSubject = subjects.find((s) => s.id === byLessonSubjectId);
@@ -71,6 +75,18 @@ const AdminTracker = () => {
     if (!isBackendOn()) return;
     getSections().then((list) => setSections(Array.isArray(list) ? list : list?.results || []));
   }, []);
+
+  const loadAbuseData = async () => {
+    setAbuseLoading(true);
+    try {
+      const res = await getSuspiciousActivity();
+      setAbuseData(res);
+    } catch {
+      setAbuseData(null);
+    } finally {
+      setAbuseLoading(false);
+    }
+  };
 
   const loadTrackerByLesson = async () => {
     if (!byLessonGroupId || !byLessonLessonId) return;
@@ -499,6 +515,168 @@ const AdminTracker = () => {
             </table>
           </div>
         </div>
+
+        {/* Video security / abuse detection panel */}
+        {isBackendOn() && (
+          <div className="bg-white rounded-xl shadow overflow-hidden mb-8">
+            <div className="flex items-center justify-between p-4 border-b">
+              <h2 className="text-lg font-bold text-dark-700 flex items-center gap-2">
+                <span>🔍</span> مراقبة أمان الفيديوهات
+              </h2>
+              <button
+                onClick={() => {
+                  setShowAbusePanel(!showAbusePanel);
+                  if (!showAbusePanel && !abuseData) loadAbuseData();
+                }}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium text-sm transition"
+              >
+                {showAbusePanel ? "إخفاء" : "فحص الحسابات المشبوهة"}
+              </button>
+            </div>
+            {showAbusePanel && (
+              <div className="p-4">
+                {abuseLoading ? (
+                  <p className="text-center py-6 text-gray-500">جاري الفحص...</p>
+                ) : !abuseData ? (
+                  <p className="text-center py-6 text-red-500">تعذّر تحميل البيانات</p>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Flagged entries */}
+                    <div>
+                      <h3 className="font-bold text-red-700 mb-3 flex items-center gap-2">
+                        <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-sm">
+                          {abuseData.flagged_entries?.length || 0}
+                        </span>
+                        طلبات مشبوهة (IPs متعددة)
+                      </h3>
+                      {(abuseData.flagged_entries || []).length === 0 ? (
+                        <p className="text-green-600 text-sm">✓ لا توجد نشاطات مشبوهة</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-red-50 text-right">
+                                <th className="px-3 py-2">المستخدم</th>
+                                <th className="px-3 py-2">البريد</th>
+                                <th className="px-3 py-2">الفيديو</th>
+                                <th className="px-3 py-2">IP</th>
+                                <th className="px-3 py-2">الوقت</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {abuseData.flagged_entries.map((e, i) => (
+                                <tr key={i} className="hover:bg-red-50">
+                                  <td className="px-3 py-2 font-medium">{e.username}</td>
+                                  <td className="px-3 py-2 text-gray-600">{e.email}</td>
+                                  <td className="px-3 py-2 font-mono text-xs">{e.video_id?.slice(0, 12)}…</td>
+                                  <td className="px-3 py-2 font-mono text-xs">{e.ip}</td>
+                                  <td className="px-3 py-2 text-gray-500 text-xs">
+                                    {new Date(e.at).toLocaleString("ar-SA")}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* High frequency users */}
+                    <div>
+                      <h3 className="font-bold text-amber-700 mb-3 flex items-center gap-2">
+                        <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded text-sm">
+                          {abuseData.high_frequency_users?.length || 0}
+                        </span>
+                        مستخدمون ذوو طلبات عالية (آخر 24 ساعة)
+                      </h3>
+                      {(abuseData.high_frequency_users || []).length === 0 ? (
+                        <p className="text-green-600 text-sm">✓ لا يوجد نشاط غير اعتيادي</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-amber-50 text-right">
+                                <th className="px-3 py-2">المستخدم</th>
+                                <th className="px-3 py-2">البريد</th>
+                                <th className="px-3 py-2">الطلبات / 24 ساعة</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {abuseData.high_frequency_users.map((u, i) => (
+                                <tr key={i} className="hover:bg-amber-50">
+                                  <td className="px-3 py-2 font-medium">{u.username}</td>
+                                  <td className="px-3 py-2 text-gray-600">{u.email}</td>
+                                  <td className="px-3 py-2">
+                                    <span className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded font-bold">
+                                      {u.requests_24h}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Multi-IP per video */}
+                    <div>
+                      <h3 className="font-bold text-orange-700 mb-3 flex items-center gap-2">
+                        <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-sm">
+                          {abuseData.multi_ip_access?.length || 0}
+                        </span>
+                        مشاركة فيديو من أجهزة مختلفة (≥ 3 IPs / 24 ساعة)
+                      </h3>
+                      {(abuseData.multi_ip_access || []).length === 0 ? (
+                        <p className="text-green-600 text-sm">✓ لا توجد مشاركة مشبوهة</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="bg-orange-50 text-right">
+                                <th className="px-3 py-2">المستخدم</th>
+                                <th className="px-3 py-2">البريد</th>
+                                <th className="px-3 py-2">الفيديو</th>
+                                <th className="px-3 py-2">عدد الـ IPs</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y">
+                              {abuseData.multi_ip_access.map((r, i) => (
+                                <tr key={i} className="hover:bg-orange-50">
+                                  <td className="px-3 py-2 font-medium">{r.username}</td>
+                                  <td className="px-3 py-2 text-gray-600">{r.email}</td>
+                                  <td className="px-3 py-2 font-mono text-xs">{r.video_id?.slice(0, 12)}…</td>
+                                  <td className="px-3 py-2">
+                                    <span className="bg-orange-100 text-orange-800 px-2 py-0.5 rounded font-bold">
+                                      {r.distinct_ips_24h} IPs
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="text-xs text-gray-400 text-left">
+                      آخر فحص: {new Date(abuseData.since).toLocaleString("ar-SA")} ← الآن
+                    </div>
+                  </div>
+                )}
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={loadAbuseData}
+                    disabled={abuseLoading}
+                    className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg text-sm transition"
+                  >
+                    تحديث الفحص
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Student detail modal */}
         {selectedStudent && (

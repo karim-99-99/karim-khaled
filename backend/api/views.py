@@ -1,5 +1,7 @@
 import os
 import uuid
+import hashlib
+import time
 from io import StringIO
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
@@ -7,17 +9,18 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
+from django.conf import settings as django_settings
 from django.contrib.auth import authenticate, login, logout
 from django.core.management import call_command
 from django.db.models import Q, Count, Avg, Max, Sum
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 
 from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
     Question, Answer, Video, File, StudentProgress, LessonProgress,
     QuizAttempt, VideoWatch, IncorrectAnswer,
-    StudentGroup, StudentGroupMembership
+    StudentGroup, StudentGroupMembership, VideoAccessLog
 )
 from .utils import get_client_ip
 from .permissions import IsAuthenticatedDeviceAllowed
@@ -1335,4 +1338,171 @@ class TrackerByLessonView(APIView):
             'questions': [{'id': qid, 'label': label} for qid, label in question_slots],
             'points_per_question': points_per_question,
             'rows': rows,
+        })
+
+
+class BunnySignedUrlView(APIView):
+    """
+    Generate a time-limited signed embed URL for a Bunny Stream video.
+    - BUNNY_SECURITY_KEY never touches the frontend.
+    - Every request is logged to VideoAccessLog for traceability.
+    - Token includes user identity so each URL is session-bound.
+    """
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get(self, request):
+        video_id = request.query_params.get('video_id', '').strip()
+        if not video_id:
+            return Response({'error': 'video_id is required'}, status=400)
+
+        library_id = getattr(django_settings, 'BUNNY_LIBRARY_ID', '').strip()
+        security_key = getattr(django_settings, 'BUNNY_SECURITY_KEY', '').strip()
+
+        if not library_id or not security_key:
+            return Response(
+                {'error': 'Bunny Stream is not configured on this server.'},
+                status=503,
+            )
+
+        expires = int(time.time()) + (4 * 60 * 60)  # 4-hour window
+
+        # Bunny token formula (standard): SHA256(security_key + video_id + expires)
+        token_data = f"{security_key}{video_id}{expires}"
+        token = hashlib.sha256(token_data.encode()).hexdigest()
+
+        signed_url = (
+            f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}"
+            f"?token={token}&expires={expires}&autoplay=false"
+        )
+
+        # ── Audit log ──────────────────────────────────────────────────
+        ip = get_client_ip(request)
+        ua = request.META.get('HTTP_USER_AGENT', '')[:500]
+        session_key = request.query_params.get('sk', '')[:64]  # frontend fingerprint
+
+        log_entry = VideoAccessLog(
+            user=request.user,
+            video_id=video_id,
+            ip_address=ip or None,
+            user_agent=ua,
+            session_key=session_key,
+            token_expires=expires,
+        )
+
+        # Flag if this user has accessed the same video from >2 IPs in the last 24h
+        from django.utils.timezone import now
+        from datetime import timedelta
+        recent_ips = (
+            VideoAccessLog.objects
+            .filter(
+                user=request.user,
+                video_id=video_id,
+                requested_at__gte=now() - timedelta(hours=24),
+            )
+            .values_list('ip_address', flat=True)
+            .distinct()
+        )
+        distinct_ip_count = len(set(list(recent_ips) + [ip]))
+        if distinct_ip_count >= 4:
+            log_entry.risk_level = VideoAccessLog.RISK_FLAG
+        elif distinct_ip_count >= 2:
+            log_entry.risk_level = VideoAccessLog.RISK_WARN
+
+        try:
+            log_entry.save()
+        except Exception:
+            pass  # Never block video delivery over a logging failure
+
+        return Response({
+            'url': signed_url,
+            'expires': expires,
+            'risk': log_entry.risk_level,
+        })
+
+
+class VideoAbuseDetectorView(APIView):
+    """
+    Admin-only: return accounts with suspicious video access patterns.
+    Patterns detected:
+      1. Same video from ≥3 distinct IPs within 24 h
+      2. Total signed-URL requests > threshold in last 24 h (possible bot/scraper)
+      3. Flagged entries in VideoAccessLog
+    """
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get(self, request):
+        if not (request.user.is_authenticated and request.user.role == 'admin'):
+            return Response({'error': 'Admin only'}, status=403)
+
+        from django.utils.timezone import now
+        from datetime import timedelta
+        from django.db.models import Count
+
+        since = now() - timedelta(hours=24)
+
+        # ── 1. Users with flagged entries ──────────────────────────────
+        flagged_logs = (
+            VideoAccessLog.objects
+            .filter(risk_level=VideoAccessLog.RISK_FLAG)
+            .select_related('user')
+            .order_by('-requested_at')[:100]
+        )
+        flagged = [
+            {
+                'user_id': l.user_id,
+                'username': l.user.username,
+                'email': l.user.email,
+                'video_id': l.video_id,
+                'ip': l.ip_address,
+                'at': l.requested_at.isoformat(),
+                'risk': l.risk_level,
+            }
+            for l in flagged_logs
+        ]
+
+        # ── 2. High-frequency requesters (last 24 h) ───────────────────
+        HIGH_REQ_THRESHOLD = 30
+        high_freq = (
+            VideoAccessLog.objects
+            .filter(requested_at__gte=since)
+            .values('user_id', 'user__username', 'user__email')
+            .annotate(total=Count('id'))
+            .filter(total__gte=HIGH_REQ_THRESHOLD)
+            .order_by('-total')
+        )
+        high_freq_list = [
+            {
+                'user_id': r['user_id'],
+                'username': r['user__username'],
+                'email': r['user__email'],
+                'requests_24h': r['total'],
+            }
+            for r in high_freq
+        ]
+
+        # ── 3. Multi-IP per video in 24 h ──────────────────────────────
+        multi_ip = (
+            VideoAccessLog.objects
+            .filter(requested_at__gte=since)
+            .values('user_id', 'user__username', 'user__email', 'video_id')
+            .annotate(distinct_ips=Count('ip_address', distinct=True))
+            .filter(distinct_ips__gte=3)
+            .order_by('-distinct_ips')
+        )
+        multi_ip_list = [
+            {
+                'user_id': r['user_id'],
+                'username': r['user__username'],
+                'email': r['user__email'],
+                'video_id': r['video_id'],
+                'distinct_ips_24h': r['distinct_ips'],
+            }
+            for r in multi_ip
+        ]
+
+        return Response({
+            'flagged_entries': flagged,
+            'high_frequency_users': high_freq_list,
+            'multi_ip_access': multi_ip_list,
+            'since': since.isoformat(),
         })

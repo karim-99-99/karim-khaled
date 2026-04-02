@@ -1,8 +1,19 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getVideoFile } from "../services/videoStorage";
 import { isArabicBrowser } from "../utils/language";
-import { isEmbedVideoUrl, getEmbedVideoSrc } from "../utils/videoUrl";
-import { isBackendOn, recordVideoWatch } from "../services/backendApi";
+import {
+  isEmbedVideoUrl,
+  getEmbedVideoSrc,
+  needsBunnySignedUrl,
+  extractBunnyVideoId,
+} from "../utils/videoUrl";
+import {
+  isBackendOn,
+  recordVideoWatch,
+  getBunnySignedUrl,
+} from "../services/backendApi";
+import { getCurrentUser } from "../services/storageService";
+import VideoWatermark from "./VideoWatermark";
 
 const VideoModal = ({
   isOpen,
@@ -14,12 +25,30 @@ const VideoModal = ({
 }) => {
   const [actualVideoUrl, setActualVideoUrl] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [bunnyError, setBunnyError] = useState(null);
+  const currentUser = getCurrentUser();
+  const isAdmin = currentUser?.role === "admin";
 
   useEffect(() => {
     if (isOpen && lessonId && isBackendOn()) {
       recordVideoWatch(lessonId, videoId || null).catch(() => {});
     }
   }, [isOpen, lessonId, videoId]);
+
+  const fetchBunnyUrl = useCallback(async (rawUrl) => {
+    setBunnyError(null);
+    setLoading(true);
+    try {
+      const bunnyId = extractBunnyVideoId(rawUrl);
+      const signed = await getBunnySignedUrl(bunnyId);
+      setActualVideoUrl(signed);
+    } catch {
+      setBunnyError("تعذّر تحميل الفيديو. حاول مجدداً.");
+      setActualVideoUrl(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const loadVideo = async () => {
@@ -28,23 +57,19 @@ const VideoModal = ({
         return;
       }
 
-      // Check if it's an IndexedDB video
       if (videoUrl.startsWith("indexeddb://")) {
         setLoading(true);
         try {
           const levelId = videoUrl.replace("indexeddb://", "");
           const videoFile = await getVideoFile(levelId);
-          if (videoFile && videoFile.url) {
-            setActualVideoUrl(videoFile.url);
-          } else {
-            setActualVideoUrl(null);
-          }
-        } catch (error) {
-          console.error("Error loading video from IndexedDB:", error);
+          setActualVideoUrl(videoFile?.url || null);
+        } catch {
           setActualVideoUrl(null);
         } finally {
           setLoading(false);
         }
+      } else if (isBackendOn() && needsBunnySignedUrl(videoUrl)) {
+        await fetchBunnyUrl(videoUrl);
       } else {
         setActualVideoUrl(videoUrl);
       }
@@ -53,14 +78,13 @@ const VideoModal = ({
     if (isOpen) {
       loadVideo();
     } else {
-      // Clean up blob URL when modal closes
       if (actualVideoUrl && actualVideoUrl.startsWith("blob:")) {
         URL.revokeObjectURL(actualVideoUrl);
       }
       setActualVideoUrl(null);
+      setBunnyError(null);
     }
 
-    // Cleanup on unmount
     return () => {
       if (actualVideoUrl && actualVideoUrl.startsWith("blob:")) {
         URL.revokeObjectURL(actualVideoUrl);
@@ -83,14 +107,29 @@ const VideoModal = ({
           </button>
         </div>
         <div className="p-4">
-          <div className="aspect-video w-full">
+          <div className="aspect-video w-full bg-black rounded" style={{ position: "relative" }}>
+            {currentUser && !isAdmin && (
+              <VideoWatermark
+                name={`${currentUser.firstName || ""} ${currentUser.lastName || ""}`.trim() || currentUser.username}
+                email={currentUser.email}
+              />
+            )}
             {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-dark-600 font-medium">
-                  {isArabicBrowser()
-                    ? "جاري تحميل الفيديو..."
-                    : "Loading video..."}
+              <div className="flex flex-col items-center justify-center h-full gap-3">
+                <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
+                <p className="text-white font-medium text-sm">
+                  جاري تحضير الفيديو...
                 </p>
+              </div>
+            ) : bunnyError ? (
+              <div className="flex flex-col items-center justify-center h-full gap-3 px-4">
+                <p className="text-red-400 font-medium text-center">{bunnyError}</p>
+                <button
+                  onClick={() => fetchBunnyUrl(videoUrl)}
+                  className="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg font-medium transition"
+                >
+                  إعادة المحاولة
+                </button>
               </div>
             ) : actualVideoUrl && isEmbedVideoUrl(actualVideoUrl) ? (
               <iframe
@@ -98,6 +137,7 @@ const VideoModal = ({
                 className="w-full h-full rounded"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
               />
             ) : actualVideoUrl ? (
               <video
@@ -112,7 +152,7 @@ const VideoModal = ({
               </video>
             ) : (
               <div className="flex items-center justify-center h-full">
-                <p className="text-dark-600 font-medium">
+                <p className="text-white font-medium">
                   {isArabicBrowser()
                     ? "لا يوجد فيديو متاح"
                     : "No video available"}
