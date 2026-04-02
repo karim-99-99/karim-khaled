@@ -10,7 +10,7 @@ python -m venv venv
 # On Windows:
 venv\Scripts\activate
 # On Mac/Linux:
-source venv/bin/activate
+source venv/bin/activate            kkk
 ```
 
 2. **Install dependencies**:
