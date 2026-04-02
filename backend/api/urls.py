@@ -19,6 +19,9 @@ router.register(r'tracker/video-watches', views.VideoWatchViewSet, basename='vid
 router.register(r'student-groups', views.StudentGroupViewSet, basename='student-group')
 
 urlpatterns = [
+    # Must be before router.urls: otherwise videos/<pk>/ catches "bunny-signed-url" → 404
+    path('videos/bunny-signed-url/', views.BunnySignedUrlView.as_view(), name='bunny-signed-url'),
+    path('videos/abuse-detector/', views.VideoAbuseDetectorView.as_view(), name='video-abuse-detector'),
     path('', include(router.urls)),
     path('health/', views.HealthView.as_view(), name='health'),
     path('auth/register/', views.RegisterView.as_view(), name='register'),
@@ -33,6 +36,4 @@ urlpatterns = [
     path('tracker/incorrect-answers/<str:question_id>/', views.IncorrectAnswerDetailView.as_view(), name='incorrect-answers-detail'),
     path('tracker/admin-incorrect-answers/', views.AdminIncorrectAnswersView.as_view(), name='tracker-admin-incorrect-answers'),
     path('tracker/by-lesson/', views.TrackerByLessonView.as_view(), name='tracker-by-lesson'),
-    path('videos/bunny-signed-url/', views.BunnySignedUrlView.as_view(), name='bunny-signed-url'),
-    path('videos/abuse-detector/', views.VideoAbuseDetectorView.as_view(), name='video-abuse-detector'),
 ]
