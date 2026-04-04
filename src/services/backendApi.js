@@ -846,13 +846,25 @@ export const getBunnySignedUrl = async (bunnyVideoId) => {
  * Check Bunny Stream configuration status on the backend (no auth required).
  * Returns { embed_ready: bool, library_id_set: bool, embed_token_key_set: bool }
  */
+let _bunnyHealthCache = { at: 0, value: null };
+const BUNNY_HEALTH_TTL_MS = 60_000;
+
 export const getBunnyHealth = async () => {
+  const now = Date.now();
+  if (
+    _bunnyHealthCache.value != null &&
+    now - _bunnyHealthCache.at < BUNNY_HEALTH_TTL_MS
+  ) {
+    return _bunnyHealthCache.value;
+  }
   try {
     const base = getBase();
     if (!base) return null;
     const res = await fetch(`${base}/health/?bunny=1`);
     const data = await res.json();
-    return data?.bunny ?? null;
+    const v = data?.bunny ?? null;
+    _bunnyHealthCache = { at: now, value: v };
+    return v;
   } catch {
     return null;
   }
@@ -1098,6 +1110,7 @@ export const getQuizAttempts = async (filters = {}) => {
   const params = new URLSearchParams();
   if (filters.user_id) params.set("user_id", filters.user_id);
   if (filters.lesson_id) params.set("lesson_id", filters.lesson_id);
+  if (filters.chapter_id) params.set("chapter_id", filters.chapter_id);
   const qs = params.toString();
   const path = qs ? `/tracker/quiz-attempts/?${qs}` : "/tracker/quiz-attempts/";
   const list = await request(path);
@@ -1105,8 +1118,12 @@ export const getQuizAttempts = async (filters = {}) => {
 };
 
 /** Current user's lesson progress (in-progress, not yet completed). */
-export const getLessonProgressList = async () => {
-  const list = await request("/lesson-progress/");
+export const getLessonProgressList = async (filters = {}) => {
+  const params = new URLSearchParams();
+  if (filters.chapter_id) params.set("chapter_id", filters.chapter_id);
+  const qs = params.toString();
+  const path = qs ? `/lesson-progress/?${qs}` : "/lesson-progress/";
+  const list = await request(path);
   return Array.isArray(list) ? list : list?.results || [];
 };
 

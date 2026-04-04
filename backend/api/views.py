@@ -37,7 +37,7 @@ from .serializers import (
     ChapterSerializer, ChapterShallowSerializer, LessonSerializer,
     QuestionSerializer, QuestionCreateUpdateSerializer,
     VideoSerializer, FileSerializer,
-    StudentProgressSerializer, LessonProgressSerializer,
+    StudentProgressSerializer, LessonProgressSerializer, LessonProgressLiteSerializer,
     QuizAttemptSerializer, QuizAttemptCreateSerializer, VideoWatchSerializer,
     StudentGroupSerializer, StudentGroupMembershipSerializer
 )
@@ -407,6 +407,9 @@ class ChapterViewSet(viewsets.ModelViewSet):
             qs = qs.filter(category_id=cid)
         qs = qs.exclude(category__subject__section_id__in=DISABLED_SECTION_IDS)
         if self.action == 'retrieve':
+            items_qs = Lesson.objects.annotate(question_count=Count('questions')).order_by('order', 'name')
+            qs = qs.prefetch_related(Prefetch('items', queryset=items_qs))
+        elif self.action != 'list':
             qs = qs.prefetch_related('items')
         return qs
 
@@ -454,7 +457,7 @@ class LessonViewSet(viewsets.ModelViewSet):
     lookup_url_kwarg = 'pk'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().annotate(question_count=Count('questions'))
         cid = self.request.query_params.get('chapter_id')
         if cid:
             qs = qs.filter(chapter_id=cid)
@@ -871,13 +874,20 @@ class LessonProgressViewSet(viewsets.ReadOnlyModelViewSet):
     """Lesson progress tracking (read-only)"""
     serializer_class = LessonProgressSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return LessonProgressLiteSerializer
+        return LessonProgressSerializer
     
     def get_queryset(self):
-        # Students can only see their own progress
+        chapter_id = self.request.query_params.get('chapter_id')
+        base = LessonProgress.objects.all()
+        if chapter_id:
+            base = base.filter(lesson__chapter_id=chapter_id)
         if self.request.user.role == 'student':
-            return LessonProgress.objects.filter(user=self.request.user).select_related('lesson', 'last_question')
-        # Admins can see all progress
-        return LessonProgress.objects.all().select_related('user', 'lesson', 'last_question')
+            return base.filter(user=self.request.user).select_related('lesson', 'last_question')
+        return base.select_related('user', 'lesson', 'last_question')
     
     @action(detail=False, methods=['get'])
     def my_progress(self, request):
@@ -937,6 +947,9 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = QuizAttempt.objects.select_related('user', 'lesson').order_by('-completed_at')
+        chapter_id = self.request.query_params.get('chapter_id')
+        if chapter_id:
+            qs = qs.filter(lesson__chapter_id=chapter_id)
         if self.request.user.role == 'student':
             return qs.filter(user=self.request.user)
         # Admin sees all

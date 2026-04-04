@@ -177,12 +177,21 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
 
 
 class LessonSerializer(serializers.ModelSerializer):
-    """Lesson serializer"""
-    
+    """Lesson serializer; question_count set via annotate on chapter retrieve (no N+1)."""
+    question_count = serializers.SerializerMethodField()
+
     class Meta:
         model = Lesson
-        fields = ['id', 'chapter', 'name', 'name_en', 'has_test', 'order']
+        fields = ['id', 'chapter', 'name', 'name_en', 'has_test', 'order', 'question_count']
         read_only_fields = ['id']
+
+    def get_question_count(self, obj):
+        if hasattr(obj, 'question_count'):
+            return obj.question_count
+        try:
+            return obj.questions.count()
+        except Exception:
+            return 0
 
 
 class ChapterShallowSerializer(serializers.ModelSerializer):
@@ -372,6 +381,17 @@ class StudentProgressSerializer(serializers.ModelSerializer):
         fields = ['id', 'user', 'question', 'lesson', 'selected_answer', 
                   'is_correct', 'time_spent', 'started_at', 'answered_at', 'updated_at']
         read_only_fields = ['user', 'started_at', 'updated_at']
+
+
+class LessonProgressLiteSerializer(serializers.ModelSerializer):
+    """List endpoint: no nested lesson/question bodies (fast Levels page)."""
+    class Meta:
+        model = LessonProgress
+        fields = [
+            'id', 'lesson', 'total_questions', 'answered_questions',
+            'correct_answers', 'completion_percentage', 'accuracy_percentage',
+            'started_at', 'last_activity', 'completed_at',
+        ]
 
 
 class LessonProgressSerializer(serializers.ModelSerializer):

@@ -57,8 +57,11 @@ const Video = () => {
       setLoading(true);
       let itemVideo = null;
       if (isBackendOn()) {
-        itemVideo = await getVideoByLevelApi(actualItemId);
-        const i = await getItemByIdApi(actualItemId);
+        const [v, i] = await Promise.all([
+          getVideoByLevelApi(actualItemId),
+          getItemByIdApi(actualItemId),
+        ]);
+        itemVideo = v;
         if (!c) setItem(i);
       } else {
         itemVideo = getVideoByLevel(actualItemId);

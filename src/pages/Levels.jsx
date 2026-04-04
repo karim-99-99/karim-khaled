@@ -29,7 +29,6 @@ import {
   deleteLesson,
   getVideos,
   getFiles,
-  getQuestions,
   getQuizAttempts,
   getLessonProgressList,
 } from "../services/backendApi";
@@ -46,7 +45,6 @@ const Levels = () => {
   const [busy, setBusy] = useState(false);
   const [videos, setVideos] = useState([]);
   const [files, setFiles] = useState([]);
-  const [questions, setQuestions] = useState([]);
   const currentUser = getCurrentUser();
   const isAdmin = currentUser?.role === "admin";
   const [editingItem, setEditingItem] = useState(null);
@@ -68,6 +66,7 @@ const Levels = () => {
   const items = (chapter?.items || []).map((i) => ({
     ...i,
     hasTest: i.has_test ?? i.hasTest,
+    questionCount: Number(i.question_count ?? i.questionCount ?? 0) || 0,
   }));
   const sortedItems = [...items].sort(
     (a, b) => (a?.order ?? 0) - (b?.order ?? 0)
@@ -89,17 +88,15 @@ const Levels = () => {
     async function load() {
       try {
         if (useBackend) {
-          const [ch, v, f, q] = await Promise.all([
+          const [ch, v, f] = await Promise.all([
             getChapterByIdApi(chapterId),
             getVideos({ chapter_id: chapterId }),
             getFiles({ chapter_id: chapterId }),
-            getQuestions({ chapter_id: chapterId }),
           ]);
           if (!c) {
             setChapter(ch || null);
             setVideos(Array.isArray(v) ? v : []);
             setFiles(Array.isArray(f) ? f : []);
-            setQuestions(Array.isArray(q) ? q : []);
           }
         } else {
           if (!c) setChapter(getChapterById(chapterId) || null);
@@ -140,10 +137,7 @@ const Levels = () => {
     return getFileByLevel(itemId);
   };
   const getQuestionsForItem = (itemId) => {
-    if (useBackend)
-      return (questions || []).filter(
-        (q) => norm(q.lesson || q.levelId || q.itemId) === norm(itemId)
-      );
+    if (useBackend) return [];
     return getQuestionsByLevel(itemId);
   };
 
@@ -170,8 +164,8 @@ const Levels = () => {
     (async () => {
       try {
         const [attempts, progressList] = await Promise.all([
-          getQuizAttempts(),
-          getLessonProgressList(),
+          getQuizAttempts({ chapter_id: chapterId }),
+          getLessonProgressList({ chapter_id: chapterId }),
         ]);
         if (c) return;
         const lessonId = (x) => (x && typeof x === "object" ? x.id : x);
@@ -196,7 +190,7 @@ const Levels = () => {
       }
     })();
     return () => { c = true; };
-  }, [useBackend, currentUser?.id, isAdmin]);
+  }, [useBackend, currentUser?.id, isAdmin, chapterId]);
 
   const handleVideoClick = (itemId) => {
     if (!currentUser) {
@@ -729,7 +723,9 @@ const Levels = () => {
                           const video = getVideoForItem(item.id);
                           const file = getFileForItem(item.id);
                           const qs = getQuestionsForItem(item.id);
-                          const hasExam = qs && qs.length > 0;
+                          const hasExam = useBackend
+                            ? item.questionCount > 0
+                            : qs && qs.length > 0;
                           const isGuest = !currentUser;
                           const showVideo = isGuest
                             ? true
