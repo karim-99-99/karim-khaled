@@ -35,19 +35,19 @@ If you only run `gunicorn`, **no tables are created** on Neon. You must run migr
 
 1. **Render Dashboard** → your backend service → **Settings** (or **Build & Deploy**).
 2. Find **Start Command**.
-3. Set it to (all in one line):
+3. Set it to (all in one line). Use **`--only-if-empty`** so every redeploy does **not** recreate deleted فصول/دروس:
    ```bash
-   python manage.py migrate && python manage.py seed_initial_data && gunicorn config.wsgi:application
+   python manage.py migrate && python manage.py seed_initial_data --only-if-empty && gunicorn config.wsgi:application
    ```
    If your service **Root Directory** is the repo root (not `backend`), use:
    ```bash
-   cd backend && python manage.py migrate && python manage.py seed_initial_data && gunicorn config.wsgi:application
+   cd backend && python manage.py migrate && python manage.py seed_initial_data --only-if-empty && gunicorn config.wsgi:application
    ```
 4. **Save**. Then trigger **Manual Deploy** (or push a commit so Render redeploys).
 
 When the service starts:
 - `migrate` → creates all tables on Neon.
-- `seed_initial_data` → creates default users (admin, student, etc.).
+- `seed_initial_data --only-if-empty` → runs **only** on a truly empty DB (first time); later deploys skip so your data stays.
 - `gunicorn` → starts the app.
 
 After deploy finishes, check Neon → **Tables** again; you should see `api_user`, `api_lesson`, etc.

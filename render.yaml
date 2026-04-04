@@ -6,4 +6,5 @@ services:
   - type: web
     name: backend
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    # seed: skips if DB already has sections (see seed_initial_data; DEBUG=False also skips by default)
     startCommand: python manage.py migrate && python manage.py seed_initial_data --only-if-empty && gunicorn config.wsgi:application

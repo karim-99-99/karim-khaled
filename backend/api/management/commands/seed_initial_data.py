@@ -7,8 +7,14 @@ Matches the default structure expected by the frontend (storageService.initializ
   sections/chapters/lessons — so your renames and structure stay in PostgreSQL.
 - With --clear: DELETES all Section/Subject/Category/Chapter/Lesson. Use only for a full
   reset. In production set SEED_ALLOW_CLEAR=1 to allow --clear (safety guard).
+
+Production (DEBUG=False): if any Section exists, the command SKIPS entirely by default —
+same as --only-if-empty — so redeploys do not re-run get_or_create and resurrect deleted
+فصول/دروس. Override with SEED_FORCE_FULL=1 or --force-full-seed when you intentionally
+want to fill missing default rows.
 """
 import os
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from api.models import Section, Subject, Category, Chapter, Lesson, User
 
@@ -55,12 +61,29 @@ class Command(BaseCommand):
             help='Skip seeding entirely if any Section already exists in the database. '
                  'Safe to add to the server startCommand so re-seeds never overwrite user edits.',
         )
+        parser.add_argument(
+            '--force-full-seed',
+            action='store_true',
+            dest='force_full_seed',
+            help='Run full get_or_create seed even when sections already exist. '
+                 'In production you can set SEED_FORCE_FULL=1 instead.',
+        )
 
     def handle(self, *args, **options):
-        if options.get('only_if_empty') and Section.objects.exists():
+        force_full = (
+            options.get('force_full_seed')
+            or os.environ.get('SEED_FORCE_FULL') == '1'
+        )
+        # Prod: never re-seed on every deploy unless explicitly forced (avoids restoring
+        # default فصول/دروس after admin deletes them).
+        skip_if_has_sections = options.get('only_if_empty') or (
+            not settings.DEBUG and not force_full
+        )
+        if skip_if_has_sections and Section.objects.exists():
             self.stdout.write(self.style.WARNING(
-                'Database already has data — skipping seed (--only-if-empty). '
-                'Run without --only-if-empty or with --clear to force a reseed.'
+                'Database already has sections — skipping seed '
+                '(use --only-if-empty / production default). '
+                'To fill missing default chapters: SEED_FORCE_FULL=1 or --force-full-seed.'
             ))
             return
 

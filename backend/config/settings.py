@@ -5,6 +5,28 @@ Django settings for educational platform backend.
 from pathlib import Path
 import os
 import dj_database_url
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+
+def _normalize_database_url(url: str) -> str:
+    """
+    Neon connection strings may include channel_binding=require.
+    psycopg2 / dj-database-url can fail or behave oddly with it; strip for compatibility.
+    """
+    if not url or "channel_binding" not in url.lower():
+        return url
+    try:
+        p = urlparse(url)
+        pairs = [
+            (k, v)
+            for k, v in parse_qsl(p.query, keep_blank_values=True)
+            if k.lower() != "channel_binding"
+        ]
+        return urlunparse(
+            (p.scheme, p.netloc, p.path, p.params, urlencode(pairs), p.fragment)
+        )
+    except Exception:
+        return url
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -78,7 +100,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 # Database — Postgres in production (DATABASE_URL), SQLite locally
 DATABASES = {'default': {}}
-_db_url = (os.environ.get('DATABASE_URL') or '').strip()
+_db_url = _normalize_database_url((os.environ.get('DATABASE_URL') or '').strip())
 if _db_url:
     DATABASES['default'] = dj_database_url.parse(_db_url, conn_max_age=600)
 else:
