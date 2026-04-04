@@ -813,204 +813,41 @@ const SinglePage = () => {
       {/* تواصل معنا Section */}
       <section
         id="contact"
-        className="min-h-screen bg-white py-12 md:py-20 relative overflow-hidden"
+        className="min-h-screen bg-stone-50 py-12 md:py-20 relative overflow-hidden"
       >
-        {/* Decorative dashed line */}
-        <svg
-          className="absolute top-0 left-0 w-full h-full pointer-events-none"
+        {/* خلفية خفيفة جداً */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40"
           style={{ zIndex: 0 }}
+          aria-hidden
         >
-          <path
-            d="M0,50 Q200,30 400,50 T800,50 T1200,50"
-            stroke="#B88BC2"
-            strokeWidth="2"
-            fill="none"
-            strokeDasharray="5,5"
-            opacity="0.4"
-          />
-          <path
-            d="M0,90% Q200,85% 400,90% T800,90% T1200,90%"
-            stroke="#B88BC2"
-            strokeWidth="2"
-            fill="none"
-            strokeDasharray="5,5"
-            opacity="0.4"
-          />
-        </svg>
-
-        {/* Abstract shapes - Top right - Using brand colors */}
-        <div
-          className="absolute top-20 right-10 w-48 h-48 opacity-20 blur-3xl hidden lg:block"
-          style={{
-            zIndex: 1,
-            background: "#EC802B",
-            borderRadius: "50% 30% 70% 40%",
-          }}
-        ></div>
-        <div
-          className="absolute top-10 right-32 w-32 h-32 opacity-25 blur-2xl hidden lg:block"
-          style={{
-            zIndex: 1,
-            background: "#EDC55B",
-            borderRadius: "60% 40% 30% 70%",
-          }}
-        ></div>
-
-        {/* Abstract shapes - Bottom left - Using brand colors */}
-        <div
-          className="absolute bottom-20 left-10 w-56 h-56 opacity-15 blur-3xl hidden lg:block"
-          style={{
-            zIndex: 1,
-            background: "#66BCB4",
-            borderRadius: "40% 60% 70% 30%",
-          }}
-        ></div>
-        <div
-          className="absolute bottom-10 left-32 w-40 h-40 opacity-20 blur-2xl hidden lg:block"
-          style={{
-            zIndex: 1,
-            background: "#E8CCAD",
-            borderRadius: "50% 50% 50% 50%",
-          }}
-        ></div>
-        <div
-          className="absolute bottom-32 left-20 w-32 h-32 opacity-25 hidden lg:block"
-          style={{
-            zIndex: 1,
-            background: "#EC802B",
-            borderRadius: "30% 70% 70% 30%",
-          }}
-        ></div>
-
-        {/* Scattered white circles and rings */}
-        <div
-          className="absolute top-40 left-20 w-3 h-3 bg-white rounded-full opacity-60 hidden lg:block"
-          style={{ zIndex: 1 }}
-        ></div>
-        <div
-          className="absolute top-60 left-40 w-4 h-4 border-2 border-white rounded-full opacity-50 hidden lg:block"
-          style={{ zIndex: 1 }}
-        ></div>
-        <div
-          className="absolute bottom-40 right-20 w-3 h-3 bg-white rounded-full opacity-60 hidden lg:block"
-          style={{ zIndex: 1 }}
-        ></div>
-        <div
-          className="absolute bottom-60 right-40 w-4 h-4 border-2 border-white rounded-full opacity-50 hidden lg:block"
-          style={{ zIndex: 1 }}
-        ></div>
-        <div
-          className="absolute top-1/3 left-1/4 w-5 h-5 border-2 border-white rounded-full opacity-40 hidden lg:block"
-          style={{ zIndex: 1 }}
-        ></div>
-        <div
-          className="absolute bottom-1/3 right-1/4 w-3 h-3 bg-white rounded-full opacity-50 hidden lg:block"
-          style={{ zIndex: 1 }}
-        ></div>
-
-        {/* Dotted pattern extending from shapes */}
-        <div
-          className="absolute top-0 right-0 w-40 h-40 opacity-30 hidden lg:block"
-          style={{ zIndex: 1 }}
-        >
-          <svg width="100%" height="100%">
-            <defs>
-              <pattern
-                id="dots-pattern-contact"
-                x="0"
-                y="0"
-                width="20"
-                height="20"
-                patternUnits="userSpaceOnUse"
-              >
-                <circle cx="10" cy="10" r="2" fill="#EC802B" opacity="0.4" />
-              </pattern>
-            </defs>
-            <rect
-              width="100%"
-              height="100%"
-              fill="url(#dots-pattern-contact)"
-            />
-          </svg>
-        </div>
-        <div
-          className="absolute bottom-0 left-0 w-48 h-48 opacity-30 hidden lg:block"
-          style={{ zIndex: 1 }}
-        >
-          <svg width="100%" height="100%">
-            <rect
-              width="100%"
-              height="100%"
-              fill="url(#dots-pattern-contact)"
-            />
-          </svg>
+          <div className="absolute -top-24 right-0 h-72 w-72 rounded-full bg-primary-500/[0.06] blur-3xl" />
+          <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-stone-300/30 blur-3xl" />
         </div>
 
-        <div className="max-w-4xl mx-auto px-4 relative" style={{ zIndex: 2 }}>
-          {/* Main Gradient Card - Orange mixed with other brand colors */}
-          <div
-            className="relative rounded-3xl overflow-hidden shadow-2xl"
-            style={{
-              background:
-                "linear-gradient(to right, #EC802B 0%, #EDC55B 30%, #E8CCAD 60%, #66BCB4 90%, #EDC55B 100%)",
-              minHeight: "500px",
-            }}
-          >
-            {/* White dots on card */}
-            <div className="absolute top-20 right-20 w-3 h-3 bg-white rounded-full opacity-80"></div>
-            <div className="absolute top-16 left-16 w-2 h-2 bg-white rounded-full opacity-60"></div>
-
-            <div
-              className="relative p-8 md:p-12 lg:p-16 text-center"
-              style={{ zIndex: 3 }}
-            >
+        <div className="max-w-4xl mx-auto px-4 relative z-[1]">
+          <div className="relative rounded-3xl overflow-hidden border border-stone-200/90 bg-white shadow-md min-h-[500px]">
+            <div className="relative p-8 md:p-12 lg:p-16 text-center">
               {/* Main Heading */}
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6">
+              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-stone-800 mb-6">
                 تواصل معنا
               </h1>
 
-              {/* Decorative Wave */}
+              {/* خط فاصل بسيط */}
               <div className="flex justify-center mb-8">
-                <svg
-                  width="250"
-                  height="30"
-                  viewBox="0 0 250 30"
-                  className="text-white"
-                >
-                  <path
-                    d="M0,15 Q62.5,5 125,15 T250,15"
-                    stroke="white"
-                    strokeWidth="3"
-                    fill="none"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M0,18 Q62.5,8 125,18 T250,18"
-                    stroke="white"
-                    strokeWidth="2"
-                    fill="none"
-                    strokeLinecap="round"
-                    opacity="0.7"
-                  />
-                  <path
-                    d="M0,21 Q62.5,11 125,21 T250,21"
-                    stroke="white"
-                    strokeWidth="1.5"
-                    fill="none"
-                    strokeLinecap="round"
-                    opacity="0.5"
-                  />
-                </svg>
+                <div
+                  className="h-1 w-24 rounded-full bg-primary-500/35"
+                  aria-hidden
+                />
               </div>
 
               {/* Descriptive Text */}
               <div className="mb-12 md:mb-16 space-y-4">
-                <p className="text-2xl md:text-3xl lg:text-5xl text-white font-medium leading-relaxed">
-                  أ/ إيمان معوض 
-                  
+                <p className="text-2xl md:text-3xl lg:text-4xl text-stone-800 font-semibold leading-relaxed">
+                  أ/ إيمان معوض
                 </p>
-                <p className="text-lg md:text-xl lg:text-2xl text-white font-medium leading-relaxed">
-                   معلمة القدرات العامة بمدارس رياض الصالحين بتبوك
+                <p className="text-lg md:text-xl lg:text-2xl text-stone-600 font-medium leading-relaxed">
+                  معلمة القدرات العامة بمدارس رياض الصالحين بتبوك
                 </p>
               </div>
 
@@ -1020,7 +857,7 @@ const SinglePage = () => {
                   <button
                     type="button"
                     onClick={() => setShowStudentResults(true)}
-                    className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-white/15 hover:bg-white/25 transition-all duration-300 text-white font-semibold text-base md:text-lg shadow-lg shadow-teal-900/20 motion-safe:hover:scale-[1.03]"
+                    className="flex items-center gap-3 px-6 py-4 border-2 border-primary-400/70 rounded-2xl bg-primary-50 hover:bg-primary-100/80 transition-all duration-300 text-primary-700 font-semibold text-base md:text-lg shadow-sm motion-safe:hover:scale-[1.02]"
                     aria-label="عرض نتائجي"
                   >
                     <span className="text-2xl" aria-hidden>
@@ -1034,7 +871,7 @@ const SinglePage = () => {
                   href="https://wa.me/966502403757"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-transparent hover:bg-white/10 transition-all duration-300 text-white font-semibold text-base md:text-lg group"
+                  className="flex items-center gap-3 px-6 py-4 border-2 border-[#25D366] rounded-2xl bg-[#25D366]/10 hover:bg-[#25D366]/15 transition-all duration-300 text-[#128C7E] font-semibold text-base md:text-lg group"
                   aria-label="تواصل معنا عبر واتساب"
                 >
                   <svg
