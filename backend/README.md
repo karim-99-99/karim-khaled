@@ -10,7 +10,7 @@ python -m venv venv
 # On Windows:
 venv\Scripts\activate
 # On Mac/Linux:
-source venv/bin/activate            kkk
+source venv/bin/activate
 ```
 
 2. **Install dependencies**:
@@ -119,6 +119,31 @@ Authorization: Token your-token-here
 - **File**: Files (PDFs, documents)
 - **StudentProgress**: Track individual question answers
 - **LessonProgress**: Track overall progress per lesson with percentages and last question stopped at
+
+## Wipe all content (empty platform for admin to rebuild)
+
+Deletes **everything** under sections (subjects, categories, chapters, lessons), plus questions, videos, files, student progress, quiz attempts, video logs, student groups. **User accounts stay** unless you pass `--delete-students`.
+
+**Local (DEBUG=True):**
+
+```bash
+cd backend
+python manage.py flush_platform_content --yes
+```
+
+**Production (Neon / Render):** set a one-off env var, then run (Shell on Render or your machine with `DATABASE_URL`):
+
+```bash
+FLUSH_PLATFORM_CONFIRM=1 python manage.py flush_platform_content --yes
+```
+
+Optional: also remove student accounts:
+
+```bash
+FLUSH_PLATFORM_CONFIRM=1 python manage.py flush_platform_content --yes --delete-students
+```
+
+Afterward the courses UI is empty until the admin creates sections/chapters/lessons again. Clear browser **localStorage** on devices that still show old cached data.
 
 ## Admin Panel
 
