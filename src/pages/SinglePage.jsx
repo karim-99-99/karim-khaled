@@ -36,20 +36,29 @@ const SinglePage = () => {
     }
   }, [location.hash]);
 
-  // Features for landing page
+  // Features for landing page (قسم «ليش أ. إيمان معوض؟»)
   const features = [
-    { icon: "📚💡", title: "محتوى علمي ذكي", description: "شامل ومختصر" },
-    { icon: "📱", title: "دروس تفاعلية تضمن", description: "لك الفهم" },
+    {
+      icon: "📚💡",
+      title: "تأسيس سهل و بسيط ",
+      description: "اكثر من 80 ساعة للتأسيس بأسهل و ابسط الطرق مهما كان مستواك",
+    },
+    {
+      icon: "🎓",
+      title: "   10 سنوات من الخبرة",
+      description: "خبره اكثر من 10 سنوات في تدريب اختبار القدرات العامة",
+    },
+    // { icon: "📱", title: "دروس تفاعلية تضمن", description: "لك الفهم" },
     {
       icon: "❓📝",
-      title: "تدريبات مطابقة",
-      description: "للاختبارات الفعلية",
-      subDescription: "(تجميعات)",
+      title: "متابعة دورية لمستواك",
+      description: " جدول للتدريبات و الواجبات و الحصص و التجميعات نتابع مستواك أول بأول",
+      
     },
     {
       icon: "🏆⭐",
-      title: "فعليا ما تحتاج مصادر",
-      description: "ثانية .. بدايتي وبس",
+      title: "تجميعات شاملة للاختبار",
+      description: " أكثر من 10 الاف سؤال مرتبين بنظام المستويات حسب احدث التجميعات و التسريبات",
     },
   ];
 
@@ -429,10 +438,10 @@ const SinglePage = () => {
           <div className="relative max-w-7xl mx-auto px-4 z-10">
             <div className="text-center">
               <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 md:mb-6 text-dark-900 leading-tight">
-              بدايتي في القدرات أ. ايمان معوض 
+              بدايتي في القدرات أ. إيمان معوض
               </h1>
               <p className="text-lg md:text-xl lg:text-2xl mb-4 md:mb-6 text-dark-600 font-medium max-w-4xl mx-auto">
-               مدربة القدرات العامه للقسمين اللفظي و الكمي  بمدارس رياض الصالحين
+           مدربة القدرات العامة للقسمين اللفظي و الكمي  بمدارس رياض الصالحين الاهلية بتبوك 
               </p>
               <p className="text-base md:text-lg lg:text-xl mb-6 md:mb-8 text-dark-600 font-medium max-w-4xl mx-auto">
                
@@ -443,7 +452,7 @@ const SinglePage = () => {
                   className="group px-8 py-4 bg-gradient-to-r from-primary-500 to-accent-500 hover:from-primary-600 hover:to-accent-600 rounded-2xl text-lg md:text-xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl text-white transform hover:scale-105"
                 >
                   <span className="flex items-center gap-2">
-                    <span>الدورات</span>
+                    <span>ابـــدئـــي من هنا</span>
                    
                   </span>
                 </button>
@@ -480,8 +489,11 @@ const SinglePage = () => {
           <div className="relative max-w-7xl mx-auto px-4 z-10">
             <div className="text-center mb-12 md:mb-16">
               <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-dark-900 mb-4">
-                ليش بدايتي؟
+                ليش أ. إيمان معوض؟
               </h2>
+              <p className="text-lg md:text-xl text-dark-600 font-medium max-w-3xl mx-auto mb-2">
+                محتوى علمي ذكي، وخبرة أكثر من 10 سنوات في التدريب.
+              </p>
               <div className="flex justify-center mb-8">
                 <svg
                   width="200"
@@ -991,12 +1003,12 @@ const SinglePage = () => {
 
               {/* Descriptive Text */}
               <div className="mb-12 md:mb-16 space-y-4">
-                <p className="text-lg md:text-xl lg:text-2xl text-white font-medium leading-relaxed">
-                  خايف تضيع فرصك ومو عارف تذاكر لها ؟ أو تحتاج تسألنا في أي شيء
-                  ؟
+                <p className="text-2xl md:text-3xl lg:text-5xl text-white font-medium leading-relaxed">
+                  أ/ إيمان معوض 
+                  
                 </p>
                 <p className="text-lg md:text-xl lg:text-2xl text-white font-medium leading-relaxed">
-                  نحن موجودين لخدمتك .. كلمنا
+                   معلمة القدرات العامة بمدارس رياض الصالحين بتبوك
                 </p>
               </div>
 

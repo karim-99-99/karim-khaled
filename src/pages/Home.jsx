@@ -22,6 +22,47 @@ import {
   updateChapter,
 } from "../services/backendApi";
 
+const COURSES_SS_SUBJECT = "courses:lastSubjectId";
+const COURSES_SS_CATEGORY = "courses:lastCategoryId";
+
+const readCoursesSelection = (visibleSubjects, preferredSubjectId) => {
+  const list = visibleSubjects || [];
+  let nextSubject = preferredSubjectId;
+  let nextCategory = "";
+  try {
+    const sp = new URLSearchParams(
+      typeof window !== "undefined" ? window.location.search || "" : ""
+    );
+    const urlSubject = sp.get("subjectId") || "";
+    const urlCategory = sp.get("categoryId") || "";
+    const catIdsFor = (sid) => {
+      const sub = list.find((s) => s?.id === sid);
+      return (sub?.categories || []).map((c) => c?.id).filter(Boolean);
+    };
+    if (urlSubject && list.some((s) => s?.id === urlSubject)) {
+      nextSubject = urlSubject;
+      const catIds = catIdsFor(urlSubject);
+      if (urlCategory && catIds.includes(urlCategory)) nextCategory = urlCategory;
+      else {
+        const sc = sessionStorage.getItem(COURSES_SS_CATEGORY);
+        if (sc && catIds.includes(sc)) nextCategory = sc;
+      }
+    } else {
+      const ss = sessionStorage.getItem(COURSES_SS_SUBJECT);
+      const sc = sessionStorage.getItem(COURSES_SS_CATEGORY);
+      if (ss && list.some((s) => s?.id === ss)) {
+        nextSubject = ss;
+        const catIds = catIdsFor(ss);
+        if (sc && catIds.includes(sc)) nextCategory = sc;
+      }
+    }
+  } catch (_) {
+    nextSubject = preferredSubjectId;
+    nextCategory = "";
+  }
+  return { nextSubject, nextCategory };
+};
+
 const Home = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -65,14 +106,18 @@ const Home = () => {
             : allSubjects;
         setSubjects(visibleSubjects);
 
-        // Default selected tab: اللفظي then الكمي then first available
+        // Default tab: اللفظي then الكمي; keep last subject/category (sessionStorage) or URL params
         const preferred =
           visibleSubjects.find((s) => s?.id === "مادة_اللفظي")?.id ||
           visibleSubjects.find((s) => s?.id === "مادة_الكمي")?.id ||
           visibleSubjects[0]?.id ||
           "";
-        setSelectedSubjectId((prev) => prev || preferred);
-        setSelectedCategoryId(""); // reset category selection on reload
+        const { nextSubject, nextCategory } = readCoursesSelection(
+          visibleSubjects,
+          preferred
+        );
+        setSelectedSubjectId((prev) => prev || nextSubject);
+        setSelectedCategoryId(nextCategory);
       } catch (e) {
         if (!cancelled) {
           setSection(null);
@@ -166,21 +211,35 @@ const Home = () => {
     return `/courses${qs ? `?${qs}` : ""}`;
   };
 
-  // Restore selection when navigating back to /courses?subjectId=...&categoryId=...
+  // Restore selection when navigating to /courses?subjectId=... (and optional categoryId)
   useEffect(() => {
     const sp = new URLSearchParams(location.search || "");
     const subjectIdFromUrl = sp.get("subjectId") || "";
     const categoryIdFromUrl = sp.get("categoryId") || "";
     if (subjectIdFromUrl && subjects.some((s) => s?.id === subjectIdFromUrl)) {
       setSelectedSubjectId(subjectIdFromUrl);
-      // category must exist under selected subject
       const subj = subjects.find((s) => s?.id === subjectIdFromUrl);
       const cats = (subj?.categories || []).map((c) => c?.id);
       if (categoryIdFromUrl && cats.includes(categoryIdFromUrl)) {
         setSelectedCategoryId(categoryIdFromUrl);
+      } else {
+        try {
+          const sc = sessionStorage.getItem(COURSES_SS_CATEGORY);
+          if (sc && cats.includes(sc)) setSelectedCategoryId(sc);
+        } catch (_) {}
       }
     }
   }, [location.search, subjects]);
+
+  // Remember مادة / تصنيف so returning to /courses (e.g. from header) keeps the same place
+  useEffect(() => {
+    try {
+      if (selectedSubjectId)
+        sessionStorage.setItem(COURSES_SS_SUBJECT, selectedSubjectId);
+      if (selectedCategoryId)
+        sessionStorage.setItem(COURSES_SS_CATEGORY, selectedCategoryId);
+    } catch (_) {}
+  }, [selectedSubjectId, selectedCategoryId]);
 
   const handleCategoryClick = (categoryId) => {
     if (!selectedSubjectId) return;
