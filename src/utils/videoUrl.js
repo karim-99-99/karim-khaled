@@ -49,6 +49,11 @@ export function isEmbedVideoUrl(url) {
   );
 }
 
+/** Signed or unsigned Bunny Stream embed URL */
+export function isBunnyEmbedUrl(url) {
+  return typeof url === 'string' && url.includes('iframe.mediadelivery.net');
+}
+
 /**
  * Returns true if the value looks like a Bunny Stream video ID
  * (a UUID like "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" or a plain numeric ID).

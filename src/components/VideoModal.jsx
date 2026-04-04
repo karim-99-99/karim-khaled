@@ -7,6 +7,7 @@ import {
   needsBunnySignedUrl,
   extractBunnyVideoId,
   formatBunnyLoadError,
+  isBunnyEmbedUrl,
 } from "../utils/videoUrl";
 import {
   isBackendOn,
@@ -160,6 +161,7 @@ const VideoModal = ({
                 className="w-full h-full rounded"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
+                referrerPolicy="origin"
               />
             ) : actualVideoUrl ? (
               <video
@@ -182,6 +184,18 @@ const VideoModal = ({
               </div>
             )}
           </div>
+          {actualVideoUrl && isBunnyEmbedUrl(actualVideoUrl) && (
+            <p className="text-center text-sm text-gray-600 mt-2">
+              <a
+                href={getEmbedVideoSrc(actualVideoUrl) || actualVideoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:underline font-medium"
+              >
+                لا يعمل الفيديو؟ افتحه في نافذة جديدة
+              </a>
+            </p>
+          )}
         </div>
       </div>
     </div>

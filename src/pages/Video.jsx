@@ -14,6 +14,7 @@ import {
   needsBunnySignedUrl,
   extractBunnyVideoId,
   formatBunnyLoadError,
+  isBunnyEmbedUrl,
 } from "../utils/videoUrl";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
 import VideoWatermark from "../components/VideoWatermark";
@@ -308,6 +309,7 @@ const Video = () => {
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  referrerPolicy="origin"
                 />
               ) : actualVideoUrl ? (
                 <>
@@ -364,6 +366,18 @@ const Video = () => {
                 />
               )}
             </div>
+            {actualVideoUrl && isBunnyEmbedUrl(actualVideoUrl) && (
+              <p className="text-center text-sm text-gray-600 mt-2 px-2">
+                <a
+                  href={getEmbedVideoSrc(actualVideoUrl) || actualVideoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:underline font-medium"
+                >
+                  لا يعمل الفيديو أو يظهر 403؟ افتحه في نافذة جديدة
+                </a>
+              </p>
+            )}
           </div>
         </div>
       </div>
