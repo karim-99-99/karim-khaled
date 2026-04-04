@@ -182,14 +182,18 @@ else:
         "http://127.0.0.1:3000",
     ]
 
-# Allow all Vercel preview/prod domains without manual updates.
-# This fixes CORS failures on Vercel preview URLs like:
-# https://<random>-<project>.vercel.app
-#
-# Note: `django-cors-headers` matches regexes against the Origin header.
+# Allow all Vercel preview/prod domains + custom production domain.
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",
+    r"^https://.*\.vercel\.app$",          # all Vercel preview & prod URLs
+    r"^https://(www\.)?qodrateman\.com$",  # custom production domain
 ]
+
+# Extra origins from env (comma-separated) — add here for any new custom domains.
+_extra_cors = os.environ.get('CORS_EXTRA_ORIGINS', '')
+for _o in _extra_cors.split(','):
+    _o = _o.strip().rstrip('/')
+    if _o and _o not in CORS_ALLOWED_ORIGIN_REGEXES:
+        CORS_ALLOWED_ORIGINS.append(_o) if 'CORS_ALLOWED_ORIGINS' in dir() else None
 
 # Allow all origins in development if DEBUG is True
 if DEBUG:
@@ -211,6 +215,8 @@ CSRF_TRUSTED_ORIGINS = list(set(
     + [
         "https://*.vercel.app",
         "https://karim-khaled.vercel.app",
+        "https://qodrateman.com",
+        "https://www.qodrateman.com",
     ]
 ))
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in CSRF_TRUSTED_ORIGINS if o.strip()]
