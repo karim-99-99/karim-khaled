@@ -89,14 +89,14 @@ const Levels = () => {
     async function load() {
       try {
         if (useBackend) {
-          const ch = await getChapterByIdApi(chapterId);
-          if (!c) setChapter(ch || null);
-          const [v, f, q] = await Promise.all([
+          const [ch, v, f, q] = await Promise.all([
+            getChapterByIdApi(chapterId),
             getVideos({ chapter_id: chapterId }),
             getFiles({ chapter_id: chapterId }),
             getQuestions({ chapter_id: chapterId }),
           ]);
           if (!c) {
+            setChapter(ch || null);
             setVideos(Array.isArray(v) ? v : []);
             setFiles(Array.isArray(f) ? f : []);
             setQuestions(Array.isArray(q) ? q : []);

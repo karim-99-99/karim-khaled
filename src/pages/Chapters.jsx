@@ -352,7 +352,8 @@ const Chapters = () => {
                 )}
 
                 <div className="mt-4 text-sm md:text-base text-dark-600 font-medium">
-                  {chapter.items?.length || 0} {isTajmiat ? "بنك" : "درس"}
+                  {chapter.lesson_count ?? chapter.items?.length ?? 0}{" "}
+                  {isTajmiat ? "بنك" : "درس"}
                 </div>
                 </div>
               </div>

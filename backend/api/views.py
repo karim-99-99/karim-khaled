@@ -12,7 +12,7 @@ from rest_framework.authtoken.models import Token
 from django.conf import settings as django_settings
 from django.contrib.auth import authenticate, login, logout
 from django.core.management import call_command
-from django.db.models import Q, Count, Avg, Max, Sum
+from django.db.models import Q, Count, Avg, Max, Sum, Prefetch
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 
@@ -22,12 +22,19 @@ from .models import (
     QuizAttempt, VideoWatch, IncorrectAnswer,
     StudentGroup, StudentGroupMembership, VideoAccessLog
 )
+
+_CHAPTER_SHALLOW_QS = Chapter.objects.annotate(
+    lesson_count=Count('items')
+).order_by('order')
 from .utils import get_client_ip
 from .bunny_stream import bunny_create_and_upload, BunnyStreamError
 from .permissions import IsAuthenticatedDeviceAllowed
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, LoginSerializer,
-    SectionSerializer, SubjectSerializer, CategorySerializer, ChapterSerializer, LessonSerializer,
+    SectionListSerializer,
+    SubjectSerializer, SubjectReadSerializer, SubjectAdminListSerializer,
+    CategorySerializer, CategoryReadListSerializer, CategoryReadDetailSerializer,
+    ChapterSerializer, ChapterShallowSerializer, LessonSerializer,
     QuestionSerializer, QuestionCreateUpdateSerializer,
     VideoSerializer, FileSerializer,
     StudentProgressSerializer, LessonProgressSerializer,
@@ -289,9 +296,14 @@ class UserViewSet(viewsets.ModelViewSet):
 
 
 class SectionViewSet(viewsets.ReadOnlyModelViewSet):
-    """Sections viewset (read-only). List/retrieve public for visitors; rest unchanged."""
-    queryset = Section.objects.prefetch_related('subjects__categories__chapters__items').all()
-    serializer_class = SectionSerializer
+    """Sections viewset (read-only). List/retrieve public; payload omits lesson rows."""
+    queryset = Section.objects.prefetch_related(
+        Prefetch(
+            'subjects__categories__chapters',
+            queryset=_CHAPTER_SHALLOW_QS,
+        )
+    ).all()
+    serializer_class = SectionListSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
 
     def get_permissions(self):
@@ -306,9 +318,20 @@ class SectionViewSet(viewsets.ReadOnlyModelViewSet):
 
 class SubjectViewSet(viewsets.ModelViewSet):
     """Subjects CRUD (admin for write)"""
-    queryset = Subject.objects.prefetch_related('categories__chapters__items').all()
+    queryset = Subject.objects.prefetch_related(
+        Prefetch('categories__chapters', queryset=_CHAPTER_SHALLOW_QS)
+    ).all()
     serializer_class = SubjectSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return SubjectSerializer
+        if self.action == 'retrieve':
+            return SubjectReadSerializer
+        if self.action == 'list':
+            return SubjectAdminListSerializer
+        return SubjectSerializer
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -328,9 +351,18 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
 class CategoryViewSet(viewsets.ModelViewSet):
     """Categories CRUD (admin for write)"""
-    queryset = Category.objects.prefetch_related('chapters__items').all()
+    queryset = Category.objects.prefetch_related(
+        Prefetch('chapters', queryset=_CHAPTER_SHALLOW_QS)
+    ).all()
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return CategorySerializer
+        if self.action == 'retrieve':
+            return CategoryReadDetailSerializer
+        return CategoryReadListSerializer
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -354,19 +386,29 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
 
 class ChapterViewSet(viewsets.ModelViewSet):
-    """Chapters CRUD (admin for write)"""
-    queryset = Chapter.objects.prefetch_related('items').all()
+    """Chapters CRUD (admin for write). List omits lesson rows; retrieve is full."""
+    queryset = Chapter.objects.all()
     serializer_class = ChapterSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
 
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return ChapterSerializer
+        if self.action == 'list':
+            return ChapterShallowSerializer
+        return ChapterSerializer
+
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = Chapter.objects.annotate(lesson_count=Count('items')).order_by('order')
         cid = self.request.query_params.get('category_id')
         if cid:
             qs = qs.filter(category_id=cid)
-        return qs.exclude(category__subject__section_id__in=DISABLED_SECTION_IDS)
+        qs = qs.exclude(category__subject__section_id__in=DISABLED_SECTION_IDS)
+        if self.action == 'retrieve':
+            qs = qs.prefetch_related('items')
+        return qs
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:

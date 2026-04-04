@@ -295,7 +295,9 @@ const ChaptersManagement = () => {
                           {chapter.name}
                         </h3>
                         <p className="text-sm text-dark-500">
-                          {isArabicBrowser() ? `${chapter.items?.length || 0} درس` : `${chapter.items?.length || 0} lessons`}
+                          {isArabicBrowser()
+                            ? `${chapter.lesson_count ?? chapter.items?.length ?? 0} درس`
+                            : `${chapter.lesson_count ?? chapter.items?.length ?? 0} lessons`}
                         </p>
                       </div>
                       <button

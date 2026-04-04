@@ -291,7 +291,27 @@ export const setMyAvatarChoice = async (avatarChoice) => {
 };
 
 // ——— Sections & structure (read) ———
-export const getSections = async () => request("/sections/");
+let _sectionsCache = { at: 0, data: null };
+const SECTIONS_CACHE_MS = 30_000;
+
+/** Cached tree for /courses; pass { force: true } after structural admin changes if needed */
+export const getSections = async (options = {}) => {
+  const force = options?.force === true;
+  if (!force) {
+    const now = Date.now();
+    if (_sectionsCache.data && now - _sectionsCache.at < SECTIONS_CACHE_MS) {
+      return _sectionsCache.data;
+    }
+  }
+  const raw = await request("/sections/");
+  const data = Array.isArray(raw) ? raw : raw?.results || [];
+  _sectionsCache = { at: Date.now(), data };
+  return data;
+};
+
+export const invalidateSectionsCache = () => {
+  _sectionsCache = { at: 0, data: null };
+};
 
 export const getSubjects = async () => {
   const list = await request("/subjects/");
@@ -329,7 +349,10 @@ export const getChaptersByCategory = async (categoryId) => {
   return arr.map((ch) => ({
     ...ch,
     has_test: ch.has_test,
-    hasTest: ch.items?.some?.((i) => i.has_test),
+    hasTest:
+      Array.isArray(ch.items) && ch.items.length > 0
+        ? ch.items.some((i) => i.has_test)
+        : true,
   }));
 };
 
@@ -352,6 +375,7 @@ export const addChapter = async (categoryId, name) => {
     method: "POST",
     body: JSON.stringify({ category: categoryId, name, order: 0 }),
   });
+  invalidateSectionsCache();
   return data;
 };
 
@@ -363,6 +387,7 @@ export const updateChapter = async (chapterId, { name, order }) => {
     method: "PATCH",
     body: JSON.stringify(body),
   });
+  invalidateSectionsCache();
   return data;
 };
 
@@ -370,6 +395,7 @@ export const deleteChapter = async (chapterId) => {
   await request(`/chapters/${encodeURIComponent(chapterId)}/`, {
     method: "DELETE",
   });
+  invalidateSectionsCache();
 };
 
 // ——— Lessons ———
@@ -383,6 +409,7 @@ export const addLesson = async (chapterId, name, hasTest = true) => {
       order: 0,
     }),
   });
+  invalidateSectionsCache();
   return data;
 };
 
@@ -395,6 +422,7 @@ export const updateLesson = async (lessonId, { name, has_test, order }) => {
     method: "PATCH",
     body: JSON.stringify(body),
   });
+  invalidateSectionsCache();
   return { ...data, hasTest: !!data.has_test, id: data.id, name: data.name };
 };
 
@@ -402,6 +430,7 @@ export const deleteLesson = async (lessonId) => {
   await request(`/lessons/${encodeURIComponent(lessonId)}/`, {
     method: "DELETE",
   });
+  invalidateSectionsCache();
 };
 
 // ——— Helpers for getCategoryById, getChapterById, getItemById (from lists or direct) ———

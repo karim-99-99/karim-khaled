@@ -185,6 +185,21 @@ class LessonSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
 
+class ChapterShallowSerializer(serializers.ModelSerializer):
+    """Chapter without lesson rows — fast lists. Use lesson_count for badges."""
+    lesson_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Chapter
+        fields = ['id', 'category', 'name', 'name_en', 'order', 'lesson_count']
+        read_only_fields = ['id']
+
+    def get_lesson_count(self, obj):
+        if hasattr(obj, 'lesson_count'):
+            return obj.lesson_count
+        return obj.items.count()
+
+
 class ChapterSerializer(serializers.ModelSerializer):
     """Chapter serializer with lessons"""
     items = LessonSerializer(many=True, read_only=True)
@@ -217,6 +232,51 @@ class SectionSerializer(serializers.ModelSerializer):
     """Section serializer with subjects"""
     subjects = SubjectSerializer(many=True, read_only=True)
     
+    class Meta:
+        model = Section
+        fields = ['id', 'name', 'name_en', 'subjects']
+
+
+# --- Read-optimized serializers (no nested lessons in JSON) ---
+
+class CategoryReadListSerializer(serializers.ModelSerializer):
+    """Category without chapters (list / dropdowns)."""
+    class Meta:
+        model = Category
+        fields = ['id', 'subject', 'name', 'name_en', 'has_tests']
+
+
+class CategoryReadDetailSerializer(serializers.ModelSerializer):
+    """Category with chapter rows but no lesson payloads (Chapters page, trees)."""
+    chapters = ChapterShallowSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Category
+        fields = ['id', 'subject', 'name', 'name_en', 'has_tests', 'chapters']
+
+
+class SubjectReadSerializer(serializers.ModelSerializer):
+    """Subject with category cards only (Categories page)."""
+    categories = CategoryReadListSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Subject
+        fields = ['id', 'section', 'name', 'name_en', 'categories']
+
+
+class SubjectAdminListSerializer(serializers.ModelSerializer):
+    """Subject list: categories + shallow chapters (admin + /courses home)."""
+    categories = CategoryReadDetailSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Subject
+        fields = ['id', 'section', 'name', 'name_en', 'categories']
+
+
+class SectionListSerializer(serializers.ModelSerializer):
+    """Section tree for public list/retrieve without embedding every lesson."""
+    subjects = SubjectAdminListSerializer(many=True, read_only=True)
+
     class Meta:
         model = Section
         fields = ['id', 'name', 'name_en', 'subjects']
