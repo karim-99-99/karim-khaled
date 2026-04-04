@@ -71,9 +71,10 @@ export function isBunnyVideoId(value) {
  */
 export function needsBunnySignedUrl(value) {
   if (!value || typeof value !== 'string') return false;
+  const v = value.trim();
   return (
-    isBunnyVideoId(value) ||
-    value.includes('iframe.mediadelivery.net')
+    isBunnyVideoId(v) ||
+    v.includes('iframe.mediadelivery.net')
   );
 }
 
@@ -120,6 +121,16 @@ export function formatBunnyLoadError(err) {
   ) {
     return 'لم يُضبط Bunny على الخادم: عيّن BUNNY_LIBRARY_ID و BUNNY_SECURITY_KEY في Render (مفتاح Token Authentication من Stream → Security، وليس مفتاح API). في Bunny → Security أضف النطاق في Allowed Domains: www.qodrateman.com و qodrateman.com و karim-khaled.vercel.app و localhost.';
   }
+  if (
+    m.includes('registered device') ||
+    m.includes('Access allowed only from your registered device')
+  ) {
+    return 'تشغيل الفيديو مقيّد بجهاز التسجيل. سجّل الدخول من نفس الشبكة التي سجّلت منها أول مرة، أو اطلب من المدير تفعيل «السماح بعدة أجهزة» لحسابك.';
+  }
+  if (m.includes('Account access is not valid')) {
+    return 'انتهت صلاحية اشتراكك أو فترة الحساب. تواصل مع المدير.';
+  }
   if (m.includes('CORS') || m.includes('الاتصال بالخادم')) return m;
+  if (m.includes('انتهت الجلسة')) return m;
   return m || 'تعذّر تحميل الفيديو. حاول مجدداً.';
 }

@@ -83,8 +83,16 @@ const VideoModal = ({
         } finally {
           setLoading(false);
         }
-      } else if (isApiBaseConfigured() && needsBunnySignedUrl(videoUrl)) {
-        await fetchBunnyUrl(videoUrl);
+      } else if (needsBunnySignedUrl(videoUrl)) {
+        if (!isApiBaseConfigured()) {
+          setBunnyError(
+            "فيديو Bunny يحتاج VITE_API_URL في Vercel ثم إعادة نشر الموقع."
+          );
+          setActualVideoUrl(null);
+          setLoading(false);
+        } else {
+          await fetchBunnyUrl(videoUrl);
+        }
       } else {
         setActualVideoUrl(videoUrl);
       }

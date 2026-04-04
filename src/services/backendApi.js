@@ -844,11 +844,14 @@ const videoLessonId = (v) =>
 
 const mapVideoFromBackend = (v) => {
   const lid = videoLessonId(v);
+  const raw =
+    v.video_url || v.video_file_url || v.video_file || "";
+  const url = typeof raw === "string" ? raw.trim() : raw;
   return {
     id: v.id,
     title: v.title,
     titleEn: v.description,
-    url: v.video_url || v.video_file_url || v.video_file,
+    url,
     levelId: lid,
     itemId: lid,
     isFileUpload: !!v.video_file,

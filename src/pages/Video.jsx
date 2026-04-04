@@ -88,40 +88,47 @@ const Video = () => {
           setVideo(itemVideo);
           setActualVideoUrl(itemVideo.url);
         }
-      } else if (isApiBaseConfigured() && needsBunnySignedUrl(itemVideo.url)) {
-        // Bunny: signed URL من Django (لا يعتمد على isBackendOn فقط — لازم API + توكن)
+      } else if (needsBunnySignedUrl(itemVideo.url)) {
+        // Bunny: يحتاج توقيعاً من الخادم — لا تمرّر UUID كـ <video src>
         setVideo(itemVideo);
         setBunnyError(null);
         setBunnyNotConfigured(false);
 
-        // Quick health check: are BUNNY_LIBRARY_ID + BUNNY_SECURITY_KEY set on the backend?
-        const health = await getBunnyHealth();
-        if (health && !health.embed_ready) {
-          if (!c) {
-            setBunnyNotConfigured(true);
-            setLoading(false);
-          }
-          return;
-        }
-
-        const bunnyId = extractBunnyVideoId(itemVideo.url);
-        if (!bunnyId) {
-          if (!c) setBunnyError("معرّف الفيديو (Bunny) غير صالح.");
-        } else if (!getStoredAuthToken()) {
+        if (!isApiBaseConfigured()) {
           if (!c) {
             setBunnyError(
-              "يرجى تسجيل الدخول لتشغيل فيديوهات Bunny (الرابط الموقّع يصدر من الخادم فقط)."
+              "فيديو Bunny يحتاج ربط الموقع بالخادم: أضف VITE_API_URL في Vercel (رابط Render بدون /api) ثم أعد نشر الموقع."
             );
           }
         } else {
-          setBunnyLoading(true);
-          try {
-            const signedUrl = await getBunnySignedUrl(bunnyId);
-            if (!c) setActualVideoUrl(signedUrl);
-          } catch (err) {
-            if (!c) setBunnyError(formatBunnyLoadError(err));
-          } finally {
-            if (!c) setBunnyLoading(false);
+          const health = await getBunnyHealth();
+          if (health && !health.embed_ready) {
+            if (!c) {
+              setBunnyNotConfigured(true);
+              setLoading(false);
+            }
+            return;
+          }
+
+          const bunnyId = extractBunnyVideoId(itemVideo.url);
+          if (!bunnyId) {
+            if (!c) setBunnyError("معرّف الفيديو (Bunny) غير صالح.");
+          } else if (!getStoredAuthToken()) {
+            if (!c) {
+              setBunnyError(
+                "يرجى تسجيل الدخول لتشغيل فيديوهات Bunny (الرابط الموقّع يصدر من الخادم فقط)."
+              );
+            }
+          } else {
+            setBunnyLoading(true);
+            try {
+              const signedUrl = await getBunnySignedUrl(bunnyId);
+              if (!c) setActualVideoUrl(signedUrl);
+            } catch (err) {
+              if (!c) setBunnyError(formatBunnyLoadError(err));
+            } finally {
+              if (!c) setBunnyLoading(false);
+            }
           }
         }
       } else {
