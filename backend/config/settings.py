@@ -180,10 +180,12 @@ else:
         "http://127.0.0.1:3000",
     ]
 
-# Allow all Vercel preview/prod domains + custom production domain.
+# Allow all Vercel preview/prod domains + custom production domains
+# (support both qodrateman.com and qodrateeman.com spellings used in DNS)
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://.*\.vercel\.app$",          # all Vercel preview & prod URLs
-    r"^https://(www\.)?qodrateman\.com$",  # custom production domain
+    r"^https://.*\.vercel\.app$",
+    r"^https://(www\.)?qodrateman\.com$",
+    r"^https://(www\.)?qodrateeman\.com$",
 ]
 
 
@@ -209,6 +211,8 @@ CSRF_TRUSTED_ORIGINS = list(set(
         "https://karim-khaled.vercel.app",
         "https://qodrateman.com",
         "https://www.qodrateman.com",
+        "https://qodrateeman.com",
+        "https://www.qodrateeman.com",
     ]
 ))
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in CSRF_TRUSTED_ORIGINS if o.strip()]

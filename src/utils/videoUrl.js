@@ -118,7 +118,7 @@ export function formatBunnyLoadError(err) {
     m.includes('Bunny Stream is not configured') ||
     m.includes('not configured on this server')
   ) {
-    return 'لم يُضبط Bunny على الخادم: عيّن BUNNY_LIBRARY_ID و BUNNY_SECURITY_KEY (مفتاح Token من Security وليس مفتاح API) ثم أعد نشر Render. في Bunny → Security أضف Allowed Domains: نطاق Vercel (مثل karim-khaled.vercel.app) و localhost للتجربة المحلية.';
+    return 'لم يُضبط Bunny على الخادم: عيّن BUNNY_LIBRARY_ID و BUNNY_SECURITY_KEY في Render (مفتاح Token Authentication من Stream → Security، وليس مفتاح API). في Bunny → Security أضف النطاق في Allowed Domains: www.qodrateman.com و qodrateman.com و karim-khaled.vercel.app و localhost.';
   }
   if (m.includes('CORS') || m.includes('الاتصال بالخادم')) return m;
   return m || 'تعذّر تحميل الفيديو. حاول مجدداً.';
