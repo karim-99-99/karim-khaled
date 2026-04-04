@@ -6,6 +6,7 @@ import {
   setCurrentUser,
 } from "./services/storageService.js";
 import * as backendApi from "./services/backendApi";
+import { scheduleIdlePrefetch } from "./utils/routePrefetch.js";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import AppErrorBoundary from "./components/AppErrorBoundary.jsx";
 import AvatarOnboarding from "./components/AvatarOnboarding.jsx";
@@ -15,9 +16,10 @@ import BottomNav from "./components/BottomNav.jsx";
 import SinglePage from "./pages/SinglePage.jsx";
 import Login from "./pages/Login.jsx";
 import Register from "./pages/Register.jsx";
+// /courses is the main learning hub — eager load avoids chunk wait on first open
+import Home from "./pages/Home.jsx";
 
-// Lazy load all other pages for better performance
-const Home = lazy(() => import("./pages/Home.jsx"));
+// Lazy load other pages (prefetched via routePrefetch + link hover)
 const Subjects = lazy(() => import("./pages/Subjects.jsx"));
 const Categories = lazy(() => import("./pages/Categories.jsx"));
 const Chapters = lazy(() => import("./pages/Chapters.jsx"));
@@ -51,30 +53,42 @@ const AdminQuizReview = lazy(() =>
   import("./pages/admin/AdminQuizReview.jsx")
 );
 
-// Loading component
+// Light Suspense fallback: thin bar + short text (chunks often already prefetched)
 const LoadingFallback = () => (
-  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-    <div className="text-center">
-      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary-500 mx-auto mb-4"></div>
-      <p className="text-dark-600 font-medium">جاري التحميل...</p>
+  <>
+    <div className="route-loading-bar-track" aria-hidden>
+      <div className="route-loading-bar-fill" />
     </div>
-  </div>
+    <div className="min-h-[40vh] flex items-start justify-center pt-24 px-4 bg-gray-50/90">
+      <p className="text-sm text-gray-500" aria-live="polite">
+        جاري التحميل…
+      </p>
+    </div>
+  </>
 );
 
 function App() {
   useEffect(() => {
     initializeDefaultData();
+    scheduleIdlePrefetch();
     // Wake backend early (Render cold start) so later navigations feel faster
     if (import.meta.env.VITE_API_URL) backendApi.pingHealth();
-    // Refresh current user from API when using backend (so admin permission updates apply without re-login)
+    // Defer getMe slightly so first paint / route chunks are not competing on the main thread
     const u = getCurrentUser();
     if (u?.token && import.meta.env.VITE_API_URL) {
-      backendApi
-        .getMe()
-        .then((me) => {
-          if (me) setCurrentUser({ ...me, token: u.token });
-        })
-        .catch(() => {});
+      const runGetMe = () => {
+        backendApi
+          .getMe()
+          .then((me) => {
+            if (me) setCurrentUser({ ...me, token: u.token });
+          })
+          .catch(() => {});
+      };
+      if (typeof requestIdleCallback !== "undefined") {
+        requestIdleCallback(() => runGetMe(), { timeout: 4000 });
+      } else {
+        setTimeout(runGetMe, 200);
+      }
     }
   }, []);
 

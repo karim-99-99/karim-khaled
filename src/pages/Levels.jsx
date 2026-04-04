@@ -33,6 +33,7 @@ import {
   getQuizAttempts,
   getLessonProgressList,
 } from "../services/backendApi";
+import { prefetchLessonMediaRoutes } from "../utils/routePrefetch";
 
 const Levels = () => {
   const { sectionId, subjectId, categoryId, chapterId } = useParams();
@@ -114,6 +115,10 @@ const Levels = () => {
       c = true;
     };
   }, [chapterId, useBackend]);
+
+  useEffect(() => {
+    if (chapterId) prefetchLessonMediaRoutes();
+  }, [chapterId]);
 
   const norm = (id) => (id == null ? "" : String(id));
   const getVideoForItem = (itemId) => {

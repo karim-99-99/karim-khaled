@@ -645,3 +645,32 @@ p, span, div, h1, h2, h3, h4, h5, h6, li {
     padding-right: max(0px, env(safe-area-inset-right));
   }
 }
+
+/* Lightweight route transition (Suspense) — avoids full-screen blocking feel */
+@keyframes route-loading-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+.route-loading-bar-track {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 200;
+  height: 2px;
+  overflow: hidden;
+  background: rgba(229, 231, 235, 0.95);
+  pointer-events: none;
+}
+
+.route-loading-bar-fill {
+  height: 100%;
+  width: 40%;
+  background-color: #ec802b;
+  animation: route-loading-shimmer 0.9s ease-in-out infinite;
+}

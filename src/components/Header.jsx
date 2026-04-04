@@ -4,6 +4,7 @@ import { getCurrentUser, logout } from "../services/storageService";
 import headerimage from "../assets/kareem.jpg";
 import logoimage from "../assets/karim.png";
 import { isArabicBrowser } from "../utils/language";
+import { prefetchOnIntentProps } from "../utils/routePrefetch";
 import ProfileAvatar from "./ProfileAvatar";
 
 const Header = () => {
@@ -69,6 +70,7 @@ const Header = () => {
             </Link>
             <Link
               to="/courses"
+              {...prefetchOnIntentProps}
               className={`px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
                 location.pathname === "/courses" ||
                 location.pathname === "/all-courses"
@@ -157,6 +159,7 @@ const Header = () => {
                     </Link>
                     <Link
                       to="/courses"
+                      {...prefetchOnIntentProps}
                       className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                       onClick={() => {
                         setIsUserMenuOpen(false);
@@ -348,6 +351,7 @@ const Header = () => {
                       </Link>
                       <Link
                         to="/courses"
+                        {...prefetchOnIntentProps}
                         className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                         onClick={() => {
                           setIsUserMenuOpen(false);
@@ -532,6 +536,7 @@ const Header = () => {
               </Link>
               <Link
                 to="/courses"
+                {...prefetchOnIntentProps}
                 className="text-dark-600 hover:text-primary-500 transition-colors font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >

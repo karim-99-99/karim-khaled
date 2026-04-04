@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { prefetchCoursesFlow } from "../utils/routePrefetch";
 
 const navItems = [
   {
@@ -113,10 +114,19 @@ export default function BottomNav() {
                 </a>
               );
             }
+            const prefetchProps =
+              item.to === "/courses"
+                ? {
+                    onMouseEnter: prefetchCoursesFlow,
+                    onTouchStart: prefetchCoursesFlow,
+                    onFocus: prefetchCoursesFlow,
+                  }
+                : {};
             return (
               <Link
                 key={item.to}
                 to={item.to}
+                {...prefetchProps}
                 className={className}
               >
                 <span className="flex-shrink-0">{item.icon}</span>
