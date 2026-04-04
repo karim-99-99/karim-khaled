@@ -159,19 +159,17 @@ REST_FRAMEWORK = {
 }
 
 # CORS settings (allow frontend to access API)
+def _clean_origin(raw: str) -> str:
+    """Normalise a single CORS origin: strip whitespace/trailing-slash/query-string,
+    and prepend https:// if no scheme is present (so bare hostnames don't break Django)."""
+    o = raw.strip().split('?')[0].rstrip('/')
+    if o and not o.startswith(('http://', 'https://')):
+        o = 'https://' + o
+    return o
+
 cors_origins_env = os.environ.get('CORS_ALLOWED_ORIGINS', '')
 if cors_origins_env:
-    # Split by comma and clean each origin (remove query strings, trailing slashes, etc.)
-    CORS_ALLOWED_ORIGINS = []
-    for origin in cors_origins_env.split(','):
-        origin = origin.strip()
-        if origin:
-            # Remove query strings (everything after ?)
-            origin = origin.split('?')[0]
-            # Remove trailing slash
-            origin = origin.rstrip('/')
-            if origin:
-                CORS_ALLOWED_ORIGINS.append(origin)
+    CORS_ALLOWED_ORIGINS = [_clean_origin(o) for o in cors_origins_env.split(',') if o.strip()]
 else:
     CORS_ALLOWED_ORIGINS = [
         "http://localhost:5173",  # Vite dev server
@@ -188,12 +186,6 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://(www\.)?qodrateman\.com$",  # custom production domain
 ]
 
-# Extra origins from env (comma-separated) — add here for any new custom domains.
-_extra_cors = os.environ.get('CORS_EXTRA_ORIGINS', '')
-for _o in _extra_cors.split(','):
-    _o = _o.strip().rstrip('/')
-    if _o and _o not in CORS_ALLOWED_ORIGIN_REGEXES:
-        CORS_ALLOWED_ORIGINS.append(_o) if 'CORS_ALLOWED_ORIGINS' in dir() else None
 
 # Allow all origins in development if DEBUG is True
 if DEBUG:
