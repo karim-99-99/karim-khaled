@@ -1116,6 +1116,77 @@ class TrackerStudentSummaryView(APIView):
         return Response(result)
 
 
+class TrackerStudentResultsView(APIView):
+    """Light counts for student «نتائج» modal: only lessons the student started or finished (any activity)."""
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get(self, request):
+        user = request.user
+        if getattr(user, 'role', None) != 'student':
+            return Response({'detail': 'للطلاب فقط'}, status=status.HTTP_403_FORBIDDEN)
+
+        engaged = set()
+        engaged.update(
+            LessonProgress.objects.filter(user=user).values_list('lesson_id', flat=True)
+        )
+        engaged.update(
+            QuizAttempt.objects.filter(user=user).values_list('lesson_id', flat=True)
+        )
+        engaged.update(
+            VideoWatch.objects.filter(user=user).values_list('lesson_id', flat=True)
+        )
+        engaged.update(
+            StudentProgress.objects.filter(
+                user=user, answered_at__isnull=False
+            ).exclude(lesson_id__isnull=True).values_list('lesson_id', flat=True)
+        )
+        engaged.discard(None)
+
+        valid_ids = set(
+            Lesson.objects.filter(id__in=engaged).exclude(
+                chapter__category__subject__section_id__in=DISABLED_SECTION_IDS
+            ).values_list('id', flat=True)
+        )
+
+        # واجبات = دروس تفاعل مع واجبها (تقدم/محاولة/إجابة) وفيها أسئلة
+        quiz_touch = set(
+            LessonProgress.objects.filter(user=user).values_list('lesson_id', flat=True)
+        )
+        quiz_touch.update(
+            QuizAttempt.objects.filter(user=user).values_list('lesson_id', flat=True)
+        )
+        quiz_touch.update(
+            StudentProgress.objects.filter(
+                user=user, answered_at__isnull=False
+            ).exclude(lesson_id__isnull=True).values_list('lesson_id', flat=True)
+        )
+        quiz_touch.discard(None)
+        quiz_touch &= valid_ids
+
+        with_questions = set(
+            Lesson.objects.filter(id__in=quiz_touch)
+            .annotate(_nq=Count('questions'))
+            .filter(_nq__gt=0)
+            .values_list('id', flat=True)
+        )
+        assignments_engaged_count = len(with_questions)
+
+        sp = StudentProgress.objects.filter(
+            user=user,
+            answered_at__isnull=False,
+            lesson_id__in=valid_ids,
+        )
+        correct_answers = sp.filter(is_correct=True).count()
+        incorrect_answers = sp.filter(is_correct=False).count()
+
+        return Response({
+            'lessons_engaged_count': len(valid_ids),
+            'assignments_engaged_count': assignments_engaged_count,
+            'correct_answers': correct_answers,
+            'incorrect_answers': incorrect_answers,
+        })
+
+
 class TrackerAdminSummaryView(APIView):
     """Admin overview: per-student stats, averages, video watch counts, incorrect answers."""
     permission_classes = [IsAdminUser]

@@ -1,5 +1,8 @@
 import { Link, useLocation } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { getCurrentUser } from "../services/storageService";
 import { prefetchCoursesFlow } from "../utils/routePrefetch";
+import StudentResultsModal from "./StudentResultsModal";
 
 const navItems = [
   {
@@ -77,20 +80,76 @@ const navItems = [
   },
 ];
 
+const resultsNavItem = {
+  key: "student-results",
+  results: true,
+  label: "نتائج",
+  icon: (
+    <svg
+      className="w-6 h-6"
+      fill="none"
+      stroke="currentColor"
+      viewBox="0 0 24 24"
+      aria-hidden
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+      />
+    </svg>
+  ),
+};
+
 export default function BottomNav() {
   const location = useLocation();
   const path = location.pathname || "/";
+  const [showResults, setShowResults] = useState(false);
+  const isStudent = getCurrentUser()?.role === "student";
+
+  const items = useMemo(() => {
+    const list = navItems.filter((item) => !item.hidden);
+    if (!isStudent) return list;
+    const contactIdx = list.findIndex((x) => x.href);
+    if (contactIdx === -1) return list;
+    const next = [...list];
+    next.splice(contactIdx, 0, resultsNavItem);
+    return next;
+  }, [isStudent]);
 
   return (
-    <nav
-      className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-dark-800 border-t border-dark-600 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]"
-      role="navigation"
-      aria-label="التنقل الرئيسي"
-    >
-      <div className="flex items-stretch justify-around h-16 max-w-lg mx-auto px-2">
-        {navItems
-          .filter((item) => !item.hidden)
-          .map((item) => {
+    <>
+      <nav
+        className="xl:hidden fixed bottom-0 left-0 right-0 z-40 bg-dark-800 border-t border-dark-600 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]"
+        role="navigation"
+        aria-label="التنقل الرئيسي"
+      >
+        <div className="flex items-stretch justify-around h-16 max-w-lg mx-auto px-1">
+          {items.map((item) => {
+            if (item.results) {
+              const active = showResults;
+              const className = `flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 py-2 rounded-xl transition-colors ${
+                active
+                  ? "text-amber-300 border border-amber-500/80 bg-gradient-to-b from-amber-500/25 to-violet-600/20"
+                  : "text-dark-200 hover:text-amber-200 hover:bg-dark-700"
+              }`;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={className}
+                  aria-label={item.label}
+                  aria-expanded={showResults}
+                  onClick={() => setShowResults(true)}
+                >
+                  <span className="flex-shrink-0">{item.icon}</span>
+                  <span className="text-[10px] sm:text-xs font-semibold truncate max-w-full px-0.5">
+                    {item.label}
+                  </span>
+                </button>
+              );
+            }
             const isActive = item.match ? item.match(path) : false;
             const className = `flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 py-2 rounded-xl transition-colors ${
               isActive
@@ -108,7 +167,7 @@ export default function BottomNav() {
                   aria-label={item.label}
                 >
                   <span className="flex-shrink-0">{item.icon}</span>
-                  <span className="text-xs font-medium truncate max-w-full px-1">
+                  <span className="text-[10px] sm:text-xs font-medium truncate max-w-full px-0.5">
                     {item.label}
                   </span>
                 </a>
@@ -130,13 +189,20 @@ export default function BottomNav() {
                 className={className}
               >
                 <span className="flex-shrink-0">{item.icon}</span>
-                <span className="text-xs font-medium truncate max-w-full px-1">
+                <span className="text-[10px] sm:text-xs font-medium truncate max-w-full px-0.5">
                   {item.label}
                 </span>
               </Link>
             );
           })}
-      </div>
-    </nav>
+        </div>
+      </nav>
+      {isStudent && (
+        <StudentResultsModal
+          open={showResults}
+          onClose={() => setShowResults(false)}
+        />
+      )}
+    </>
   );
 }

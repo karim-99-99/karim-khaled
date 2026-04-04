@@ -6,6 +6,7 @@ import logoimage from "../assets/karim.png";
 import { isArabicBrowser } from "../utils/language";
 import { prefetchOnIntentProps } from "../utils/routePrefetch";
 import ProfileAvatar from "./ProfileAvatar";
+import StudentResultsModal from "./StudentResultsModal";
 
 const Header = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ const Header = () => {
   const [currentUser, setCurrentUserState] = useState(() => getCurrentUser());
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [showStudentResults, setShowStudentResults] = useState(false);
 
   useEffect(() => {
     // Logo loaded
@@ -200,6 +202,17 @@ const Header = () => {
                         >
                           الأجوبة الخاطئة
                         </Link>
+                        <button
+                          type="button"
+                          className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gradient-to-l hover:from-amber-50 hover:to-teal-50 transition-colors font-medium"
+                          onClick={() => {
+                            setShowStudentResults(true);
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          نتائجي ✨
+                        </button>
                       </>
                     )}
                     <Link
@@ -412,6 +425,17 @@ const Header = () => {
                           >
                             الأجوبة الخاطئة
                           </Link>
+                          <button
+                            type="button"
+                            className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gradient-to-l hover:from-amber-50 hover:to-teal-50 transition-colors font-medium"
+                            onClick={() => {
+                              setShowStudentResults(true);
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            نتائجي ✨
+                          </button>
                         </>
                       )}
                       {currentUser.role === "admin" && (
@@ -586,6 +610,12 @@ const Header = () => {
           </div>
         )}
       </div>
+      {currentUser?.role === "student" && (
+        <StudentResultsModal
+          open={showStudentResults}
+          onClose={() => setShowStudentResults(false)}
+        />
+      )}
     </header>
   );
 };

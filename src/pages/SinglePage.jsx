@@ -7,6 +7,7 @@ import {
   getCurrentUser,
 } from "../services/storageService";
 import HeaderNoRouter from "../components/HeaderNoRouter";
+import StudentResultsModal from "../components/StudentResultsModal";
 import backgroundImage from "../assets/kareem.jpg";
 import boyImage from "../assets/boy.png";
 
@@ -18,6 +19,7 @@ const SinglePage = () => {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [currentUser, setCurrentUserState] = useState(getCurrentUser());
+  const [showStudentResults, setShowStudentResults] = useState(false);
 
   useEffect(() => {
     initializeDefaultData();
@@ -1014,6 +1016,19 @@ const SinglePage = () => {
 
               {/* Social Media Buttons */}
               <div className="flex justify-center items-center gap-4 md:gap-6 flex-wrap">
+                {currentUser?.role === "student" && (
+                  <button
+                    type="button"
+                    onClick={() => setShowStudentResults(true)}
+                    className="flex items-center gap-3 px-6 py-4 border-2 border-white rounded-2xl bg-white/15 hover:bg-white/25 transition-all duration-300 text-white font-semibold text-base md:text-lg shadow-lg shadow-teal-900/20 motion-safe:hover:scale-[1.03]"
+                    aria-label="عرض نتائجي"
+                  >
+                    <span className="text-2xl" aria-hidden>
+                      ✨
+                    </span>
+                    <span>نتائجي</span>
+                  </button>
+                )}
                 {/* WhatsApp Button - مربوط برقم +966502403757 */}
                 <a
                   href="https://wa.me/966502403757"
@@ -1066,6 +1081,13 @@ const SinglePage = () => {
           </div>
         </div>
       </section>
+
+      {currentUser?.role === "student" && (
+        <StudentResultsModal
+          open={showStudentResults}
+          onClose={() => setShowStudentResults(false)}
+        />
+      )}
     </div>
   );
 };

@@ -1096,6 +1096,11 @@ export const getStudentTrackerSummary = async () => {
   return request("/tracker/student-summary/");
 };
 
+/** طالب: أرقام خفيفة لنافذة «نتائج» (دروس بدأها، واجبات، صح/خطأ). */
+export const getStudentResultsStats = async () => {
+  return request("/tracker/student-results/");
+};
+
 export const getAdminTrackerSummary = async () => {
   return request("/tracker/admin-summary/");
 };
