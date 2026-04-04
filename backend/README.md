@@ -145,6 +145,18 @@ FLUSH_PLATFORM_CONFIRM=1 python manage.py flush_platform_content --yes --delete-
 
 Afterward the courses UI is empty until the admin creates sections/chapters/lessons again. Clear browser **localStorage** on devices that still show old cached data.
 
+### Keep only Qudrat + كمي/لفظي + تأسيس/تجميعات (empty shell)
+
+Removes all chapters, lessons, questions, media, and progress, but **keeps** one section (قدرات), two subjects (الكمي، اللفظي), and four categories (تأسيس + تجميعات for each subject)—with **no chapters inside**. Admin and student accounts are unchanged.
+
+```bash
+# Production
+FLUSH_PLATFORM_CONFIRM=1 python manage.py flush_keep_qudrat_structure --yes
+
+# Local (DEBUG=True)
+python manage.py flush_keep_qudrat_structure --yes
+```
+
 ## Admin Panel
 
 Access Django admin at: `http://localhost:8000/admin/`
