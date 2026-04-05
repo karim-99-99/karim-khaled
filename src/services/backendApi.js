@@ -260,6 +260,7 @@ export const updateUser = async (userId, updates) => {
     backendUpdates.account_active_from = updates.accountActiveFrom || null;
   if (updates.accountActiveUntil !== undefined)
     backendUpdates.account_active_until = updates.accountActiveUntil || null;
+  if (updates.role !== undefined) backendUpdates.role = updates.role;
 
   const data = await request(`/users/${encodeURIComponent(userId)}/`, {
     method: "PATCH",

@@ -9,6 +9,7 @@ import { getFileAttachment } from "../services/fileStorage";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
+import { isContentStaff } from "../utils/roles";
 import {
   isBackendOn,
   getFileByLevel as getFileByLevelApi,
@@ -28,7 +29,7 @@ const FileViewer = () => {
   const [item, setItem] = useState(null);
 
   const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isContentStaff(currentUser);
   const categoryName = (categoryId || "").includes("تأسيس")
     ? "التأسيس"
     : "التجميعات";

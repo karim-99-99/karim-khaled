@@ -23,7 +23,7 @@ class IsAuthenticatedDeviceAllowed(permissions.IsAuthenticated):
         user = request.user
         if not user or not user.is_authenticated:
             return False
-        if user.role == 'admin':
+        if user.role in ('admin', 'content_admin'):
             return True
         if user.role != 'student':
             return True

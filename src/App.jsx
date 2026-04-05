@@ -243,7 +243,7 @@ function App() {
                 <Route
                   path="/admin/dashboard"
                   element={
-                    <ProtectedRoute requiredRole="admin">
+                    <ProtectedRoute allowedRoles={["admin", "content_admin"]}>
                       <Dashboard />
                     </ProtectedRoute>
                   }
@@ -253,7 +253,7 @@ function App() {
                 <Route
                   path="/admin/courses"
                   element={
-                    <ProtectedRoute requiredRole="admin">
+                    <ProtectedRoute allowedRoles={["admin", "content_admin"]}>
                       <Home />
                     </ProtectedRoute>
                   }
@@ -261,7 +261,7 @@ function App() {
                 <Route
                   path="/admin/questions"
                   element={
-                    <ProtectedRoute requiredRole="admin">
+                    <ProtectedRoute allowedRoles={["admin", "content_admin"]}>
                       <Questions />
                     </ProtectedRoute>
                   }
@@ -270,7 +270,10 @@ function App() {
                 <Route
                   path="/admin/videos"
                   element={
-                    <ProtectedRoute requiredRole="admin" checkActive={false}>
+                    <ProtectedRoute
+                      allowedRoles={["admin", "content_admin"]}
+                      checkActive={false}
+                    >
                       <Videos />
                     </ProtectedRoute>
                   }
@@ -278,7 +281,10 @@ function App() {
                 <Route
                   path="/admin/chapters"
                   element={
-                    <ProtectedRoute requiredRole="admin" checkActive={false}>
+                    <ProtectedRoute
+                      allowedRoles={["admin", "content_admin"]}
+                      checkActive={false}
+                    >
                       <ChaptersManagement />
                     </ProtectedRoute>
                   }
@@ -286,7 +292,10 @@ function App() {
                 <Route
                   path="/admin/lessons"
                   element={
-                    <ProtectedRoute requiredRole="admin" checkActive={false}>
+                    <ProtectedRoute
+                      allowedRoles={["admin", "content_admin"]}
+                      checkActive={false}
+                    >
                       <LessonsManagement />
                     </ProtectedRoute>
                   }
@@ -302,7 +311,10 @@ function App() {
                 <Route
                   path="/admin/files"
                   element={
-                    <ProtectedRoute requiredRole="admin" checkActive={false}>
+                    <ProtectedRoute
+                      allowedRoles={["admin", "content_admin"]}
+                      checkActive={false}
+                    >
                       <FilesManagement />
                     </ProtectedRoute>
                   }

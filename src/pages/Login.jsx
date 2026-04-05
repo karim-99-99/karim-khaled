@@ -9,6 +9,7 @@ import {
 import Header from "../components/Header";
 import backgroundImage from "../assets/kareem.jpg";
 import { isArabicBrowser } from "../utils/language";
+import { isContentStaff } from "../utils/roles";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -33,8 +34,7 @@ const Login = () => {
         setCurrentUser({ ...mapped, token });
         const redirectPath = searchParams.get("redirect");
         if (redirectPath) navigate(redirectPath);
-        else
-          navigate(mapped.role === "admin" ? "/admin/dashboard" : "/courses");
+        else navigate(isContentStaff(mapped) ? "/admin/dashboard" : "/courses");
       } catch (err) {
         const msg = (err.message || "").toLowerCase();
         const isInactive =
@@ -85,7 +85,12 @@ const Login = () => {
     setCurrentUser(user);
     const redirectPath = searchParams.get("redirect");
     if (redirectPath) navigate(redirectPath);
-    else navigate(user.role === "admin" ? "/admin/dashboard" : "/courses");
+    else
+      navigate(
+        user.role === "admin" || user.role === "content_admin"
+          ? "/admin/dashboard"
+          : "/courses"
+      );
   };
 
   return (

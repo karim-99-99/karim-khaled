@@ -7,6 +7,7 @@ import { isArabicBrowser } from "../utils/language";
 import { prefetchOnIntentProps } from "../utils/routePrefetch";
 import ProfileAvatar from "./ProfileAvatar";
 import StudentResultsModal from "./StudentResultsModal";
+import { isContentStaff, isFullAdmin } from "../utils/roles";
 
 const Header = () => {
   const navigate = useNavigate();
@@ -235,7 +236,7 @@ const Header = () => {
                     >
                       تواصل معنا
                     </Link>
-                    {currentUser.role === "admin" && (
+                    {isContentStaff(currentUser) && (
                       <>
                         <div className="border-t border-gray-200" />
                         <Link
@@ -258,26 +259,30 @@ const Header = () => {
                         >
                           إدارة الواجب
                         </Link>
-                        <Link
-                          to="/admin/users"
-                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsMenuOpen(false);
-                          }}
-                        >
-                          إدارة المستخدمين
-                        </Link>
-                        <Link
-                          to="/admin/tracker"
-                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsMenuOpen(false);
-                          }}
-                        >
-                          تتبع الطلاب
-                        </Link>
+                        {isFullAdmin(currentUser) && (
+                          <>
+                            <Link
+                              to="/admin/users"
+                              className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsMenuOpen(false);
+                              }}
+                            >
+                              إدارة المستخدمين
+                            </Link>
+                            <Link
+                              to="/admin/tracker"
+                              className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsMenuOpen(false);
+                              }}
+                            >
+                              تتبع الطلاب
+                            </Link>
+                          </>
+                        )}
                       </>
                     )}
                     <div className="border-t border-gray-200" />
@@ -438,7 +443,7 @@ const Header = () => {
                           </button>
                         </>
                       )}
-                      {currentUser.role === "admin" && (
+                      {isContentStaff(currentUser) && (
                         <>
                           <div className="border-t border-gray-200" />
                           <Link
@@ -461,16 +466,30 @@ const Header = () => {
                           >
                             إدارة الواجب
                           </Link>
-                          <Link
-                            to="/admin/users"
-                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                            onClick={() => {
-                              setIsUserMenuOpen(false);
-                              setIsMenuOpen(false);
-                            }}
-                          >
-                            إدارة المستخدمين
-                          </Link>
+                          {isFullAdmin(currentUser) && (
+                            <Link
+                              to="/admin/users"
+                              className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsMenuOpen(false);
+                              }}
+                            >
+                              إدارة المستخدمين
+                            </Link>
+                          )}
+                          {isFullAdmin(currentUser) && (
+                            <Link
+                              to="/admin/tracker"
+                              className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsMenuOpen(false);
+                              }}
+                            >
+                              تتبع الطلاب
+                            </Link>
+                          )}
                         </>
                       )}
                       <div className="border-t border-gray-200" />
@@ -495,10 +514,14 @@ const Header = () => {
                 </div>
 
                 {/* Admin Icon - only for admin, visible indicator */}
-                {currentUser.role === "admin" && (
+                {isContentStaff(currentUser) && (
                   <div
                     className="flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 bg-primary-500 rounded-full flex-shrink-0"
-                    title="مدير النظام"
+                    title={
+                      isFullAdmin(currentUser)
+                        ? "مدير النظام"
+                        : "مساعد محتوى"
+                    }
                   >
                     <svg
                       className="w-4 h-4 sm:w-6 sm:h-6 text-white"

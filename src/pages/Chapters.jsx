@@ -9,6 +9,7 @@ import {
 } from "../services/storageService";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
+import { isContentStaff } from "../utils/roles";
 import {
   isBackendOn,
   getCategoryById as getCategoryByIdApi,
@@ -24,7 +25,7 @@ const Chapters = () => {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isContentStaff(currentUser);
   const [editingChapter, setEditingChapter] = useState(null);
   const [editName, setEditName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);

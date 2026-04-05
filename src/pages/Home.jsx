@@ -21,6 +21,7 @@ import {
   getSections as getSectionsApi,
   updateChapter,
 } from "../services/backendApi";
+import { isContentStaff } from "../utils/roles";
 
 const COURSES_SS_SUBJECT = "courses:lastSubjectId";
 const COURSES_SS_CATEGORY = "courses:lastCategoryId";
@@ -143,7 +144,7 @@ const Home = () => {
     hasTests: c.has_tests ?? c.hasTests,
   }));
 
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isContentStaff(currentUser);
   const isStudent = currentUser?.role === "student";
   const selectedCategory =
     categories.find((c) => c?.id === selectedCategoryId) || null;

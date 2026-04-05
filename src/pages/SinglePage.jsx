@@ -10,6 +10,7 @@ import HeaderNoRouter from "../components/HeaderNoRouter";
 import StudentResultsModal from "../components/StudentResultsModal";
 import backgroundImage from "../assets/kareem.jpg";
 import boyImage from "../assets/boy.png";
+import { isContentStaff } from "../utils/roles";
 
 const SinglePage = () => {
   const navigate = useNavigate();
@@ -113,7 +114,7 @@ const SinglePage = () => {
     setLoginError("");
 
     // Navigate based on role
-    if (user.role === "admin") {
+    if (isContentStaff(user)) {
       navigate("/admin/dashboard");
     } else {
       navigate("/courses");

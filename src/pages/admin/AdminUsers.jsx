@@ -10,6 +10,7 @@ import * as backendApi from "../../services/backendApi";
 import Header from "../../components/Header";
 import { isArabicBrowser } from "../../utils/language";
 import AdminGroupsSection from "../../components/admin/AdminGroupsSection";
+import { isFullAdmin } from "../../utils/roles";
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -32,7 +33,7 @@ const AdminUsers = () => {
   const useBackend = backendApi.isBackendOn();
 
   useEffect(() => {
-    if (!currentUser || currentUser.role !== "admin") {
+    if (!currentUser || !isFullAdmin(currentUser)) {
       navigate("/");
       return;
     }
@@ -48,13 +49,16 @@ const AdminUsers = () => {
     try {
       if (useBackend) {
         const allUsers = await backendApi.getUsers();
-        // Filter out admin users, show only students
-        const studentUsers = allUsers.filter((u) => u.role === "student");
-        setUsers(studentUsers);
+        const managed = allUsers.filter(
+          (u) => u.role === "student" || u.role === "content_admin"
+        );
+        setUsers(managed);
       } else {
         const allUsers = getUsersLocal();
-        const studentUsers = allUsers.filter((u) => u.role === "student");
-        setUsers(studentUsers);
+        const managed = allUsers.filter(
+          (u) => u.role === "student" || u.role === "content_admin"
+        );
+        setUsers(managed);
       }
     } catch (error) {
       console.error("Error loading users:", error);
@@ -129,7 +133,45 @@ const AdminUsers = () => {
     }
   };
 
+  const handleSetContentRole = async (userId, role) => {
+    const label =
+      role === "content_admin"
+        ? "مساعد محتوى (رفع فيديوهات وأسئلة، دون إدارة المستخدمين)"
+        : "طالب";
+    if (
+      !window.confirm(
+        isArabicBrowser()
+          ? `تغيير دور هذا الحساب إلى: ${label}؟`
+          : `Change this account role to: ${label}?`
+      )
+    ) {
+      return;
+    }
+    try {
+      if (useBackend) {
+        await backendApi.updateUser(userId, {
+          role,
+          isActive: true,
+        });
+      } else {
+        updateUserLocal(userId, { role, isActive: true });
+      }
+      await loadUsers();
+    } catch (error) {
+      console.error(error);
+      alert(error.message || "حدث خطأ");
+    }
+  };
+
   const handleOpenPermissions = (user) => {
+    if (user.role !== "student") {
+      alert(
+        isArabicBrowser()
+          ? "صلاحيات الدور الطالب تُعدّل هنا فقط. مساعد المحتوى لا يستخدم هذه الصلاحيات."
+          : "Student permissions apply to students only."
+      );
+      return;
+    }
     setSelectedUser(user);
     const p = user.permissions || {};
     setPermissions({
@@ -324,6 +366,9 @@ const AdminUsers = () => {
                         {isArabicBrowser() ? "الصلاحيات" : "Permissions"}
                       </th>
                       <th className="px-4 py-3 text-center font-semibold">
+                        {isArabicBrowser() ? "الدور" : "Role"}
+                      </th>
+                      <th className="px-4 py-3 text-center font-semibold">
                         {isArabicBrowser() ? "تاريخ التسجيل" : "Registered"}
                       </th>
                       <th className="px-4 py-3 text-center font-semibold">
@@ -335,7 +380,7 @@ const AdminUsers = () => {
                     {filteredUsers.length === 0 ? (
                       <tr>
                         <td
-                          colSpan="8"
+                          colSpan="9"
                           className="px-4 py-8 text-center text-dark-600"
                         >
                           {isArabicBrowser()
@@ -388,14 +433,35 @@ const AdminUsers = () => {
                                   {isArabicBrowser() ? "قدرات" : "Abilities"}
                                 </span>
                               )}
-                              {!user.permissions?.hasAbilitiesAccess && (
+                              {!user.permissions?.hasAbilitiesAccess &&
+                                user.role === "student" && (
                                 <span className="text-xs text-gray-500">
                                   {isArabicBrowser()
                                     ? "لا توجد صلاحيات"
                                     : "No permissions"}
                                 </span>
                               )}
+                              {user.role === "content_admin" && (
+                                <span className="text-xs text-violet-600 font-medium">
+                                  {isArabicBrowser()
+                                    ? "— (مساعد محتوى)"
+                                    : "— (content staff)"}
+                                </span>
+                              )}
                             </div>
+                          </td>
+                          <td className="px-4 py-3 text-center text-sm">
+                            {user.role === "content_admin" ? (
+                              <span className="inline-block px-2 py-1 rounded-full bg-violet-100 text-violet-800 text-xs font-semibold">
+                                {isArabicBrowser()
+                                  ? "مساعد محتوى"
+                                  : "Content helper"}
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2 py-1 rounded-full bg-gray-100 text-gray-700 text-xs">
+                                {isArabicBrowser() ? "طالب" : "Student"}
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-center text-sm text-dark-600">
                             {user.createdAt
@@ -413,15 +479,52 @@ const AdminUsers = () => {
                             <div className="flex items-center justify-center gap-2 flex-wrap">
                               <button
                                 onClick={() => handleOpenPermissions(user)}
-                                className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-200 transition"
+                                disabled={user.role !== "student"}
+                                className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg text-sm font-medium hover:bg-blue-200 transition disabled:opacity-40 disabled:cursor-not-allowed"
                                 title={
                                   isArabicBrowser()
-                                    ? "إدارة الصلاحيات"
-                                    : "Manage Permissions"
+                                    ? "إدارة الصلاحيات (للطالب فقط)"
+                                    : "Manage Permissions (students only)"
                                 }
                               >
                                 {isArabicBrowser() ? "صلاحيات" : "Permissions"}
                               </button>
+                              {user.role === "student" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleSetContentRole(user.id, "content_admin")
+                                  }
+                                  className="px-3 py-1 bg-violet-100 text-violet-900 rounded-lg text-sm font-medium hover:bg-violet-200 transition"
+                                  title={
+                                    isArabicBrowser()
+                                      ? "تفعيل كمساعد محتوى"
+                                      : "Promote to content helper"
+                                  }
+                                >
+                                  {isArabicBrowser()
+                                    ? "مساعد محتوى"
+                                    : "Make helper"}
+                                </button>
+                              )}
+                              {user.role === "content_admin" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleSetContentRole(user.id, "student")
+                                  }
+                                  className="px-3 py-1 bg-gray-100 text-gray-800 rounded-lg text-sm font-medium hover:bg-gray-200 transition"
+                                  title={
+                                    isArabicBrowser()
+                                      ? "إرجاعه طالباً"
+                                      : "Demote to student"
+                                  }
+                                >
+                                  {isArabicBrowser()
+                                    ? "إرجاع طالب"
+                                    : "Make student"}
+                                </button>
+                              )}
                               <button
                                 onClick={() => handleToggleActive(user.id)}
                                 className={`px-3 py-1 rounded-lg text-sm font-medium transition ${
@@ -472,7 +575,9 @@ const AdminUsers = () => {
 
           {/* Groups (backend only) */}
           {useBackend && (
-            <AdminGroupsSection students={users} />
+            <AdminGroupsSection
+              students={users.filter((u) => u.role === "student")}
+            />
           )}
 
           {/* Stats */}

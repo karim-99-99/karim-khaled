@@ -8,10 +8,11 @@ class User(AbstractUser):
     
     ROLE_CHOICES = [
         ('admin', 'Admin'),
+        ('content_admin', 'Content admin'),
         ('student', 'Student'),
     ]
     
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     phone = models.CharField(max_length=20, blank=True, null=True)
     is_active_account = models.BooleanField(default=False)  # Admin controls this
     # Optional: limit student access to a date range (admin sets from/until)
@@ -46,6 +47,11 @@ class User(AbstractUser):
     @property
     def is_admin(self):
         return self.role == 'admin'
+
+    @property
+    def is_content_staff(self):
+        """مدير كامل أو مساعد محتوى (رفع وإدارة المواد دون المستخدمين)."""
+        return self.role in ('admin', 'content_admin')
     
     @property
     def is_student(self):

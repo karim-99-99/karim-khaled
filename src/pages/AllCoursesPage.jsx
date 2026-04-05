@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getSections, getCurrentUser } from '../services/storageService';
 import Header from '../components/Header';
+import { isContentStaff } from '../utils/roles';
 
 const AllCoursesPage = () => {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ const AllCoursesPage = () => {
   const handleSectionClick = (sectionId) => {
     if (currentUser && currentUser.role === 'student') {
       navigate(`/section/${sectionId}/subjects`);
-    } else if (currentUser && currentUser.role === 'admin') {
+    } else if (currentUser && isContentStaff(currentUser)) {
       navigate(`/section/${sectionId}/subjects`);
     } else {
       navigate('/login');

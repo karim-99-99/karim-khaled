@@ -1,9 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/Header";
 import { isArabicBrowser } from "../../utils/language";
+import { getCurrentUser } from "../../services/storageService";
+import { isFullAdmin } from "../../utils/roles";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const showFullAdminTiles = isFullAdmin(getCurrentUser());
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -17,15 +20,17 @@ const Dashboard = () => {
 
         {/* Admin Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
-          <button
-            onClick={() => navigate("/admin/users")}
-            className="bg-amber-500 hover:bg-amber-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
-          >
-            <span className="text-2xl">👥</span>
-            <span>
-              {isArabicBrowser() ? "إدارة المستخدمين" : "User Management"}
-            </span>
-          </button>
+          {showFullAdminTiles && (
+            <button
+              onClick={() => navigate("/admin/users")}
+              className="bg-amber-500 hover:bg-amber-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
+            >
+              <span className="text-2xl">👥</span>
+              <span>
+                {isArabicBrowser() ? "إدارة المستخدمين" : "User Management"}
+              </span>
+            </button>
+          )}
 
           <button
             onClick={() => navigate("/admin/questions")}
@@ -55,17 +60,19 @@ const Dashboard = () => {
             <span>{isArabicBrowser() ? "إدارة الدروس" : "Manage Lessons"}</span>
           </button>
 
-          <button
-            onClick={() => navigate("/admin/classrooms")}
-            className="bg-purple-500 hover:bg-purple-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
-          >
-            <span className="text-2xl">🏫</span>
-            <span>
-              {isArabicBrowser()
-                ? "إدارة الفصول الدراسية"
-                : "Manage Classrooms"}
-            </span>
-          </button>
+          {showFullAdminTiles && (
+            <button
+              onClick={() => navigate("/admin/classrooms")}
+              className="bg-purple-500 hover:bg-purple-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
+            >
+              <span className="text-2xl">🏫</span>
+              <span>
+                {isArabicBrowser()
+                  ? "إدارة الفصول الدراسية"
+                  : "Manage Classrooms"}
+              </span>
+            </button>
+          )}
 
           <button
             onClick={() => navigate("/foundation")}
@@ -75,13 +82,15 @@ const Dashboard = () => {
             <span>إدارة الدروس المجانية</span>
           </button>
 
-          <button
-            onClick={() => navigate("/admin/tracker")}
-            className="bg-teal-500 hover:bg-teal-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
-          >
-            <span className="text-2xl">📊</span>
-            <span>{isArabicBrowser() ? "تتبع الطلاب" : "Student Tracker"}</span>
-          </button>
+          {showFullAdminTiles && (
+            <button
+              onClick={() => navigate("/admin/tracker")}
+              className="bg-teal-500 hover:bg-teal-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
+            >
+              <span className="text-2xl">📊</span>
+              <span>{isArabicBrowser() ? "تتبع الطلاب" : "Student Tracker"}</span>
+            </button>
+          )}
         </div>
       </div>
     </div>

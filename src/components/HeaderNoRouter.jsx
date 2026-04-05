@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getCurrentUser, logout } from "../services/storageService";
 import logoimage from "../assets/karim.png";
 import ProfileAvatar from "./ProfileAvatar";
+import { isContentStaff, isFullAdmin } from "../utils/roles";
 
 const HeaderNoRouter = ({
   onNavigate,
@@ -181,7 +182,7 @@ const HeaderNoRouter = ({
                     >
                       تواصل معنا
                     </button>
-                    {currentUser.role === "admin" && (
+                    {isContentStaff(currentUser) && (
                       <>
                         <div className="border-t border-gray-200" />
                         <Link
@@ -204,26 +205,30 @@ const HeaderNoRouter = ({
                         >
                           إدارة الواجب
                         </Link>
-                        <Link
-                          to="/admin/users"
-                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsMenuOpen(false);
-                          }}
-                        >
-                          إدارة المستخدمين
-                        </Link>
-                        <Link
-                          to="/admin/tracker"
-                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            setIsMenuOpen(false);
-                          }}
-                        >
-                          تتبع الطلاب
-                        </Link>
+                        {isFullAdmin(currentUser) && (
+                          <>
+                            <Link
+                              to="/admin/users"
+                              className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsMenuOpen(false);
+                              }}
+                            >
+                              إدارة المستخدمين
+                            </Link>
+                            <Link
+                              to="/admin/tracker"
+                              className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                              onClick={() => {
+                                setIsUserMenuOpen(false);
+                                setIsMenuOpen(false);
+                              }}
+                            >
+                              تتبع الطلاب
+                            </Link>
+                          </>
+                        )}
                       </>
                     )}
                     <div className="border-t border-gray-200" />
@@ -348,7 +353,7 @@ const HeaderNoRouter = ({
                       >
                         تواصل معنا
                       </button>
-                      {currentUser.role === "admin" && (
+                      {isContentStaff(currentUser) && (
                         <>
                           <div className="border-t border-gray-200" />
                           <Link
@@ -371,26 +376,30 @@ const HeaderNoRouter = ({
                           >
                             إدارة الواجب
                           </Link>
-                          <Link
-                            to="/admin/users"
-                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                            onClick={() => {
-                              setIsUserMenuOpen(false);
-                              setIsMenuOpen(false);
-                            }}
-                          >
-                            إدارة المستخدمين
-                          </Link>
-                          <Link
-                            to="/admin/tracker"
-                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
-                            onClick={() => {
-                              setIsUserMenuOpen(false);
-                              setIsMenuOpen(false);
-                            }}
-                          >
-                            تتبع الطلاب
-                          </Link>
+                          {isFullAdmin(currentUser) && (
+                            <>
+                              <Link
+                                to="/admin/users"
+                                className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                                onClick={() => {
+                                  setIsUserMenuOpen(false);
+                                  setIsMenuOpen(false);
+                                }}
+                              >
+                                إدارة المستخدمين
+                              </Link>
+                              <Link
+                                to="/admin/tracker"
+                                className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                                onClick={() => {
+                                  setIsUserMenuOpen(false);
+                                  setIsMenuOpen(false);
+                                }}
+                              >
+                                تتبع الطلاب
+                              </Link>
+                            </>
+                          )}
                         </>
                       )}
                       <div className="border-t border-gray-200" />

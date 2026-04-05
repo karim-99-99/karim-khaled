@@ -13,6 +13,7 @@ import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
 import MathRenderer from "../components/MathRenderer";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
+import { isContentStaff } from "../utils/roles";
 import {
   isBackendOn,
   getQuestionsByLevel as getQuestionsByLevelApi,
@@ -90,7 +91,7 @@ const Quiz = () => {
   const progressKey = `quiz_progress_${actualItemId}_${
     currentUser?.id || "guest"
   }`;
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isContentStaff(currentUser);
   const categoryName = (categoryId || "").includes("تأسيس")
     ? "التأسيس"
     : "التجميعات";

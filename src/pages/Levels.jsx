@@ -33,6 +33,7 @@ import {
   getLessonProgressList,
 } from "../services/backendApi";
 import { prefetchLessonMediaRoutes } from "../utils/routePrefetch";
+import { isContentStaff } from "../utils/roles";
 
 const Levels = () => {
   const { sectionId, subjectId, categoryId, chapterId } = useParams();
@@ -46,7 +47,7 @@ const Levels = () => {
   const [videos, setVideos] = useState([]);
   const [files, setFiles] = useState([]);
   const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isContentStaff(currentUser);
   const [editingItem, setEditingItem] = useState(null);
   const [editName, setEditName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);

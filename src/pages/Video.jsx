@@ -17,6 +17,7 @@ import {
   isBunnyEmbedUrl,
 } from "../utils/videoUrl";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
+import { isContentStaff } from "../utils/roles";
 import VideoWatermark from "../components/VideoWatermark";
 import {
   isBackendOn,
@@ -44,7 +45,7 @@ const Video = () => {
 
   const actualItemId = itemId || levelId;
   const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isContentStaff(currentUser);
   const categoryName = (categoryId || "").includes("تأسيس")
     ? "التأسيس"
     : "التجميعات";

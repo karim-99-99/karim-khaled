@@ -17,6 +17,7 @@ import {
   getBunnySignedUrl,
 } from "../services/backendApi";
 import { getCurrentUser } from "../services/storageService";
+import { isContentStaff } from "../utils/roles";
 import VideoWatermark from "./VideoWatermark";
 
 const VideoModal = ({
@@ -31,7 +32,7 @@ const VideoModal = ({
   const [loading, setLoading] = useState(false);
   const [bunnyError, setBunnyError] = useState(null);
   const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isContentStaff(currentUser);
 
   useEffect(() => {
     if (isOpen && lessonId && isBackendOn()) {

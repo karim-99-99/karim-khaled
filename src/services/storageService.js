@@ -327,7 +327,10 @@ export const initializeDefaultData = () => {
         if (user.isActive === undefined) {
           updated = true;
           userUpdate.username = user.username || user.email.split('@')[0];
-          userUpdate.isActive = user.role === 'admin' ? true : false;
+          userUpdate.isActive =
+            user.role === 'admin' || user.role === 'content_admin'
+              ? true
+              : false;
         }
         if (!user.username && user.email) {
           updated = true;

@@ -1,9 +1,11 @@
 import { Navigate, useParams } from "react-router-dom";
 import { getCurrentUser } from "../services/storageService";
+import { isFullAdmin } from "../utils/roles";
 
 // Helper function to check if user has access to a section
 export const hasSectionAccess = (user, sectionId) => {
-  if (!user || user.role === "admin") return true; // Admins have full access
+  if (!user || isFullAdmin(user) || user.role === "content_admin")
+    return true;
 
   if (!user.isActive) return false;
 
@@ -24,7 +26,7 @@ export const hasSectionAccess = (user, sectionId) => {
 
 // Helper function to check if user has access to a subject
 export const hasSubjectAccess = (user, subjectId) => {
-  if (!user || user.role === "admin") return true; // Admins have full access
+  if (!user || isFullAdmin(user) || user.role === "content_admin") return true;
 
   if (!user.isActive) return false;
 
@@ -59,7 +61,7 @@ export const hasSubjectAccess = (user, subjectId) => {
 
 // Helper function to check if user has access to a category
 export const hasCategoryAccess = (user, categoryName) => {
-  if (!user || user.role === "admin") return true; // Admins have full access
+  if (!user || isFullAdmin(user) || user.role === "content_admin") return true;
 
   if (user.isActive === false || user.is_active_account === false) return false;
 
@@ -102,6 +104,8 @@ export const hasCategoryAccess = (user, categoryName) => {
 const ProtectedRoute = ({
   children,
   requiredRole = null,
+  /** إن وُجدت: يكفي أن يكون دور المستخدم ضمن القائمة (مثلاً admin + content_admin). */
+  allowedRoles = null,
   checkActive = true,
 }) => {
   const params = useParams();
@@ -150,6 +154,14 @@ const ProtectedRoute = ({
         </div>
       </div>
     );
+  }
+
+  if (
+    Array.isArray(allowedRoles) &&
+    allowedRoles.length > 0 &&
+    !allowedRoles.includes(currentUser.role)
+  ) {
+    return <Navigate to="/" replace />;
   }
 
   if (requiredRole && currentUser.role !== requiredRole) {

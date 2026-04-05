@@ -6,6 +6,7 @@ import {
   isBackendOn,
   getSubjectById as getSubjectByIdApi,
 } from "../services/backendApi";
+import { isContentStaff } from "../utils/roles";
 
 const Categories = () => {
   const { sectionId, subjectId } = useParams();
@@ -13,7 +14,7 @@ const Categories = () => {
   const [subject, setSubject] = useState(null);
   const [loading, setLoading] = useState(true);
   const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isContentStaff(currentUser);
 
   const useBackend = !!import.meta.env.VITE_API_URL;
 

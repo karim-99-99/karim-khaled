@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import Header from "../components/Header";
 import { getCurrentUser } from "../services/storageService";
 import * as backendApi from "../services/backendApi";
+import { isContentStaff } from "../utils/roles";
 
 const SUBJECTS = [
   { id: "مادة_اللفظي", label: "اللفظي" },
@@ -21,7 +22,7 @@ const Foundation = () => {
   const [data, setData] = useState({ videos: [], files: [] });
 
   const currentUser = getCurrentUser();
-  const isAdmin = currentUser?.role === "admin";
+  const isAdmin = isContentStaff(currentUser);
   const canUpload = isAdmin && backendApi.isBackendOn();
 
   const [showUpload, setShowUpload] = useState(false);

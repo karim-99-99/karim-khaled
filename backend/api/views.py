@@ -54,10 +54,26 @@ class QuestionPagination(PageNumberPagination):
 
 
 class IsAdminUser(permissions.BasePermission):
-    """Permission class to check if user is admin"""
+    """مدير كامل فقط (إدارة مستخدمين، تتبع، مجموعات)."""
 
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'admin'
+        return (
+            request.user
+            and request.user.is_authenticated
+            and request.user.role == 'admin'
+        )
+
+
+class IsStaffUser(permissions.BasePermission):
+    """مدير كامل أو مساعد محتوى: مواد، فيديو، أسئلة، فصول…"""
+
+    def has_permission(self, request, view):
+        u = getattr(request, 'user', None)
+        return (
+            u
+            and u.is_authenticated
+            and getattr(u, 'role', None) in ('admin', 'content_admin')
+        )
 
 
 class HealthView(APIView):
@@ -90,7 +106,7 @@ class RegisterView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        serializer = UserCreateSerializer(data=request.data)
+        serializer = UserCreateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             user = serializer.save()
             ip = get_client_ip(request)
@@ -249,6 +265,14 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
 
+    def get_queryset(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return User.objects.none()
+        if getattr(user, 'role', None) == 'admin':
+            return User.objects.all()
+        return User.objects.filter(pk=user.pk)
+
     def get_serializer_class(self):
         if self.action == 'create':
             return UserCreateSerializer
@@ -335,7 +359,7 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsStaffUser()]
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
         return [IsAuthenticatedDeviceAllowed()]
@@ -373,7 +397,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsStaffUser()]
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
         return [IsAuthenticatedDeviceAllowed()]
@@ -415,7 +439,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsStaffUser()]
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
         return [IsAuthenticatedDeviceAllowed()]
@@ -465,7 +489,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
 
     def perform_create(self, serializer):
@@ -535,7 +559,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'set_order', 'reorder']:
-            return [IsAdminUser()]
+            return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
     
     @action(detail=True, methods=['post', 'patch'], url_path='set-order')
@@ -625,7 +649,7 @@ class VideoViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
 
     def _bunny_stream_key_and_library(self):
@@ -740,7 +764,7 @@ class FileViewSet(viewsets.ModelViewSet):
     
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
     
     def perform_create(self, serializer):
@@ -843,7 +867,8 @@ class StudentProgressViewSet(viewsets.ModelViewSet):
         # Students can only see their own progress
         if self.request.user.role == 'student':
             return StudentProgress.objects.filter(user=self.request.user).select_related('question', 'lesson')
-        # Admins can see all progress
+        if self.request.user.role != 'admin':
+            return StudentProgress.objects.none()
         return StudentProgress.objects.all().select_related('user', 'question', 'lesson')
     
     def perform_create(self, serializer):
@@ -887,6 +912,8 @@ class LessonProgressViewSet(viewsets.ReadOnlyModelViewSet):
             base = base.filter(lesson__chapter_id=chapter_id)
         if self.request.user.role == 'student':
             return base.filter(user=self.request.user).select_related('lesson', 'last_question')
+        if self.request.user.role != 'admin':
+            return base.none()
         return base.select_related('user', 'lesson', 'last_question')
     
     @action(detail=False, methods=['get'])
@@ -952,6 +979,8 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
             qs = qs.filter(lesson__chapter_id=chapter_id)
         if self.request.user.role == 'student':
             return qs.filter(user=self.request.user)
+        if self.request.user.role != 'admin':
+            return qs.none()
         # Admin sees all
         user_id = self.request.query_params.get('user_id')
         if user_id:
@@ -963,7 +992,7 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
 
 
@@ -976,6 +1005,8 @@ class VideoWatchViewSet(viewsets.GenericViewSet):
         qs = VideoWatch.objects.select_related('user', 'lesson', 'video').order_by('-last_watched_at')
         if self.request.user.role == 'student':
             return qs.filter(user=self.request.user)
+        if self.request.user.role != 'admin':
+            return qs.none()
         user_id = self.request.query_params.get('user_id')
         if user_id:
             qs = qs.filter(user_id=user_id)

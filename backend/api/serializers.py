@@ -42,6 +42,15 @@ class UserCreateSerializer(serializers.ModelSerializer):
         ac = attrs.get('avatar_choice') or ''
         if ac and ac.strip() and ac.strip() not in ('male_gulf', 'female_gulf'):
             raise serializers.ValidationError({"avatar_choice": "Invalid avatar_choice."})
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            attrs['role'] = 'student'
+        elif getattr(request.user, 'role', None) != 'admin':
+            attrs['role'] = 'student'
+        role = attrs.get('role', 'student')
+        valid_roles = {c[0] for c in User.ROLE_CHOICES}
+        if role not in valid_roles:
+            raise serializers.ValidationError({'role': 'Invalid role'})
         return attrs
 
     def create(self, validated_data):
@@ -56,15 +65,27 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
 
 class UserUpdateSerializer(serializers.ModelSerializer):
-    """Serializer for updating user (admin can update permissions)"""
+    """Serializer for updating user (admin can update permissions and role)"""
     
     class Meta:
         model = User
-        fields = ['username', 'email', 'first_name', 'last_name', 'phone',
+        fields = ['username', 'email', 'first_name', 'last_name', 'phone', 'role',
                   'is_active_account', 'account_active_from', 'account_active_until',
                   'has_abilities_access', 'has_collection_access', 'abilities_subjects_verbal',
                   'abilities_subjects_quantitative', 'abilities_categories_foundation',
                   'abilities_categories_collections', 'avatar_choice', 'allow_multi_device']
+
+    def validate_role(self, value):
+        valid = {c[0] for c in User.ROLE_CHOICES}
+        if value not in valid:
+            raise serializers.ValidationError('Invalid role')
+        return value
+
+    def update(self, instance, validated_data):
+        new_role = validated_data.get('role', instance.role)
+        if new_role == 'content_admin' and instance.role != 'content_admin':
+            validated_data['is_active_account'] = True
+        return super().update(instance, validated_data)
 
 
 class LoginSerializer(serializers.Serializer):
