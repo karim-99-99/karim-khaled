@@ -781,17 +781,6 @@ const SinglePage = () => {
                 </button>
               </form>
 
-              <div className="mt-6 text-center text-xs md:text-sm text-dark-600">
-                <p className="font-medium">حساب تجريبي للطالب:</p>
-                <p className="mt-2 font-mono text-xs md:text-sm text-dark-500">
-                  student@test.com / student123
-                </p>
-                <p className="mt-2 font-medium">حساب المدير:</p>
-                <p className="font-mono text-xs md:text-sm text-dark-500">
-                  admin@teacher.com / admin123
-                </p>
-              </div>
-
               <div className="mt-6 text-center">
                 <button
                   onClick={() => {

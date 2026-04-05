@@ -187,23 +187,6 @@ const Login = () => {
               {isArabicBrowser() ? "إنشاء حساب جديد" : "Create New Account"}
             </Link>
           </div>
-
-          <div className="mt-6 text-center text-xs md:text-sm text-dark-600">
-            <p className="font-medium">
-              {isArabicBrowser() ? "حساب تجريبي للطالب:" : ""}
-            </p>
-            <p className="mt-2 font-mono text-xs md:text-sm text-dark-500">
-              {useBackend
-                ? "student / student123"
-                : "student@test.com / student123"}
-            </p>
-            <p className="mt-2 font-medium">
-              {isArabicBrowser() ? "حساب المدير:" : " :"}
-            </p>
-            <p className="font-mono text-xs md:text-sm text-dark-500">
-              {useBackend ? "admin / admin123" : "admin@teacher.com / admin123"}
-            </p>
-          </div>
         </div>
       </div>
     </div>
