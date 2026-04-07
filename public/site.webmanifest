@@ -1,0 +1,21 @@
+{
+  "name": "أ/ إيمان معوض",
+  "short_name": "أ/ إيمان معوض",
+  "description": "منصة أ/ إيمان معوض لتأسيس وتدريب القدرات العامة.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#EC802B",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
+
