@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
+import { prefetchCoursesFlow, prefetchLessonMediaRoutes } from '../utils/routePrefetch';
 
 const Result = () => {
   // Support both new structure and legacy
@@ -9,6 +11,12 @@ const Result = () => {
   const navigate = useNavigate();
   
   const { score = 0, correctCount = 0, totalQuestions = 50 } = location.state || {};
+
+  // Warm the next likely routes (Home / Levels / Quiz retake) so taps feel instant.
+  useEffect(() => {
+    prefetchCoursesFlow();
+    prefetchLessonMediaRoutes();
+  }, []);
 
   const getScoreColor = () => {
     if (score >= 80) return 'text-yellow-500';
@@ -81,22 +89,24 @@ const Result = () => {
 
             <button
               onClick={() => {
-                if (sectionId && categoryId && itemId) {
+                if (sectionId && categoryId && chapterId) {
                   navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
+                } else if (subjectId && chapterId) {
+                  navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);
                 } else {
-                  navigate(levelId ? `/subject/${subjectId}/chapter/${chapterId}/levels` : `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
+                  navigate('/courses');
                 }
               }}
               className="w-full bg-primary-500 text-white py-3 rounded-lg font-semibold hover:bg-primary-600 transition text-lg"
             >
-              {isArabicBrowser() ? 'العودة للدروس' : ''}
+              {isArabicBrowser() ? 'العودة للدروس' : 'Back to lessons'}
             </button>
             
             <button
-              onClick={() => navigate('/home')}
+              onClick={() => navigate('/courses')}
               className="w-full bg-gray-300 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-400 transition text-lg"
             >
-              {isArabicBrowser() ? 'الصفحة الرئيسية' : ''}
+              {isArabicBrowser() ? 'الصفحة الرئيسية' : 'Home'}
             </button>
           </div>
         </div>

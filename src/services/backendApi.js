@@ -399,6 +399,34 @@ export const deleteChapter = async (chapterId) => {
   invalidateSectionsCache();
 };
 
+/**
+ * Reorder all chapters in a category in one request. `order` must be an
+ * array of chapter ids in the desired sequence. Backend assigns order = 1..N.
+ * Falls back to PATCH-per-chapter if the deployed backend doesn't have the
+ * reorder action yet.
+ */
+export const reorderChaptersForCategory = async (categoryId, order) => {
+  try {
+    const res = await request("/chapters/reorder/", {
+      method: "POST",
+      body: JSON.stringify({ category_id: categoryId, order }),
+    });
+    invalidateSectionsCache();
+    return res;
+  } catch (_err) {
+    for (let i = 0; i < order.length; i++) {
+      try {
+        await request(`/chapters/${encodeURIComponent(order[i])}/`, {
+          method: "PATCH",
+          body: JSON.stringify({ order: i + 1 }),
+        });
+      } catch (_) {}
+    }
+    invalidateSectionsCache();
+    return { updated: order.length };
+  }
+};
+
 // ——— Lessons ———
 export const addLesson = async (chapterId, name, hasTest = true) => {
   const data = await request("/lessons/", {
@@ -432,6 +460,32 @@ export const deleteLesson = async (lessonId) => {
     method: "DELETE",
   });
   invalidateSectionsCache();
+};
+
+/**
+ * Reorder all lessons in a chapter in one request. `order` = array of lesson
+ * ids in desired sequence. Falls back to per-lesson PATCH if backend is older.
+ */
+export const reorderLessonsForChapter = async (chapterId, order) => {
+  try {
+    const res = await request("/lessons/reorder/", {
+      method: "POST",
+      body: JSON.stringify({ chapter_id: chapterId, order }),
+    });
+    invalidateSectionsCache();
+    return res;
+  } catch (_err) {
+    for (let i = 0; i < order.length; i++) {
+      try {
+        await request(`/lessons/${encodeURIComponent(order[i])}/`, {
+          method: "PATCH",
+          body: JSON.stringify({ order: i + 1 }),
+        });
+      } catch (_) {}
+    }
+    invalidateSectionsCache();
+    return { updated: order.length };
+  }
 };
 
 // ——— Helpers for getCategoryById, getChapterById, getItemById (from lists or direct) ———

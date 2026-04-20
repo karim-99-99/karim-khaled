@@ -31,6 +31,7 @@ import {
   getFiles,
   getQuizAttempts,
   getLessonProgressList,
+  reorderLessonsForChapter,
 } from "../services/backendApi";
 import { prefetchLessonMediaRoutes } from "../utils/routePrefetch";
 import { isContentStaff } from "../utils/roles";
@@ -41,8 +42,11 @@ const Levels = () => {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const returnUrl = searchParams.get("returnUrl");
-  const [chapter, setChapter] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Chapter shell may come through navigation state (from /courses) so the page
+  // can paint lesson cards instantly while the full API response is loading.
+  const initialChapterFromState = location.state?.chapter || null;
+  const [chapter, setChapter] = useState(initialChapterFromState);
+  const [loading, setLoading] = useState(!initialChapterFromState);
   const [busy, setBusy] = useState(false);
   const [videos, setVideos] = useState([]);
   const [files, setFiles] = useState([]);
@@ -85,7 +89,6 @@ const Levels = () => {
 
   useEffect(() => {
     let c = false;
-    const user = getCurrentUser();
     async function load() {
       try {
         if (useBackend) {
@@ -95,7 +98,7 @@ const Levels = () => {
             getFiles({ chapter_id: chapterId }),
           ]);
           if (!c) {
-            setChapter(ch || null);
+            if (ch) setChapter(ch);
             setVideos(Array.isArray(v) ? v : []);
             setFiles(Array.isArray(f) ? f : []);
           }
@@ -103,7 +106,7 @@ const Levels = () => {
           if (!c) setChapter(getChapterById(chapterId) || null);
         }
       } catch (e) {
-        // لا نمسح الفصل: إن فشل جلب الفيديوهات/الملفات/الأسئلة (مثلاً للزائر) نبقى على الفصل المُحمّل
+        // Keep any pre-seeded chapter; failures here shouldn't wipe the view
       } finally {
         if (!c) setLoading(false);
       }
@@ -368,17 +371,23 @@ const Levels = () => {
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= sortedItems.length) return;
 
+    // Optimistic local swap + order normalization for instant UI
+    const reordered = [...sortedItems];
+    [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+    const withOrder = reordered.map((l, i) => ({ ...l, order: i + 1 }));
+    setChapter((prev) => (prev ? { ...prev, items: withOrder } : prev));
+
     setBusy(true);
     try {
       if (useBackend) {
-        const a = sortedItems[idx];
-        const b = sortedItems[newIdx];
-        await Promise.all([
-          updateLesson(a.id, { order: b.order ?? 0 }),
-          updateLesson(b.id, { order: a.order ?? 0 }),
-        ]);
-        const ch = await getChapterByIdApi(chapterId);
-        setChapter(ch || null);
+        await reorderLessonsForChapter(
+          chapterId,
+          withOrder.map((l) => l.id)
+        );
+        // Background refresh — don't block UI
+        getChapterByIdApi(chapterId)
+          .then((ch) => ch && setChapter(ch))
+          .catch(() => {});
       } else {
         reorderItemInChapter(chapterId, itemId, direction);
         setChapter(getChapterById(chapterId) || null);

@@ -287,25 +287,12 @@ const Quiz = () => {
     // Clear saved progress
     clearSavedProgress();
 
-    // Save to backend tracker
+    // Fire tracker saves in the background — don't block navigation to result.
+    // The user sees the score instantly; any failure is logged silently.
     if (currentUser && isBackendOn()) {
       const startedAt = quizStartTimeRef.current || Date.now() - 60000;
       const completedAt = Date.now();
       const durationSeconds = Math.round((completedAt - startedAt) / 1000);
-      try {
-        await saveQuizAttempt({
-          lesson: actualItemId,
-          score,
-          correct_count: correctCount,
-          total_questions: questions.length,
-          started_at: new Date(startedAt).toISOString(),
-          completed_at: new Date(completedAt).toISOString(),
-          duration_seconds: durationSeconds,
-        });
-      } catch (err) {
-        console.warn("Could not save quiz attempt to tracker:", err);
-      }
-      // Save incorrect answers for review
       const incorrectItems = [];
       questions.forEach((q) => {
         const userAns = ans[q.id];
@@ -328,12 +315,21 @@ const Quiz = () => {
           });
         }
       });
+      saveQuizAttempt({
+        lesson: actualItemId,
+        score,
+        correct_count: correctCount,
+        total_questions: questions.length,
+        started_at: new Date(startedAt).toISOString(),
+        completed_at: new Date(completedAt).toISOString(),
+        duration_seconds: durationSeconds,
+      }).catch((err) => {
+        console.warn("Could not save quiz attempt to tracker:", err);
+      });
       if (incorrectItems.length > 0) {
-        try {
-          await addIncorrectAnswers(incorrectItems);
-        } catch (err) {
+        addIncorrectAnswers(incorrectItems).catch((err) => {
           console.warn("Could not save incorrect answers:", err);
-        }
+        });
       }
     }
 

@@ -20,6 +20,7 @@ import {
   getCategoryById as getCategoryByIdApi,
   getSections as getSectionsApi,
   updateChapter,
+  reorderChaptersForCategory,
 } from "../services/backendApi";
 import { isContentStaff } from "../utils/roles";
 
@@ -253,10 +254,15 @@ const Home = () => {
       selectedSubjectId,
       selectedCategoryId
     );
+    // Pass the chapter shell via route state so <Levels /> can render instantly
+    // (chapter title + count) while the full lessons payload is fetching.
+    const initialChapter =
+      (chaptersState || []).find((c) => c?.id === chapterId) || null;
     navigate(
       `/section/قسم_قدرات/subject/${selectedSubjectId}/category/${selectedCategoryId}/chapter/${chapterId}/items?returnUrl=${encodeURIComponent(
         returnUrl
-      )}`
+      )}`,
+      { state: { chapter: initialChapter } }
     );
   };
 
@@ -361,20 +367,27 @@ const Home = () => {
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= list.length) return;
 
+    // Optimistic swap in local state (instant UI feedback) with normalized order
+    const reordered = [...list];
+    [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+    const withOrder = reordered.map((ch, i) => ({ ...ch, order: i + 1 }));
+    setChaptersState(withOrder);
+
     setChaptersBusy(true);
     try {
       if (useBackend) {
-        const a = list[idx];
-        const b = list[newIdx];
-        await Promise.all([
-          updateChapter(a.id, { order: b.order ?? 0 }),
-          updateChapter(b.id, { order: a.order ?? 0 }),
-        ]);
+        // Send one POST with the normalized id sequence; backend assigns 1..N
+        await reorderChaptersForCategory(
+          selectedCategoryId,
+          withOrder.map((c) => c.id)
+        );
       } else {
         reorderChapterInCategory(selectedCategoryId, chapterId, direction);
       }
       await refreshSelectedCategory();
     } catch (e) {
+      // Revert optimistic state on failure
+      setChaptersState(list);
       alert(e?.message || "حدث خطأ أثناء تغيير الترتيب");
     } finally {
       setChaptersBusy(false);

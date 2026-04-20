@@ -438,11 +438,50 @@ class ChapterViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reorder']:
             return [IsStaffUser()]
         if self.action in ['list', 'retrieve']:
             return [permissions.AllowAny()]
         return [IsAuthenticatedDeviceAllowed()]
+
+    @action(detail=False, methods=['post'], url_path='reorder')
+    def reorder(self, request):
+        """Set order of chapters within a category.
+
+        Body: { category_id: "...", order: ["chapterId1", "chapterId2", ...] }
+        Assigns order = 1..N to the given chapter ids (others in the category
+        are pushed to the end in their current relative order).
+        Returns a light { updated: N } payload.
+        """
+        category_id = request.data.get('category_id')
+        order_ids = request.data.get('order')
+        if not category_id or not isinstance(order_ids, list) or len(order_ids) == 0:
+            return Response(
+                {'detail': 'category_id and order (list of chapter ids) are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        chapters = list(Chapter.objects.filter(category_id=category_id))
+        ch_by_id = {c.id: c for c in chapters}
+        updated = 0
+        next_order = 1
+        seen = set()
+        for cid in order_ids:
+            ch = ch_by_id.get(cid)
+            if not ch:
+                continue
+            ch.order = next_order
+            ch.save(update_fields=['order'])
+            seen.add(cid)
+            next_order += 1
+            updated += 1
+        # Trailing chapters (not in order list) keep relative order
+        trailing = [c for c in chapters if c.id not in seen]
+        trailing.sort(key=lambda c: (c.order or 0, c.name))
+        for ch in trailing:
+            ch.order = next_order
+            ch.save(update_fields=['order'])
+            next_order += 1
+        return Response({'updated': updated})
 
     def perform_create(self, serializer):
         cat = serializer.validated_data.get('category')
@@ -488,9 +527,45 @@ class LessonViewSet(viewsets.ModelViewSet):
         return qs.exclude(chapter__category__subject__section_id__in=DISABLED_SECTION_IDS)
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'reorder']:
             return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
+
+    @action(detail=False, methods=['post'], url_path='reorder')
+    def reorder(self, request):
+        """Set order of lessons within a chapter.
+
+        Body: { chapter_id: "...", order: ["lessonId1", "lessonId2", ...] }
+        Assigns order = 1..N. Lessons not in the list are pushed to the end.
+        """
+        chapter_id = request.data.get('chapter_id')
+        order_ids = request.data.get('order')
+        if not chapter_id or not isinstance(order_ids, list) or len(order_ids) == 0:
+            return Response(
+                {'detail': 'chapter_id and order (list of lesson ids) are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        lessons = list(Lesson.objects.filter(chapter_id=chapter_id))
+        by_id = {l.id: l for l in lessons}
+        updated = 0
+        next_order = 1
+        seen = set()
+        for lid in order_ids:
+            le = by_id.get(lid)
+            if not le:
+                continue
+            le.order = next_order
+            le.save(update_fields=['order'])
+            seen.add(lid)
+            next_order += 1
+            updated += 1
+        trailing = [l for l in lessons if l.id not in seen]
+        trailing.sort(key=lambda l: (l.order or 0, l.name))
+        for le in trailing:
+            le.order = next_order
+            le.save(update_fields=['order'])
+            next_order += 1
+        return Response({'updated': updated})
 
     def perform_create(self, serializer):
         ch = serializer.validated_data.get('chapter')
