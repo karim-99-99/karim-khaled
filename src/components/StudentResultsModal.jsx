@@ -5,6 +5,16 @@ import {
   getStudentResultsStats,
 } from "../services/backendApi";
 
+const defaultSubjectStats = (label = "") => ({
+  subject_label: label,
+  total_lessons_count: 0,
+  passed_lessons_count: 0,
+  remaining_lessons_count: 0,
+  correct_answers: 0,
+  incorrect_answers: 0,
+  answered_questions_total: 0,
+});
+
 function useAnimatedInt(target, active, duration = 1200) {
   const [v, setV] = useState(0);
 
@@ -87,6 +97,11 @@ export default function StudentResultsModal({ open, onClose }) {
     assignments_engaged_count: 0,
     correct_answers: 0,
     incorrect_answers: 0,
+    answered_questions_total: 0,
+    by_subject: {
+      verbal: defaultSubjectStats("لفظي"),
+      quantitative: defaultSubjectStats("كمي"),
+    },
   });
 
   useEffect(() => {
@@ -98,6 +113,11 @@ export default function StudentResultsModal({ open, onClose }) {
         assignments_engaged_count: 0,
         correct_answers: 0,
         incorrect_answers: 0,
+        answered_questions_total: 0,
+        by_subject: {
+          verbal: defaultSubjectStats("لفظي"),
+          quantitative: defaultSubjectStats("كمي"),
+        },
       });
       setErr("سجّل الدخول مع ربط الموقع بالخادم لمشاهدة نتائجك.");
       return;
@@ -107,11 +127,29 @@ export default function StudentResultsModal({ open, onClose }) {
     getStudentResultsStats()
       .then((data) => {
         if (c || !data) return;
+        const verbal = data?.by_subject?.verbal || defaultSubjectStats("لفظي");
+        const quantitative =
+          data?.by_subject?.quantitative || defaultSubjectStats("كمي");
         setStats({
           lessons_engaged_count: data.lessons_engaged_count ?? 0,
           assignments_engaged_count: data.assignments_engaged_count ?? 0,
           correct_answers: data.correct_answers ?? 0,
           incorrect_answers: data.incorrect_answers ?? 0,
+          answered_questions_total:
+            data.answered_questions_total ??
+            ((data.correct_answers ?? 0) + (data.incorrect_answers ?? 0)),
+          by_subject: {
+            verbal: {
+              ...defaultSubjectStats("لفظي"),
+              ...verbal,
+              subject_label: verbal.subject_label || "لفظي",
+            },
+            quantitative: {
+              ...defaultSubjectStats("كمي"),
+              ...quantitative,
+              subject_label: quantitative.subject_label || "كمي",
+            },
+          },
         });
       })
       .catch((e) => {
@@ -209,48 +247,117 @@ export default function StudentResultsModal({ open, onClose }) {
           )}
 
           {!loading && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <StatBubble
-                active={open && !loading}
-                label="دروس بدأتُها"
-                sublabel="فيديو، واجب، أو تقدّم"
-                value={stats.lessons_engaged_count}
-                gradient="linear-gradient(145deg, #0d9488 0%, #14b8a6 45%, #5eead4 100%)"
-                glow="0 12px 40px rgba(20, 184, 166, 0.45)"
-                icon="🎯"
-              />
-              <StatBubble
-                active={open && !loading}
-                label="واجبات نشِطة"
-                sublabel="تفاعلتَ مع أسئلة هذه الدروس"
-                value={stats.assignments_engaged_count}
-                gradient="linear-gradient(145deg, #7c3aed 0%, #a78bfa 50%, #e879f9 100%)"
-                glow="0 12px 40px rgba(167, 139, 250, 0.45)"
-                icon="📝"
-              />
-              <StatBubble
-                active={open && !loading}
-                label="إجابات صحيحة"
-                sublabel="ضمن الدروس أعلاه"
-                value={stats.correct_answers}
-                gradient="linear-gradient(145deg, #15803d 0%, #22c55e 55%, #86efac 100%)"
-                glow="0 12px 40px rgba(34, 197, 94, 0.4)"
-                icon="✅"
-              />
-              <StatBubble
-                active={open && !loading}
-                label="إجابات خاطئة"
-                sublabel="فرصة للمراجعة والتحسين"
-                value={stats.incorrect_answers}
-                gradient="linear-gradient(145deg, #c2410c 0%, #f97316 50%, #fb923c 100%)"
-                glow="0 12px 40px rgba(249, 115, 22, 0.4)"
-                icon="📈"
-              />
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-5">
+                <h3 className="text-sm md:text-base font-extrabold text-slate-100 mb-3 text-center">
+                  {stats.by_subject?.verbal?.subject_label || "لفظي"}
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <StatBubble
+                    active={open && !loading}
+                    label="الدروس المجتازة"
+                    sublabel="من إجمالي دروس اللفظي"
+                    value={stats.by_subject?.verbal?.passed_lessons_count}
+                    gradient="linear-gradient(145deg, #0f766e 0%, #14b8a6 55%, #67e8f9 100%)"
+                    glow="0 12px 36px rgba(20, 184, 166, 0.4)"
+                    icon="🏁"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="الدروس المتبقية"
+                    sublabel="لم تُجتز بعد"
+                    value={stats.by_subject?.verbal?.remaining_lessons_count}
+                    gradient="linear-gradient(145deg, #4338ca 0%, #6366f1 50%, #a78bfa 100%)"
+                    glow="0 12px 36px rgba(99, 102, 241, 0.42)"
+                    icon="📚"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="إجابات صحيحة"
+                    sublabel="في اللفظي"
+                    value={stats.by_subject?.verbal?.correct_answers}
+                    gradient="linear-gradient(145deg, #15803d 0%, #22c55e 55%, #86efac 100%)"
+                    glow="0 12px 36px rgba(34, 197, 94, 0.38)"
+                    icon="✅"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="إجابات خاطئة"
+                    sublabel="في اللفظي"
+                    value={stats.by_subject?.verbal?.incorrect_answers}
+                    gradient="linear-gradient(145deg, #b45309 0%, #f97316 50%, #fb923c 100%)"
+                    glow="0 12px 36px rgba(249, 115, 22, 0.36)"
+                    icon="❌"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="إجمالي الأسئلة المجاب عنها"
+                    sublabel="صحيح + خطأ"
+                    value={stats.by_subject?.verbal?.answered_questions_total}
+                    gradient="linear-gradient(145deg, #7c2d12 0%, #ea580c 45%, #f59e0b 100%)"
+                    glow="0 12px 36px rgba(234, 88, 12, 0.34)"
+                    icon="🧮"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-5">
+                <h3 className="text-sm md:text-base font-extrabold text-slate-100 mb-3 text-center">
+                  {stats.by_subject?.quantitative?.subject_label || "كمي"}
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <StatBubble
+                    active={open && !loading}
+                    label="الدروس المجتازة"
+                    sublabel="من إجمالي دروس الكمي"
+                    value={stats.by_subject?.quantitative?.passed_lessons_count}
+                    gradient="linear-gradient(145deg, #0f766e 0%, #14b8a6 55%, #67e8f9 100%)"
+                    glow="0 12px 36px rgba(20, 184, 166, 0.4)"
+                    icon="🏁"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="الدروس المتبقية"
+                    sublabel="لم تُجتز بعد"
+                    value={stats.by_subject?.quantitative?.remaining_lessons_count}
+                    gradient="linear-gradient(145deg, #4338ca 0%, #6366f1 50%, #a78bfa 100%)"
+                    glow="0 12px 36px rgba(99, 102, 241, 0.42)"
+                    icon="📚"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="إجابات صحيحة"
+                    sublabel="في الكمي"
+                    value={stats.by_subject?.quantitative?.correct_answers}
+                    gradient="linear-gradient(145deg, #15803d 0%, #22c55e 55%, #86efac 100%)"
+                    glow="0 12px 36px rgba(34, 197, 94, 0.38)"
+                    icon="✅"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="إجابات خاطئة"
+                    sublabel="في الكمي"
+                    value={stats.by_subject?.quantitative?.incorrect_answers}
+                    gradient="linear-gradient(145deg, #b45309 0%, #f97316 50%, #fb923c 100%)"
+                    glow="0 12px 36px rgba(249, 115, 22, 0.36)"
+                    icon="❌"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="إجمالي الأسئلة المجاب عنها"
+                    sublabel="صحيح + خطأ"
+                    value={stats.by_subject?.quantitative?.answered_questions_total}
+                    gradient="linear-gradient(145deg, #7c2d12 0%, #ea580c 45%, #f59e0b 100%)"
+                    glow="0 12px 36px rgba(234, 88, 12, 0.34)"
+                    icon="🧮"
+                  />
+                </div>
+              </div>
             </div>
           )}
 
           <p className="text-center text-[11px] md:text-xs text-slate-500 leading-relaxed px-2">
-            لا تُحسب دروس لم تفتحها بعد. تفاصيل أدق متاحة من القائمة: متابعة التقدم.
+            الإحصائيات مقسمة إلى لفظي وكمي وتشمل المجتاز والمتبقي والصحيح والخطأ وإجمالي الإجابات.
           </p>
         </div>
       </div>

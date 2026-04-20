@@ -1284,12 +1284,64 @@ class TrackerStudentResultsView(APIView):
         )
         correct_answers = sp.filter(is_correct=True).count()
         incorrect_answers = sp.filter(is_correct=False).count()
+        answered_questions_total = correct_answers + incorrect_answers
+
+        # Split stats into verbal / quantitative for the student results modal.
+        subject_config = [
+            ('verbal', 'مادة_اللفظي', 'لفظي'),
+            ('quantitative', 'مادة_الكمي', 'كمي'),
+        ]
+        by_subject = {}
+
+        # "Passed lessons": lesson has at least one completed quiz attempt OR 100% lesson progress.
+        passed_by_attempt = set(
+            QuizAttempt.objects.filter(user=user).values_list('lesson_id', flat=True)
+        )
+        passed_by_progress = set(
+            LessonProgress.objects.filter(
+                user=user,
+                completion_percentage__gte=100
+            ).values_list('lesson_id', flat=True)
+        )
+        passed_lesson_ids = passed_by_attempt | passed_by_progress
+
+        for key, subject_id, label in subject_config:
+            all_subject_lessons_qs = Lesson.objects.filter(
+                chapter__category__subject_id=subject_id
+            ).exclude(
+                chapter__category__subject__section_id__in=DISABLED_SECTION_IDS
+            )
+            all_subject_ids = set(all_subject_lessons_qs.values_list('id', flat=True))
+
+            passed_count = len(all_subject_ids & passed_lesson_ids)
+            remaining_count = max(0, len(all_subject_ids) - passed_count)
+
+            subject_sp = StudentProgress.objects.filter(
+                user=user,
+                answered_at__isnull=False,
+                lesson_id__in=all_subject_ids,
+            )
+            subject_correct = subject_sp.filter(is_correct=True).count()
+            subject_incorrect = subject_sp.filter(is_correct=False).count()
+
+            by_subject[key] = {
+                'subject_id': subject_id,
+                'subject_label': label,
+                'total_lessons_count': len(all_subject_ids),
+                'passed_lessons_count': passed_count,
+                'remaining_lessons_count': remaining_count,
+                'correct_answers': subject_correct,
+                'incorrect_answers': subject_incorrect,
+                'answered_questions_total': subject_correct + subject_incorrect,
+            }
 
         return Response({
             'lessons_engaged_count': len(valid_ids),
             'assignments_engaged_count': assignments_engaged_count,
             'correct_answers': correct_answers,
             'incorrect_answers': incorrect_answers,
+            'answered_questions_total': answered_questions_total,
+            'by_subject': by_subject,
         })
 
 
