@@ -1047,6 +1047,62 @@ export const reorderItemInChapter = (chapterId, itemId, direction) => {
   }
 };
 
+/** تطبيق ترتيب كامل لدروس الفصل (معرّفات بالتسلسل) — للوضع المحلي فقط */
+export const setLessonOrderByIds = (chapterId, orderedItemIds) => {
+  try {
+    const sections = getSections();
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        for (const category of (subject.categories || [])) {
+          for (const chapter of (category.chapters || [])) {
+            if (chapter.id !== chapterId) continue;
+            const items = chapter.items || [];
+            const byId = Object.fromEntries(items.map((i) => [i.id, i]));
+            chapter.items = orderedItemIds.map((id) => byId[id]).filter(Boolean);
+            chapter.items.forEach((item, i) => {
+              item.order = i;
+            });
+            localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+            memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error('Error setLessonOrderByIds:', error);
+    return false;
+  }
+};
+
+/** تطبيق ترتيب كامل لفصول التصنيف (معرّفات بالتسلسل) */
+export const setChapterOrderByIds = (categoryId, orderedChapterIds) => {
+  try {
+    const sections = getSections();
+    for (const section of sections) {
+      for (const subject of section.subjects) {
+        for (const category of (subject.categories || [])) {
+          if (category.id !== categoryId) continue;
+          const chList = category.chapters || [];
+          const byId = Object.fromEntries(chList.map((c) => [c.id, c]));
+          category.chapters = orderedChapterIds.map((id) => byId[id]).filter(Boolean);
+          category.chapters.forEach((c, i) => {
+            c.order = i;
+          });
+          localStorage.setItem(STORAGE_KEYS.SECTIONS, JSON.stringify(sections));
+          memoryCache.invalidate(STORAGE_KEYS.SECTIONS);
+          return true;
+        }
+      }
+    }
+    return false;
+  } catch (error) {
+    console.error('Error setChapterOrderByIds:', error);
+    return false;
+  }
+};
+
 // Delete item/lesson from chapter
 export const deleteItemFromChapter = (itemId) => {
   try {

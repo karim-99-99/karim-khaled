@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getSubjects, getCategoriesBySubject, getChaptersByCategory, addChapterToCategory, deleteChapterFromCategory, getCategoryById } from '../../services/storageService';
+import { getSubjects, getCategoriesBySubject, getChaptersByCategory, addChapterToCategory, deleteChapterFromCategory, getCategoryById, setChapterOrderByIds } from '../../services/storageService';
 import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
 import Toast from '../../components/Toast';
@@ -22,6 +22,7 @@ const ChaptersManagement = () => {
   const [newChapterName, setNewChapterName] = useState('');
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const [reorderBusy, setReorderBusy] = useState(false);
 
   useEffect(() => {
     if (useBackend) {
@@ -170,6 +171,66 @@ const ChaptersManagement = () => {
 
   const selectedSubjectObj = subjects.find(s => s.id === selectedSubject);
 
+  const applyChapterOrder = async (withOrder) => {
+    if (!selectedCategory) return;
+    setChapters([...withOrder].map((c, i) => ({ ...c, order: i })));
+    setReorderBusy(true);
+    try {
+      if (useBackend) {
+        await backendApi.reorderChaptersForCategory(
+          selectedCategory,
+          withOrder.map((c) => c.id)
+        );
+        const ch = await backendApi.getChaptersByCategory(selectedCategory);
+        setChapters(Array.isArray(ch) ? ch : []);
+      } else {
+        setChapterOrderByIds(
+          selectedCategory,
+          withOrder.map((c) => c.id)
+        );
+        setChapters(getChaptersByCategory(selectedCategory));
+      }
+    } catch (e) {
+      setToast({
+        message: e?.message || (isArabicBrowser() ? 'حدث خطأ أثناء تغيير الترتيب' : 'Reorder error'),
+        type: 'error',
+      });
+    } finally {
+      setReorderBusy(false);
+    }
+  };
+
+  const handleMoveChapter = (chapterId, direction) => {
+    const sorted = [...(chapters || [])].sort(
+      (a, b) => (a?.order ?? 0) - (b?.order ?? 0)
+    );
+    if (sorted.length < 2) return;
+    const idx = sorted.findIndex((c) => c.id === chapterId);
+    if (idx === -1) return;
+    const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= sorted.length) return;
+    const reordered = [...sorted];
+    [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+    const withOrder = reordered.map((c, i) => ({ ...c, order: i + 1 }));
+    applyChapterOrder(withOrder);
+  };
+
+  const handleMoveChapterToPosition = (chapterId, newPos1) => {
+    const sorted = [...(chapters || [])].sort(
+      (a, b) => (a?.order ?? 0) - (b?.order ?? 0)
+    );
+    if (sorted.length < 2) return;
+    const from = sorted.findIndex((c) => c.id === chapterId);
+    if (from === -1) return;
+    const to = Math.max(0, Math.min(newPos1 - 1, sorted.length - 1));
+    if (from === to) return;
+    const reordered = [...sorted];
+    const [row] = reordered.splice(from, 1);
+    reordered.splice(to, 0, row);
+    const withOrder = reordered.map((c, i) => ({ ...c, order: i + 1 }));
+    applyChapterOrder(withOrder);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -283,14 +344,26 @@ const ChaptersManagement = () => {
                 </div>
               )}
 
+              <p className="text-sm text-gray-600 mb-3">
+                {isArabicBrowser()
+                  ? 'الترتيب: استخدم السهمين أو اختر رقم المركز (#) مباشرة.'
+                  : 'Order: use arrows or the # position dropdown.'}
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {chapters.map((chapter, index) => (
+                {(() => {
+                  const sorted = [...(chapters || [])].sort(
+                    (a, b) => (a?.order ?? 0) - (b?.order ?? 0)
+                  );
+                  return sorted.map((chapter, itemIndex) => {
+                  const canUp = itemIndex > 0;
+                  const canDown = itemIndex < sorted.length - 1;
+                  return (
                   <div
                     key={chapter.id}
                     className="border rounded-lg p-4 bg-gray-50 hover:bg-gray-100 transition"
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <div className="flex-1">
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
                         <h3 className="text-lg font-bold text-dark-600 mb-1">
                           {chapter.name}
                         </h3>
@@ -300,15 +373,57 @@ const ChaptersManagement = () => {
                             : `${chapter.lesson_count ?? chapter.items?.length ?? 0} lessons`}
                         </p>
                       </div>
-                      <button
-                        onClick={() => handleDeleteChapter(chapter.id)}
-                        className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm font-medium ml-2"
-                      >
-                        {isArabicBrowser() ? 'حذف' : 'Delete'}
-                      </button>
+                      <div className="flex flex-wrap gap-1 justify-end shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleMoveChapter(chapter.id, 'up')}
+                          disabled={reorderBusy || !canUp}
+                          className="bg-gray-500 text-white px-2 py-1 rounded text-sm disabled:opacity-50"
+                          title="أعلى"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleMoveChapter(chapter.id, 'down')}
+                          disabled={reorderBusy || !canDown}
+                          className="bg-gray-500 text-white px-2 py-1 rounded text-sm disabled:opacity-50"
+                          title="أسفل"
+                        >
+                          ↓
+                        </button>
+                        <label className="flex items-center bg-slate-600 text-white rounded px-1 py-0.5">
+                          <span className="text-[10px] ml-0.5">#</span>
+                          <select
+                            value={itemIndex + 1}
+                            disabled={reorderBusy || sorted.length < 2}
+                            onChange={(e) =>
+                              handleMoveChapterToPosition(
+                                chapter.id,
+                                Number(e.target.value)
+                              )
+                            }
+                            className="text-xs bg-white text-gray-900 rounded max-w-[3.2rem] py-0.5"
+                          >
+                            {sorted.map((_, i) => (
+                              <option key={i} value={i + 1}>
+                                {i + 1}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          onClick={() => handleDeleteChapter(chapter.id)}
+                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition text-sm font-medium"
+                        >
+                          {isArabicBrowser() ? 'حذف' : 'Delete'}
+                        </button>
+                      </div>
                     </div>
                   </div>
-                ))}
+                  );
+                });
+                })()}
                 {chapters.length === 0 && !showAddForm && (
                   <div className="col-span-full text-center py-8 text-gray-500">
                     {isArabicBrowser() ? 'لا توجد فصول في هذا التصنيف' : 'No chapters in this category'}

@@ -16,7 +16,7 @@ import {
   getQuestionsByLevel,
   addItemToChapter,
   deleteItemFromChapter,
-  reorderItemInChapter,
+  setLessonOrderByIds,
 } from "../services/storageService";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
@@ -115,6 +115,7 @@ const Levels = () => {
     : "التجميعات";
   const isTajmiat = categoryName === "التجميعات";
   const lessonLabel = isTajmiat ? "البنك" : "الدرس";
+  const lessonLabelPlural = isTajmiat ? "البنوك" : "الدروس";
   const manageLabel = isTajmiat ? "إدارة البنك" : "إدارة الواجب";
   const solveLabel = isTajmiat ? "حل البنك" : "حل الواجب";
   const canAccessMedia =
@@ -436,21 +437,8 @@ const Levels = () => {
     }
   };
 
-  const handleMoveLessonInline = async (itemId, direction) => {
-    if (!itemId || !chapterId) return;
-
-    const idx = sortedItems.findIndex((x) => x?.id === itemId);
-    if (idx === -1) return;
-
-    const newIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (newIdx < 0 || newIdx >= sortedItems.length) return;
-
-    // Optimistic local swap + order normalization for instant UI
-    const reordered = [...sortedItems];
-    [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
-    const withOrder = reordered.map((l, i) => ({ ...l, order: i + 1 }));
+  const applyFullLessonOrder = async (withOrder) => {
     setChapter((prev) => (prev ? { ...prev, items: withOrder } : prev));
-
     setBusy(true);
     try {
       if (useBackend) {
@@ -458,12 +446,11 @@ const Levels = () => {
           chapterId,
           withOrder.map((l) => l.id)
         );
-        // Background refresh — don't block UI
         getChapterByIdApi(chapterId)
           .then((ch) => ch && setChapter(ch))
           .catch(() => {});
       } else {
-        reorderItemInChapter(chapterId, itemId, direction);
+        setLessonOrderByIds(chapterId, withOrder.map((l) => l.id));
         setChapter(getChapterById(chapterId) || null);
       }
     } catch (err) {
@@ -471,6 +458,34 @@ const Levels = () => {
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleMoveLessonInline = async (itemId, direction) => {
+    if (!itemId || !chapterId) return;
+    const idx = sortedItems.findIndex((x) => x?.id === itemId);
+    if (idx === -1) return;
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= sortedItems.length) return;
+    const reordered = [...sortedItems];
+    [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+    const withOrder = reordered.map((l, i) => ({ ...l, order: i + 1 }));
+    await applyFullLessonOrder(withOrder);
+  };
+
+  /** نقل مباشر إلى مركز (1 = الأعلى في القائمة المعروضة) */
+  const handleMoveLessonToPosition = async (itemId, newPosition1Based) => {
+    if (!itemId || !chapterId) return;
+    const n = sortedItems.length;
+    if (n < 2) return;
+    const from = sortedItems.findIndex((x) => x?.id === itemId);
+    if (from === -1) return;
+    const to = Math.max(0, Math.min(newPosition1Based - 1, n - 1));
+    if (from === to) return;
+    const reordered = [...sortedItems];
+    const [row] = reordered.splice(from, 1);
+    reordered.splice(to, 0, row);
+    const withOrder = reordered.map((l, i) => ({ ...l, order: i + 1 }));
+    await applyFullLessonOrder(withOrder);
   };
 
   if (loading) {
@@ -544,6 +559,12 @@ const Levels = () => {
             <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">
               اختر {lessonLabel}
             </p>
+            {isAdmin && sortedItems.length > 0 && (
+              <p className="text-sm text-gray-500 mt-1">
+                لترتيب {lessonLabelPlural}: استخدم السهمين أو اختر رقم المركز (#) بجانب
+                كل بطاقة.
+              </p>
+            )}
           </div>
 
           {isAdmin && showAddForm && (
@@ -718,6 +739,34 @@ const Levels = () => {
                           >
                             ↓
                           </button>
+                          <label
+                            className="flex items-center gap-0.5 bg-slate-700/90 text-white rounded-lg px-1.5 py-1"
+                            title="اختر المركز مباشرة (1 = الأول)"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <span className="text-[10px] opacity-90 hidden sm:inline">
+                              #
+                            </span>
+                            <select
+                              value={itemIndex + 1}
+                              disabled={busy || sortedItems.length < 2}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                handleMoveLessonToPosition(
+                                  item.id,
+                                  Number(e.target.value)
+                                );
+                              }}
+                              className="text-xs rounded border-0 bg-white text-gray-900 max-w-[3.25rem] py-0.5 pr-1 cursor-pointer"
+                            >
+                              {sortedItems.map((_, i) => (
+                                <option key={i} value={i + 1}>
+                                  {i + 1}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

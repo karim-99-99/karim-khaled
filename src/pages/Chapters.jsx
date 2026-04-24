@@ -6,6 +6,7 @@ import {
   updateChapterName,
   addChapterToCategory,
   deleteChapterFromCategory,
+  setChapterOrderByIds,
 } from "../services/storageService";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
@@ -16,6 +17,7 @@ import {
   addChapter,
   updateChapter,
   deleteChapter,
+  reorderChaptersForCategory,
 } from "../services/backendApi";
 
 const Chapters = () => {
@@ -142,6 +144,64 @@ const Chapters = () => {
     }
   };
 
+  const getSortedChapters = () =>
+    [...(category?.chapters || [])].sort(
+      (a, b) => (a?.order ?? 0) - (b?.order ?? 0)
+    );
+
+  const applyFullChapterOrder = async (withOrder) => {
+    if (!categoryId) return;
+    setCategory((prev) => (prev ? { ...prev, chapters: withOrder } : null));
+    setBusy(true);
+    try {
+      if (useBackend) {
+        await reorderChaptersForCategory(
+          categoryId,
+          withOrder.map((c) => c.id)
+        );
+        const cat = await getCategoryByIdApi(categoryId);
+        if (cat) setCategory(cat);
+      } else {
+        setChapterOrderByIds(
+          categoryId,
+          withOrder.map((c) => c.id)
+        );
+        setCategory(getCategoryById(categoryId) || null);
+      }
+    } catch (err) {
+      alert(err?.message || "حدث خطأ أثناء تغيير الترتيب");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleMoveChapterInline = async (chId, direction) => {
+    const sorted = getSortedChapters();
+    if (!chId || sorted.length < 2) return;
+    const idx = sorted.findIndex((c) => c.id === chId);
+    if (idx === -1) return;
+    const newIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (newIdx < 0 || newIdx >= sorted.length) return;
+    const reordered = [...sorted];
+    [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
+    const withOrder = reordered.map((c, i) => ({ ...c, order: i + 1 }));
+    await applyFullChapterOrder(withOrder);
+  };
+
+  const handleMoveChapterToPosition = async (chId, newPosition1Based) => {
+    const sorted = getSortedChapters();
+    if (!chId || sorted.length < 2) return;
+    const from = sorted.findIndex((c) => c.id === chId);
+    if (from === -1) return;
+    const to = Math.max(0, Math.min(newPosition1Based - 1, sorted.length - 1));
+    if (from === to) return;
+    const reordered = [...sorted];
+    const [row] = reordered.splice(from, 1);
+    reordered.splice(to, 0, row);
+    const withOrder = reordered.map((c, i) => ({ ...c, order: i + 1 }));
+    await applyFullChapterOrder(withOrder);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -156,6 +216,8 @@ const Chapters = () => {
       </div>
     );
   }
+
+  const sortedChapterList = getSortedChapters();
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -194,6 +256,12 @@ const Chapters = () => {
             <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">
               اختر {chapterLabel}
             </p>
+            {isAdmin && sortedChapterList.length > 0 && (
+              <p className="text-sm text-gray-500 mt-1">
+                لترتيب {chapterLabelPlural}: استخدم السهمين أو اختر رقم المركز من
+                القائمة بجانب كل بطاقة.
+              </p>
+            )}
           </div>
 
           {/* Add Chapter Form for Admin */}
@@ -247,7 +315,9 @@ const Chapters = () => {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {(category.chapters || []).map((chapter, index) => {
+            {sortedChapterList.map((chapter, itemIndex) => {
+              const canChUp = itemIndex > 0;
+              const canChDown = itemIndex < sortedChapterList.length - 1;
               const isVerbal = subjectId === "مادة_اللفظي";
               const isQuantitative = subjectId === "مادة_الكمي";
               const chapterBgLetters = "ف ص و ل أ ب ت ث ج ح";
@@ -299,7 +369,7 @@ const Chapters = () => {
                   </div>
                 )}
                 {isAdmin && (
-                  <div className="absolute top-2 left-2 flex gap-2 z-10">
+                  <div className="absolute top-2 left-2 flex flex-wrap gap-1.5 z-10 max-w-[min(100%,12rem)]">
                     <button
                       onClick={(e) =>
                         editingChapter === chapter.id
@@ -311,22 +381,74 @@ const Chapters = () => {
                       {editingChapter === chapter.id ? "💾" : "✏️"}
                     </button>
                     {editingChapter !== chapter.id && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteChapter(chapter.id);
-                        }}
-                        className="edit-btn bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg text-sm font-medium"
-                      >
-                        🗑️
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveChapterInline(chapter.id, "up");
+                          }}
+                          disabled={busy || !canChUp}
+                          className="edit-btn bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                          title="أعلى"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMoveChapterInline(chapter.id, "down");
+                          }}
+                          disabled={busy || !canChDown}
+                          className="edit-btn bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg text-sm font-medium disabled:opacity-50"
+                          title="أسفل"
+                        >
+                          ↓
+                        </button>
+                        <label
+                          className="flex items-center gap-0.5 bg-slate-700/90 text-white rounded-lg px-1.5 py-1"
+                          title="المركز (1 = الأول)"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="text-[10px] opacity-90">#</span>
+                          <select
+                            value={itemIndex + 1}
+                            disabled={busy || sortedChapterList.length < 2}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleMoveChapterToPosition(
+                                chapter.id,
+                                Number(e.target.value)
+                              );
+                            }}
+                            className="text-xs rounded border-0 bg-white text-gray-900 max-w-[3.25rem] py-0.5 pr-1 cursor-pointer"
+                          >
+                            {sortedChapterList.map((_, i) => (
+                              <option key={i} value={i + 1}>
+                                {i + 1}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteChapter(chapter.id);
+                          }}
+                          className="edit-btn bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg text-sm font-medium"
+                        >
+                          🗑️
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
                 {isAdmin && editingChapter === chapter.id && (
                   <button
                     onClick={handleCancelEdit}
-                    className="edit-btn absolute top-2 left-20 bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg text-sm font-medium z-10"
+                    className="edit-btn absolute top-2 right-2 bg-gray-500 hover:bg-gray-600 text-white p-2 rounded-lg text-sm font-medium z-10"
                   >
                     ✕
                   </button>
@@ -334,7 +456,7 @@ const Chapters = () => {
                 <div className="relative z-10">
                 <div className="flex items-center justify-between mb-4">
                   <div className="w-12 h-12 bg-primary-500 text-white rounded-full flex items-center justify-center font-bold text-xl">
-                    {index + 1}
+                    {itemIndex + 1}
                   </div>
                 </div>
                 {editingChapter === chapter.id ? (
