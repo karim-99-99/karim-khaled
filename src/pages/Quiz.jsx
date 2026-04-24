@@ -19,7 +19,9 @@ import {
   getQuestionsByLevel as getQuestionsByLevelApi,
   getVideoByLevel as getVideoByLevelApi,
   getItemById as getItemByIdApi,
+  getQuizAttempts,
   saveQuizAttempt,
+  recordLessonQuizAnswers,
   addIncorrectAnswers,
 } from "../services/backendApi";
 
@@ -85,12 +87,25 @@ const Quiz = () => {
   }, []);
   const [isPaused, setIsPaused] = useState(false);
   const [level, setLevel] = useState(null);
+  const [serverFinishCount, setServerFinishCount] = useState(null);
   const quizStartTimeRef = useRef(null);
   const currentUser = getCurrentUser();
   const actualItemId = itemId || levelId;
   const progressKey = `quiz_progress_${actualItemId}_${
     currentUser?.id || "guest"
   }`;
+  const examMetaKey = `quiz_exam_meta_v1_${currentUser?.id || "g"}_${actualItemId}`;
+
+  const readExamMeta = () => {
+    try {
+      const raw = localStorage.getItem(examMetaKey);
+      if (!raw) return { attempts: [] };
+      const m = JSON.parse(raw);
+      return { attempts: Array.isArray(m.attempts) ? m.attempts : [] };
+    } catch {
+      return { attempts: [] };
+    }
+  };
   const isAdmin = isContentStaff(currentUser);
   const categoryName = (categoryId || "").includes("تأسيس")
     ? "التأسيس"
@@ -118,6 +133,27 @@ const Quiz = () => {
       }
     }
   }, [progressKey, location.state]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!actualItemId || !isBackendOn()) {
+      setServerFinishCount(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+    getQuizAttempts({ lesson_id: actualItemId })
+      .then((list) => {
+        if (!cancelled)
+          setServerFinishCount(Array.isArray(list) ? list.length : 0);
+      })
+      .catch(() => {
+        if (!cancelled) setServerFinishCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [actualItemId, currentUser?.id]);
 
   useEffect(() => {
     let c = false;
@@ -326,10 +362,43 @@ const Quiz = () => {
       }).catch((err) => {
         console.warn("Could not save quiz attempt to tracker:", err);
       });
+      const toRecord = questions
+        .map((q) => {
+          const userAnswer = ans[q.id];
+          if (userAnswer == null) return null;
+          const ch = String(userAnswer).toLowerCase().slice(0, 1);
+          if (!["a", "b", "c", "d"].includes(ch)) return null;
+          const qid = String(q.id || "");
+          if (qid.startsWith("passage_")) return null;
+          return { question: qid, selected_answer: ch };
+        })
+        .filter(Boolean);
+      if (toRecord.length) {
+        recordLessonQuizAnswers(actualItemId, toRecord).catch((err) => {
+          console.warn("Could not record lesson answers for results:", err);
+        });
+      }
       if (incorrectItems.length > 0) {
         addIncorrectAnswers(incorrectItems).catch((err) => {
           console.warn("Could not save incorrect answers:", err);
         });
+      }
+    }
+
+    if (currentUser) {
+      try {
+        const meta = readExamMeta();
+        if (!Array.isArray(meta.attempts)) meta.attempts = [];
+        meta.attempts.push({
+          score,
+          correctCount,
+          totalQuestions: questions.length,
+          at: Date.now(),
+        });
+        if (meta.attempts.length > 40) meta.attempts = meta.attempts.slice(-40);
+        localStorage.setItem(examMetaKey, JSON.stringify(meta));
+      } catch (e) {
+        /* non-fatal */
       }
     }
 
@@ -395,6 +464,16 @@ const Quiz = () => {
     return "bg-gray-100 text-dark-600";
   };
 
+  const examMeta = readExamMeta();
+  const localFinishN = examMeta.attempts.length;
+  const lastLocalScore = examMeta.attempts.length
+    ? examMeta.attempts[examMeta.attempts.length - 1]?.score
+    : null;
+  const displayFinishN = Math.max(
+    serverFinishCount != null ? serverFinishCount : 0,
+    localFinishN
+  );
+
   if (questions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -408,6 +487,20 @@ const Quiz = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
+
+      {currentUser && displayFinishN > 0 && (
+        <div className="bg-primary-50 border-b border-primary-100 px-4 py-2 text-center text-sm text-primary-800">
+          سبق أن أنهيت هذا الاختبار{" "}
+          <span className="font-bold tabular-nums">{displayFinishN}</span>{" "}
+          {displayFinishN === 1 ? "مرة" : "مرات"}
+          {lastLocalScore != null && (
+            <span className="mr-2 opacity-90">
+              · آخر درجة:{" "}
+              <span className="font-bold">{lastLocalScore}%</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Paused Overlay */}
       {isPaused && (

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import {
   isApiBaseConfigured,
+  isBackendOn,
   getStoredAuthToken,
   getStudentResultsStats,
 } from "../services/backendApi";
+import { getCurrentUser } from "../services/storageService";
 
 const defaultSubjectStats = (label = "") => ({
   subject_label: label,
@@ -107,7 +109,8 @@ export default function StudentResultsModal({ open, onClose }) {
   useEffect(() => {
     if (!open) return;
     setErr(null);
-    if (!isApiBaseConfigured() || !getStoredAuthToken()) {
+    const me = getCurrentUser();
+    if (me?.role && me.role !== "student") {
       setStats({
         lessons_engaged_count: 0,
         assignments_engaged_count: 0,
@@ -119,7 +122,22 @@ export default function StudentResultsModal({ open, onClose }) {
           quantitative: defaultSubjectStats("كمي"),
         },
       });
-      setErr("سجّل الدخول مع ربط الموقع بالخادم لمشاهدة نتائجك.");
+      setErr("نتائجي متاحة لحسابات الطلاب فقط.");
+      return;
+    }
+    if (!isApiBaseConfigured() || !getStoredAuthToken() || !isBackendOn()) {
+      setStats({
+        lessons_engaged_count: 0,
+        assignments_engaged_count: 0,
+        correct_answers: 0,
+        incorrect_answers: 0,
+        answered_questions_total: 0,
+        by_subject: {
+          verbal: defaultSubjectStats("لفظي"),
+          quantitative: defaultSubjectStats("كمي"),
+        },
+      });
+      setErr("سجّل الدخول كطالب واضبط رابط الخادم (VITE_API_URL) وجرّب مرة أخرى.");
       return;
     }
     let c = false;

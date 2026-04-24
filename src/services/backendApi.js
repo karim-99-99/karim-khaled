@@ -1138,6 +1138,18 @@ export const saveQuizAttempt = async (data) => {
   });
 };
 
+/**
+ * After an exam, persist one row per real backend question (not synthetic passage_ ids)
+ * so «نتائجي» and charts include correct / incorrect counts.
+ */
+export const recordLessonQuizAnswers = async (lessonId, answers) => {
+  if (!lessonId || !Array.isArray(answers) || !answers.length) return { recorded: 0 };
+  return request("/tracker/record-lesson-answers/", {
+    method: "POST",
+    body: JSON.stringify({ lesson: lessonId, answers }),
+  });
+};
+
 export const recordVideoWatch = async (lessonId, videoId = null) => {
   const body = { lesson_id: lessonId };
   if (videoId) body.video_id = videoId;

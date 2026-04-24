@@ -30,6 +30,7 @@ urlpatterns = [
     path('export-db/', views.ExportDbView.as_view(), name='export-db'),
     path('public/foundation/', views.PublicFoundationView.as_view(), name='public-foundation'),
     path('tracker/student-summary/', views.TrackerStudentSummaryView.as_view(), name='tracker-student-summary'),
+    path('tracker/record-lesson-answers/', views.RecordLessonQuizAnswersView.as_view(), name='tracker-record-lesson-answers'),
     path('tracker/student-results/', views.TrackerStudentResultsView.as_view(), name='tracker-student-results'),
     path('tracker/admin-summary/', views.TrackerAdminSummaryView.as_view(), name='tracker-admin-summary'),
     path('tracker/admin-student-detail/', views.TrackerAdminStudentDetailView.as_view(), name='tracker-admin-student-detail'),

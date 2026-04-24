@@ -1052,18 +1052,81 @@ class QuizAttemptViewSet(viewsets.ModelViewSet):
         chapter_id = self.request.query_params.get('chapter_id')
         if chapter_id:
             qs = qs.filter(lesson__chapter_id=chapter_id)
+        lesson_id = self.request.query_params.get('lesson_id')
+        if lesson_id:
+            qs = qs.filter(lesson_id=lesson_id)
         if self.request.user.role == 'student':
-            return qs.filter(user=self.request.user)
+            return qs.filter(user=self.request.user).exclude(
+                lesson__chapter__category__subject__section_id__in=DISABLED_SECTION_IDS
+            )
         if self.request.user.role != 'admin':
             return qs.none()
         # Admin sees all
         user_id = self.request.query_params.get('user_id')
         if user_id:
             qs = qs.filter(user_id=user_id)
-        lesson_id = self.request.query_params.get('lesson_id')
-        if lesson_id:
-            qs = qs.filter(lesson_id=lesson_id)
         return qs.exclude(lesson__chapter__category__subject__section_id__in=DISABLED_SECTION_IDS)
+
+
+class RecordLessonQuizAnswersView(APIView):
+    """After finishing a quiz, persist per-question results so student-results / tracking stay in sync."""
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def post(self, request):
+        user = request.user
+        if getattr(user, 'role', None) != 'student':
+            return Response({'detail': 'للطلاب فقط'}, status=status.HTTP_403_FORBIDDEN)
+        lesson_id = request.data.get('lesson')
+        answers = request.data.get('answers', [])
+        if not lesson_id or not isinstance(answers, list):
+            return Response(
+                {'detail': 'lesson and answers list are required'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            lesson = Lesson.objects.get(pk=lesson_id)
+        except Lesson.DoesNotExist:
+            return Response({'detail': 'Lesson not found'}, status=status.HTTP_404_NOT_FOUND)
+        if (
+            lesson.chapter
+            and lesson.chapter.category
+            and lesson.chapter.category.subject
+            and lesson.chapter.category.subject.section_id in DISABLED_SECTION_IDS
+        ):
+            return Response({'detail': 'غير متاح'}, status=status.HTTP_400_BAD_REQUEST)
+
+        recorded = 0
+        for row in answers:
+            qid = str(row.get('question') or '').strip()
+            if not qid:
+                continue
+            try:
+                q = Question.objects.get(pk=qid)
+            except Question.DoesNotExist:
+                continue
+            if not q.lesson_id or str(q.lesson_id) != str(lesson_id):
+                continue
+            sel = (row.get('selected_answer') or '')[:1].lower()
+            if sel not in ('a', 'b', 'c', 'd'):
+                continue
+            ca = q.answers.filter(is_correct=True).first()
+            is_correct = bool(ca and ca.answer_id == sel)
+            StudentProgress.objects.update_or_create(
+                user=user,
+                question=q,
+                defaults={
+                    'lesson': lesson,
+                    'selected_answer': sel,
+                    'is_correct': is_correct,
+                    'answered_at': timezone.now(),
+                },
+            )
+            recorded += 1
+
+        if recorded:
+            lp, _ = LessonProgress.objects.get_or_create(user=user, lesson=lesson)
+            lp.update_progress()
+        return Response({'recorded': recorded})
 
     def get_permissions(self):
         if self.action in ['update', 'partial_update', 'destroy']:
@@ -1286,6 +1349,37 @@ class TrackerStudentResultsView(APIView):
         incorrect_answers = sp.filter(is_correct=False).count()
         answered_questions_total = correct_answers + incorrect_answers
 
+        # Lessons with per-question progress vs quiz-only (e.g. passage/synthetic sub-ids)
+        lessons_with_sp = set(
+            StudentProgress.objects.filter(
+                user=user,
+                answered_at__isnull=False,
+                lesson_id__in=valid_ids,
+            ).values_list('lesson_id', flat=True)
+        )
+        latest_by_lesson = {}
+        for att in QuizAttempt.objects.filter(
+            user=user, lesson_id__in=valid_ids
+        ).order_by('-completed_at'):
+            if att.lesson_id not in latest_by_lesson:
+                latest_by_lesson[att.lesson_id] = att
+
+        def _quiz_supp_for_ids(lesson_ids):
+            sc, sw = 0, 0
+            for lid in lesson_ids:
+                if lid in lessons_with_sp:
+                    continue
+                att = latest_by_lesson.get(lid)
+                if not att:
+                    continue
+                cc = int(att.correct_count or 0)
+                tot = int(att.total_questions or 0)
+                sc += cc
+                sw += max(0, tot - cc)
+            return sc, sw
+
+        g_sup_c, g_sup_w = _quiz_supp_for_ids(valid_ids)
+
         # Split stats into verbal / quantitative for the student results modal.
         subject_config = [
             ('verbal', 'مادة_اللفظي', 'لفظي'),
@@ -1323,6 +1417,9 @@ class TrackerStudentResultsView(APIView):
             )
             subject_correct = subject_sp.filter(is_correct=True).count()
             subject_incorrect = subject_sp.filter(is_correct=False).count()
+            s_sup_c, s_sup_w = _quiz_supp_for_ids(
+                {lid for lid in all_subject_ids if lid in valid_ids}
+            )
 
             by_subject[key] = {
                 'subject_id': subject_id,
@@ -1330,17 +1427,18 @@ class TrackerStudentResultsView(APIView):
                 'total_lessons_count': len(all_subject_ids),
                 'passed_lessons_count': passed_count,
                 'remaining_lessons_count': remaining_count,
-                'correct_answers': subject_correct,
-                'incorrect_answers': subject_incorrect,
-                'answered_questions_total': subject_correct + subject_incorrect,
+                'correct_answers': subject_correct + s_sup_c,
+                'incorrect_answers': subject_incorrect + s_sup_w,
+                'answered_questions_total': (subject_correct + s_sup_c)
+                + (subject_incorrect + s_sup_w),
             }
 
         return Response({
             'lessons_engaged_count': len(valid_ids),
             'assignments_engaged_count': assignments_engaged_count,
-            'correct_answers': correct_answers,
-            'incorrect_answers': incorrect_answers,
-            'answered_questions_total': answered_questions_total,
+            'correct_answers': correct_answers + g_sup_c,
+            'incorrect_answers': incorrect_answers + g_sup_w,
+            'answered_questions_total': (correct_answers + g_sup_c) + (incorrect_answers + g_sup_w),
             'by_subject': by_subject,
         })
 
