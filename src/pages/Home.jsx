@@ -6,7 +6,7 @@ import {
   getSections,
   getCurrentUser,
   updateChapterName,
-  reorderChapterInCategory,
+  setChapterOrderByIds,
 } from "../services/storageService";
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
@@ -400,6 +400,31 @@ const Home = () => {
     }
   };
 
+  const applyChapterReorder = async (withOrder, snapshotList) => {
+    if (!selectedCategoryId) return;
+    setChaptersState(withOrder);
+    setChaptersBusy(true);
+    try {
+      if (useBackend) {
+        await reorderChaptersForCategory(
+          selectedCategoryId,
+          withOrder.map((c) => c.id)
+        );
+      } else {
+        setChapterOrderByIds(
+          selectedCategoryId,
+          withOrder.map((c) => c.id)
+        );
+      }
+      await refreshSelectedCategory();
+    } catch (e) {
+      setChaptersState(snapshotList);
+      alert(e?.message || "حدث خطأ أثناء تغيير الترتيب");
+    } finally {
+      setChaptersBusy(false);
+    }
+  };
+
   const handleMoveChapterInline = async (chapterId, direction) => {
     if (!chapterId || !selectedCategoryId) return;
 
@@ -411,31 +436,28 @@ const Home = () => {
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= list.length) return;
 
-    // Optimistic swap in local state (instant UI feedback) with normalized order
     const reordered = [...list];
     [reordered[idx], reordered[newIdx]] = [reordered[newIdx], reordered[idx]];
     const withOrder = reordered.map((ch, i) => ({ ...ch, order: i + 1 }));
-    setChaptersState(withOrder);
+    await applyChapterReorder(withOrder, list);
+  };
 
-    setChaptersBusy(true);
-    try {
-      if (useBackend) {
-        // Send one POST with the normalized id sequence; backend assigns 1..N
-        await reorderChaptersForCategory(
-          selectedCategoryId,
-          withOrder.map((c) => c.id)
-        );
-      } else {
-        reorderChapterInCategory(selectedCategoryId, chapterId, direction);
-      }
-      await refreshSelectedCategory();
-    } catch (e) {
-      // Revert optimistic state on failure
-      setChaptersState(list);
-      alert(e?.message || "حدث خطأ أثناء تغيير الترتيب");
-    } finally {
-      setChaptersBusy(false);
-    }
+  /** ترتيب مباشر: 1 = أول بطاقة في القائمة */
+  const handleMoveChapterToPosition = async (chapterId, newPosition1Based) => {
+    if (!chapterId || !selectedCategoryId) return;
+    const list = Array.isArray(chaptersState) ? [...chaptersState] : [];
+    list.sort((a, b) => (a?.order ?? 0) - (b?.order ?? 0));
+    const n = list.length;
+    if (n < 2) return;
+    const from = list.findIndex((x) => x?.id === chapterId);
+    if (from === -1) return;
+    const to = Math.max(0, Math.min(newPosition1Based - 1, n - 1));
+    if (from === to) return;
+    const reordered = [...list];
+    const [row] = reordered.splice(from, 1);
+    reordered.splice(to, 0, row);
+    const withOrder = reordered.map((ch, i) => ({ ...ch, order: i + 1 }));
+    await applyChapterReorder(withOrder, list);
   };
 
   return (
@@ -831,6 +853,13 @@ const Home = () => {
                         : "لا توجد أقسام متاحة"}
                     </div>
                   ) : (
+                    <>
+                      {isAdmin && (
+                        <p className="text-sm text-dark-600 mb-3 text-right">
+                          ترتيب الأقسام/المستويات: استخدم السهمين أو اختر رقم
+                          المركز من القائمة (#) بجانب كل بطاقة.
+                        </p>
+                      )}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {chapters.map((ch) => {
                         const isVerbal = selectedSubjectId === "مادة_اللفظي";
@@ -891,7 +920,7 @@ const Home = () => {
                             <div className="relative z-10">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="text-2xl">📘</div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-full">
                                   <span className="text-xs px-2 py-1 rounded-full bg-secondary-100 text-dark-700 border border-secondary-200 font-semibold">
                                     {ch.lesson_count ??
                                       (ch.items || ch.lessons || []).length}{" "}
@@ -960,6 +989,34 @@ const Home = () => {
                                           >
                                             ↓
                                           </button>
+                                          <label
+                                            className="inline-flex items-center gap-0.5 bg-slate-600 text-white rounded px-1 py-0.5"
+                                            title="المركز (1 = الأول)"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <span className="text-[10px] font-bold">#</span>
+                                            <select
+                                              value={chapterIndex + 1}
+                                              disabled={
+                                                chaptersBusy || chapters.length < 2
+                                              }
+                                              onClick={(e) => e.stopPropagation()}
+                                              onChange={(e) => {
+                                                e.stopPropagation();
+                                                handleMoveChapterToPosition(
+                                                  ch.id,
+                                                  Number(e.target.value)
+                                                );
+                                              }}
+                                              className="text-xs rounded border-0 bg-white text-gray-900 max-w-[3.25rem] py-0.5 pr-1 cursor-pointer"
+                                            >
+                                              {chapters.map((_, i) => (
+                                                <option key={i} value={i + 1}>
+                                                  {i + 1}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </label>
                                           <button
                                             type="button"
                                             onClick={() =>
@@ -1016,6 +1073,7 @@ const Home = () => {
                         );
                       })}
                     </div>
+                    </>
                   )}
                 </div>
               )}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   getQuestionsByLevel,
@@ -23,7 +23,12 @@ import {
   saveQuizAttempt,
   recordLessonQuizAnswers,
   addIncorrectAnswers,
+  pingHealth,
 } from "../services/backendApi";
+
+/** sessionStorage: instant replay of last fetched questions (retake / navigate back) */
+const QUIZ_Q_SNAPSHOT_KEY = (lessonId) => `quiz_q_snapshot_v1_${lessonId}`;
+const SNAPSHOT_TTL_MS = 15 * 60 * 1000;
 
 /**
  * Flatten passage questions into single-question format for Quiz.
@@ -142,85 +147,179 @@ const Quiz = () => {
         cancelled = true;
       };
     }
-    getQuizAttempts({ lesson_id: actualItemId })
-      .then((list) => {
-        if (!cancelled)
-          setServerFinishCount(Array.isArray(list) ? list.length : 0);
-      })
-      .catch(() => {
-        if (!cancelled) setServerFinishCount(0);
-      });
+    const run = () => {
+      getQuizAttempts({ lesson_id: actualItemId })
+        .then((list) => {
+          if (!cancelled)
+            setServerFinishCount(Array.isArray(list) ? list.length : 0);
+        })
+        .catch(() => {
+          if (!cancelled) setServerFinishCount(0);
+        });
+    };
+    const useRic = typeof requestIdleCallback !== "undefined";
+    const id = useRic
+      ? requestIdleCallback(run, { timeout: 2000 })
+      : setTimeout(run, 0);
     return () => {
       cancelled = true;
+      if (useRic) cancelIdleCallback(id);
+      else clearTimeout(id);
     };
   }, [actualItemId, currentUser?.id]);
+
+  // Hydrate from last session (same tab) so retake / back→quiz shows questions immediately.
+  useLayoutEffect(() => {
+    if (!actualItemId || !isBackendOn()) return;
+    try {
+      const raw = sessionStorage.getItem(QUIZ_Q_SNAPSHOT_KEY(actualItemId));
+      if (!raw) return;
+      const { t, rawQuestions } = JSON.parse(raw);
+      if (Date.now() - t > SNAPSHOT_TTL_MS) return;
+      if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) return;
+      setQuestions(flattenQuestionsForQuiz(rawQuestions));
+      quizStartTimeRef.current = Date.now();
+    } catch {
+      /* ignore */
+    }
+  }, [actualItemId]);
+
+  useEffect(() => {
+    if (location.state?.retake) {
+      setAnswers({});
+      setCurrentIndex(0);
+      setShowResult(false);
+      setSelectedAnswer(null);
+      setIsPaused(false);
+    }
+  }, [location.key, location.state?.retake]);
 
   useEffect(() => {
     let c = false;
     const load = async () => {
+      if (!actualItemId) return;
       let quizQuestions = [];
       let levelVideo = null;
+
       if (isBackendOn()) {
-        const [pq, lv, lev] = await Promise.all([
-          getQuestionsByLevelApi(actualItemId),
+        pingHealth();
+        try {
+          const pq = await getQuestionsByLevelApi(actualItemId);
+          if (c) return;
+          quizQuestions = pq || [];
+          try {
+            sessionStorage.setItem(
+              QUIZ_Q_SNAPSHOT_KEY(actualItemId),
+              JSON.stringify({ t: Date.now(), rawQuestions: quizQuestions })
+            );
+          } catch {
+            /* quota */
+          }
+          quizStartTimeRef.current = Date.now();
+          if (quizQuestions.length === 0) {
+            const sampleQuestions = [];
+            for (let i = 1; i <= 50; i++) {
+              sampleQuestions.push({
+                id: `q_${actualItemId}_${i}`,
+                itemId: actualItemId,
+                levelId: actualItemId,
+                question: `سؤال ${i}: ما هو 2 + 2؟`,
+                questionEn: `Question ${i}: What is 2 + 2?`,
+                answers: [
+                  { id: "a", text: "3", textEn: "3", isCorrect: false },
+                  { id: "b", text: "4", textEn: "4", isCorrect: true },
+                  { id: "c", text: "5", textEn: "5", isCorrect: false },
+                  { id: "d", text: "6", textEn: "6", isCorrect: false },
+                ],
+              });
+            }
+            setQuestions(sampleQuestions);
+          } else {
+            setQuestions(flattenQuestionsForQuiz(quizQuestions));
+          }
+        } catch (e) {
+          if (c) return;
+          console.error("Quiz load questions:", e);
+          const sampleQuestions = [];
+          for (let i = 1; i <= 50; i++) {
+            sampleQuestions.push({
+              id: `q_${actualItemId}_${i}`,
+              itemId: actualItemId,
+              levelId: actualItemId,
+              question: `سؤال ${i}: ما هو 2 + 2؟`,
+              questionEn: `Question ${i}: What is 2 + 2?`,
+              answers: [
+                { id: "a", text: "3", textEn: "3", isCorrect: false },
+                { id: "b", text: "4", textEn: "4", isCorrect: true },
+                { id: "c", text: "5", textEn: "5", isCorrect: false },
+                { id: "d", text: "6", textEn: "6", isCorrect: false },
+              ],
+            });
+          }
+          setQuestions(sampleQuestions);
+        }
+
+        Promise.all([
           getVideoByLevelApi(actualItemId),
           getItemByIdApi(actualItemId),
-        ]);
-        quizQuestions = pq || [];
-        levelVideo = lv || null;
-        if (!c) setLevel(lev);
+        ]).then(([lv, lev]) => {
+          if (c) return;
+          if (lev) setLevel(lev);
+          setVideo(lv || null);
+        });
       } else {
         quizQuestions = getQuestionsByLevel(actualItemId);
         levelVideo = getVideoByLevel(actualItemId);
         setLevel(getLevelById(actualItemId));
-      }
-      if (c) return;
-      quizStartTimeRef.current = Date.now();
-      if (quizQuestions.length === 0) {
-        const sampleQuestions = [];
-        for (let i = 1; i <= 50; i++) {
-          sampleQuestions.push({
-            id: `q_${actualItemId}_${i}`,
-            itemId: actualItemId,
-            levelId: actualItemId,
-            question: `سؤال ${i}: ما هو 2 + 2؟`,
-            questionEn: `Question ${i}: What is 2 + 2?`,
-            answers: [
-              { id: "a", text: "3", textEn: "3", isCorrect: false },
-              { id: "b", text: "4", textEn: "4", isCorrect: true },
-              { id: "c", text: "5", textEn: "5", isCorrect: false },
-              { id: "d", text: "6", textEn: "6", isCorrect: false },
-            ],
-          });
+        if (c) return;
+        quizStartTimeRef.current = Date.now();
+        if (quizQuestions.length === 0) {
+          const sampleQuestions = [];
+          for (let i = 1; i <= 50; i++) {
+            sampleQuestions.push({
+              id: `q_${actualItemId}_${i}`,
+              itemId: actualItemId,
+              levelId: actualItemId,
+              question: `سؤال ${i}: ما هو 2 + 2؟`,
+              questionEn: `Question ${i}: What is 2 + 2?`,
+              answers: [
+                { id: "a", text: "3", textEn: "3", isCorrect: false },
+                { id: "b", text: "4", textEn: "4", isCorrect: true },
+                { id: "c", text: "5", textEn: "5", isCorrect: false },
+                { id: "d", text: "6", textEn: "6", isCorrect: false },
+              ],
+            });
+          }
+          setQuestions(sampleQuestions);
+        } else {
+          setQuestions(flattenQuestionsForQuiz(quizQuestions));
         }
-        setQuestions(sampleQuestions);
-      } else {
-        const flattened = flattenQuestionsForQuiz(quizQuestions);
-        setQuestions(flattened);
-      }
-      if (
-        levelVideo &&
-        !isBackendOn() &&
-        levelVideo.isFileUpload &&
-        levelVideo.url?.startsWith("indexeddb://")
-      ) {
-        try {
-          const videoFile = await getVideoFile(actualItemId);
-          setVideo(
-            videoFile ? { ...levelVideo, url: videoFile.url } : levelVideo
-          );
-        } catch (e) {
-          setVideo(levelVideo);
+        if (
+          levelVideo &&
+          !isBackendOn() &&
+          levelVideo.isFileUpload &&
+          levelVideo.url?.startsWith("indexeddb://")
+        ) {
+          try {
+            const videoFile = await getVideoFile(actualItemId);
+            if (!c) {
+              setVideo(
+                videoFile ? { ...levelVideo, url: videoFile.url } : levelVideo
+              );
+            }
+          } catch (e) {
+            if (!c) setVideo(levelVideo);
+          }
+        } else {
+          if (!c) setVideo(levelVideo);
         }
-      } else {
-        setVideo(levelVideo);
       }
     };
     load();
     return () => {
       c = true;
     };
-  }, [actualItemId]);
+  }, [actualItemId, location.key]);
 
   const currentQuestion = questions[currentIndex];
 

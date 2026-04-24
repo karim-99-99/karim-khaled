@@ -295,6 +295,28 @@ export const setMyAvatarChoice = async (avatarChoice) => {
 let _sectionsCache = { at: 0, data: null };
 const SECTIONS_CACHE_MS = 30_000;
 
+/** Short TTL cache for quiz-related lesson fetches (speeds retake / back-to-quiz). */
+const LESSON_QUIZ_CACHE_MS = 3 * 60 * 1000;
+const _lessonQuestionsCache = new Map();
+const _lessonItemCache = new Map();
+const _lessonVideoCache = new Map();
+
+/** @returns {undefined} on miss; may return null if cached (e.g. no video) */
+function readLessonCache(map, id) {
+  if (!id) return undefined;
+  const e = map.get(id);
+  if (!e) return undefined;
+  if (Date.now() - e.at > LESSON_QUIZ_CACHE_MS) {
+    map.delete(id);
+    return undefined;
+  }
+  return e.data;
+}
+function writeLessonCache(map, id, data) {
+  if (!id) return;
+  map.set(id, { at: Date.now(), data });
+}
+
 /** Cached tree for /courses; pass { force: true } after structural admin changes if needed */
 export const getSections = async (options = {}) => {
   const force = options?.force === true;
@@ -312,6 +334,9 @@ export const getSections = async (options = {}) => {
 
 export const invalidateSectionsCache = () => {
   _sectionsCache = { at: 0, data: null };
+  _lessonQuestionsCache.clear();
+  _lessonItemCache.clear();
+  _lessonVideoCache.clear();
 };
 
 export const getSubjects = async () => {
@@ -514,10 +539,22 @@ export const getAllLessons = async () => {
   return Array.isArray(list) ? list : list?.results || [];
 };
 
-export const getItemById = async (itemId) => {
+export const getItemById = async (itemId, options = {}) => {
+  const force = options?.force === true;
+  if (!force) {
+    const hit = readLessonCache(_lessonItemCache, itemId);
+    if (hit !== undefined) return hit;
+  }
   try {
     const data = await request(`/lessons/${encodeURIComponent(itemId)}/`);
-    return { ...data, hasTest: !!data.has_test, id: data.id, name: data.name };
+    const out = {
+      ...data,
+      hasTest: !!data.has_test,
+      id: data.id,
+      name: data.name,
+    };
+    writeLessonCache(_lessonItemCache, itemId, out);
+    return out;
   } catch {
     return null;
   }
@@ -693,14 +730,21 @@ export const sortQuestionsBySequence = (questions) => {
   });
 };
 
-export const getQuestionsByLevel = async (levelId) => {
+export const getQuestionsByLevel = async (levelId, options = {}) => {
   try {
     if (!levelId) {
       console.warn("getQuestionsByLevel called without levelId");
       return [];
     }
+    const force = options?.force === true;
+    if (!force) {
+      const hit = readLessonCache(_lessonQuestionsCache, levelId);
+      if (hit !== undefined) return hit;
+    }
     const arr = await getQuestions({ lesson_id: levelId });
-    return sortQuestionsBySequence(Array.isArray(arr) ? arr : []);
+    const sorted = sortQuestionsBySequence(Array.isArray(arr) ? arr : []);
+    writeLessonCache(_lessonQuestionsCache, levelId, sorted);
+    return sorted;
   } catch (err) {
     console.error("Error in getQuestionsByLevel:", err);
     return [];
@@ -748,6 +792,7 @@ export const addQuestion = async (
       body: fd,
     });
   }
+  _lessonQuestionsCache.delete(lessonId);
   return out;
 };
 
@@ -781,9 +826,11 @@ export const updateQuestion = async (
       body: fd,
     });
   }
-  return mapQuestionFromBackend(
+  const final = mapQuestionFromBackend(
     await request(`/questions/${encodeURIComponent(questionId)}/`)
   );
+  _lessonQuestionsCache.clear();
+  return final;
 };
 
 export const updateQuestionOrder = async (questionId, orderIndex) => {
@@ -805,14 +852,17 @@ export const updateQuestionOrder = async (questionId, orderIndex) => {
  * Tries POST /questions/reorder/ first; if that fails (e.g. 405 on deploy), falls back to PATCH per question. */
 export const reorderQuestionsForLesson = async (lessonId, order) => {
   try {
-    return await request("/questions/reorder/", {
+    const r = await request("/questions/reorder/", {
       method: "POST",
       body: JSON.stringify({ lesson_id: lessonId, order }),
     });
+    _lessonQuestionsCache.delete(lessonId);
+    return r;
   } catch (_err) {
     for (let i = 0; i < order.length; i++) {
       await updateQuestionOrder(order[i], i + 1);
     }
+    _lessonQuestionsCache.delete(lessonId);
     return { updated: order.length };
   }
 };
@@ -821,6 +871,7 @@ export const deleteQuestion = async (questionId) => {
   await request(`/questions/${encodeURIComponent(questionId)}/`, {
     method: "DELETE",
   });
+  _lessonQuestionsCache.clear();
 };
 
 // Add passage (special type of question with passage_text and nested questions)
@@ -844,6 +895,7 @@ export const addPassage = async (lessonId, { passageText, questions }) => {
     method: "POST",
     body: JSON.stringify(body),
   });
+  _lessonQuestionsCache.delete(lessonId);
   return mapQuestionFromBackend(data);
 };
 
@@ -867,9 +919,11 @@ export const updatePassage = async (passageId, { passageText, questions }) => {
     method: "PATCH",
     body: JSON.stringify(body),
   });
-  return mapQuestionFromBackend(
+  const out = mapQuestionFromBackend(
     await request(`/questions/${encodeURIComponent(passageId)}/`)
   );
+  _lessonQuestionsCache.clear();
+  return out;
 };
 
 // ——— Bunny Stream ———
@@ -968,9 +1022,16 @@ export const getVideos = async (opts = null) => {
   return arr.map(mapVideoFromBackend);
 };
 
-export const getVideoByLevel = async (levelId) => {
+export const getVideoByLevel = async (levelId, options = {}) => {
+  const force = options?.force === true;
+  if (!force) {
+    const hit = readLessonCache(_lessonVideoCache, levelId);
+    if (hit !== undefined) return hit;
+  }
   const arr = await getVideos(levelId);
-  return arr[0] || null;
+  const v = arr[0] || null;
+  writeLessonCache(_lessonVideoCache, levelId, v);
+  return v;
 };
 
 export const addVideo = async (lessonId, formData) => {
@@ -984,6 +1045,7 @@ export const addVideo = async (lessonId, formData) => {
     fd.append("video_url", formData.video_url);
   }
   const data = await request("/videos/", { method: "POST", body: fd });
+  _lessonVideoCache.delete(lessonId);
   return mapVideoFromBackend(data);
 };
 
@@ -1007,6 +1069,7 @@ export const updateVideo = async (videoId, formData) => {
     method: "PATCH",
     body: fd,
   });
+  _lessonVideoCache.clear();
   return mapVideoFromBackend(data);
 };
 
@@ -1014,6 +1077,7 @@ export const deleteVideo = async (videoId) => {
   await request(`/videos/${encodeURIComponent(videoId)}/`, {
     method: "DELETE",
   });
+  _lessonVideoCache.clear();
 };
 
 // ——— Files ———

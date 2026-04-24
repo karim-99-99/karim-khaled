@@ -19,6 +19,10 @@ const Result = () => {
   // Warm the next likely routes; ping wakes cold backend so /courses and /items respond faster.
   useEffect(() => {
     pingHealth();
+    // Eagerly load chunks used right after the result (less wait on "retake" / "back to lessons")
+    import('./Quiz.jsx');
+    import('./Levels.jsx');
+    import('./Chapters.jsx');
     prefetchCoursesFlow();
     prefetchLessonMediaRoutes();
   }, []);
