@@ -342,6 +342,7 @@ const Quiz = () => {
             score,
             correctCount,
             totalQuestions: questions.length,
+            chapter: location.state?.chapter,
           },
         }
       );
@@ -559,7 +560,16 @@ const Quiz = () => {
                 <button
                   onClick={() =>
                     navigate(
-                      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`
+                      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`,
+                      {
+                        state: {
+                          chapter:
+                            location.state?.chapter || {
+                              id: chapterId,
+                              items: [],
+                            },
+                        },
+                      }
                     )
                   }
                   className="text-primary-600 hover:text-primary-700 flex items-center gap-2 font-medium"

@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
 import { isArabicBrowser } from '../utils/language';
 import { prefetchCoursesFlow, prefetchLessonMediaRoutes } from '../utils/routePrefetch';
+import { pingHealth } from '../services/backendApi';
 
 const Result = () => {
   // Support both new structure and legacy
@@ -12,8 +13,12 @@ const Result = () => {
   
   const { score = 0, correctCount = 0, totalQuestions = 50 } = location.state || {};
 
-  // Warm the next likely routes (Home / Levels / Quiz retake) so taps feel instant.
+  const chapterForNav =
+    location.state?.chapter || (chapterId ? { id: chapterId, items: [] } : null);
+
+  // Warm the next likely routes; ping wakes cold backend so /courses and /items respond faster.
   useEffect(() => {
+    pingHealth();
     prefetchCoursesFlow();
     prefetchLessonMediaRoutes();
   }, []);
@@ -73,13 +78,24 @@ const Result = () => {
             <button
               onClick={() => {
                 if (sectionId && categoryId && itemId) {
-                  navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`, { state: { retake: true } });
+                  navigate(
+                    `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`,
+                    {
+                      state: {
+                        retake: true,
+                        chapter: chapterForNav,
+                      },
+                    }
+                  );
                 } else if (levelId) {
                   navigate(`/level/${levelId}/quiz`, { state: { retake: true } });
                 } else if (quizId) {
                   navigate(`/level/${quizId}/quiz`, { state: { retake: true } });
                 } else {
-                  navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
+                  navigate(
+                    `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`,
+                    { state: { chapter: chapterForNav } }
+                  );
                 }
               }}
               className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition text-lg"
@@ -90,7 +106,10 @@ const Result = () => {
             <button
               onClick={() => {
                 if (sectionId && categoryId && chapterId) {
-                  navigate(`/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`);
+                  navigate(
+                    `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`,
+                    { state: { chapter: chapterForNav } }
+                  );
                 } else if (subjectId && chapterId) {
                   navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);
                 } else {
@@ -103,7 +122,17 @@ const Result = () => {
             </button>
             
             <button
-              onClick={() => navigate('/courses')}
+              onClick={() => {
+                if (subjectId && categoryId) {
+                  const p = new URLSearchParams();
+                  p.set('subjectId', subjectId);
+                  p.set('categoryId', categoryId);
+                  p.set('open', 'chapters');
+                  navigate(`/courses?${p.toString()}`);
+                } else {
+                  navigate('/courses');
+                }
+              }}
               className="w-full bg-gray-300 text-gray-800 py-3 rounded-lg font-semibold hover:bg-gray-400 transition text-lg"
             >
               {isArabicBrowser() ? 'الصفحة الرئيسية' : 'Home'}

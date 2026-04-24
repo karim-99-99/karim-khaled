@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   getFileByLevel,
   getItemById,
@@ -22,6 +22,7 @@ const FileViewer = () => {
   const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } =
     useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [fileMetadata, setFileMetadata] = useState(null);
   const [fileUrl, setFileUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -40,6 +41,12 @@ const FileViewer = () => {
     if (sectionId && categoryId && itemId) {
       navigate(
         `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`,
+        {
+          state: {
+            chapter:
+              location.state?.chapter || { id: chapterId, items: [] },
+          },
+        }
       );
     } else {
       navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);

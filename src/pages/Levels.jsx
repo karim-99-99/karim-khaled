@@ -32,9 +32,39 @@ import {
   getQuizAttempts,
   getLessonProgressList,
   reorderLessonsForChapter,
+  pingHealth,
 } from "../services/backendApi";
 import { prefetchLessonMediaRoutes } from "../utils/routePrefetch";
 import { isContentStaff } from "../utils/roles";
+
+const CHAPTER_CACHE_PREFIX = "levels_chapter_cache_v1_";
+const CHAPTER_CACHE_TTL_MS = 8 * 60 * 1000;
+
+function readChapterCache(chapterId) {
+  if (typeof window === "undefined" || !chapterId) return null;
+  try {
+    const raw = sessionStorage.getItem(`${CHAPTER_CACHE_PREFIX}${chapterId}`);
+    if (!raw) return null;
+    const { t, chapter } = JSON.parse(raw);
+    if (!chapter || !t) return null;
+    if (Date.now() - t > CHAPTER_CACHE_TTL_MS) return null;
+    return chapter;
+  } catch {
+    return null;
+  }
+}
+
+function writeChapterCache(chapterId, ch) {
+  if (typeof window === "undefined" || !chapterId || !ch) return;
+  try {
+    sessionStorage.setItem(
+      `${CHAPTER_CACHE_PREFIX}${chapterId}`,
+      JSON.stringify({ t: Date.now(), chapter: ch })
+    );
+  } catch {
+    // ignore quota / private mode
+  }
+}
 
 const Levels = () => {
   const { sectionId, subjectId, categoryId, chapterId } = useParams();
@@ -42,11 +72,14 @@ const Levels = () => {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const returnUrl = searchParams.get("returnUrl");
-  // Chapter shell may come through navigation state (from /courses) so the page
-  // can paint lesson cards instantly while the full API response is loading.
-  const initialChapterFromState = location.state?.chapter || null;
-  const [chapter, setChapter] = useState(initialChapterFromState);
-  const [loading, setLoading] = useState(!initialChapterFromState);
+  // Prefer route state, then a fresh recent cache — avoids long waits on return from quiz/result.
+  const navChapter = location.state?.chapter;
+  const navMatches =
+    navChapter && String(navChapter.id) === String(chapterId) ? navChapter : null;
+  const cachedChapter = navMatches ? null : readChapterCache(chapterId);
+  const initialChapter = navMatches || cachedChapter;
+  const [chapter, setChapter] = useState(initialChapter);
+  const [loading, setLoading] = useState(!initialChapter);
   const [busy, setBusy] = useState(false);
   const [videos, setVideos] = useState([]);
   const [files, setFiles] = useState([]);
@@ -87,27 +120,65 @@ const Levels = () => {
   const canAccessMedia =
     isAdmin || (currentUser && hasCategoryAccess(currentUser, categoryName));
 
+  // Wake cold backend; cheap no-op if already up.
+  useEffect(() => {
+    if (useBackend) pingHealth();
+  }, [useBackend]);
+
   useEffect(() => {
     let c = false;
+    const applySeedFromNavigation = () => {
+      const nav = location.state?.chapter;
+      if (nav && String(nav.id) === String(chapterId)) {
+        setChapter((prev) => {
+          if (Array.isArray(nav.items) && nav.items.length) return { ...nav };
+          if (prev && String(prev.id) === String(chapterId) && (prev.items || []).length)
+            return { ...nav, items: nav.items && nav.items.length ? nav.items : prev.items };
+          return { ...nav };
+        });
+        setLoading(false);
+        return;
+      }
+      const cached = readChapterCache(chapterId);
+      if (cached) {
+        setChapter(cached);
+        setLoading(false);
+      } else {
+        setLoading(true);
+      }
+    };
+    applySeedFromNavigation();
+
     async function load() {
+      if (!useBackend) {
+        if (!c) {
+          setChapter(getChapterById(chapterId) || null);
+          setLoading(false);
+        }
+        return;
+      }
       try {
-        if (useBackend) {
-          const [ch, v, f] = await Promise.all([
-            getChapterByIdApi(chapterId),
-            getVideos({ chapter_id: chapterId }),
-            getFiles({ chapter_id: chapterId }),
-          ]);
-          if (!c) {
-            if (ch) setChapter(ch);
+        // Critical path: chapter only — do not block UI on videos/files lists.
+        const ch = await getChapterByIdApi(chapterId);
+        if (!c && ch) {
+          setChapter(ch);
+          writeChapterCache(chapterId, ch);
+          setLoading(false);
+        } else if (!c && !ch) {
+          setLoading(false);
+        }
+        if (c) return;
+        Promise.all([
+          getVideos({ chapter_id: chapterId }),
+          getFiles({ chapter_id: chapterId }),
+        ])
+          .then(([v, f]) => {
+            if (c) return;
             setVideos(Array.isArray(v) ? v : []);
             setFiles(Array.isArray(f) ? f : []);
-          }
-        } else {
-          if (!c) setChapter(getChapterById(chapterId) || null);
-        }
+          })
+          .catch(() => {});
       } catch (e) {
-        // Keep any pre-seeded chapter; failures here shouldn't wipe the view
-      } finally {
         if (!c) setLoading(false);
       }
     }
@@ -115,7 +186,7 @@ const Levels = () => {
     return () => {
       c = true;
     };
-  }, [chapterId, useBackend]);
+  }, [chapterId, useBackend, location.key, location.state?.chapter]);
 
   useEffect(() => {
     if (chapterId) prefetchLessonMediaRoutes();
@@ -216,7 +287,8 @@ const Levels = () => {
       return;
     }
     navigate(
-      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`
+      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/video`,
+      { state: { chapter: chapter || { id: chapterId, items: [] } } }
     );
   };
 
@@ -248,7 +320,8 @@ const Levels = () => {
         return;
       }
       navigate(
-        `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`
+        `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/quiz`,
+        { state: { chapter: chapter || { id: chapterId, items: [] } } }
       );
     } catch (error) {
       console.error("Error navigating to quiz page:", error);
@@ -280,7 +353,8 @@ const Levels = () => {
       return;
     }
     navigate(
-      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/file`
+      `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/item/${itemId}/file`,
+      { state: { chapter: chapter || { id: chapterId, items: [] } } }
     );
   };
 

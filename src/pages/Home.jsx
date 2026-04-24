@@ -21,11 +21,40 @@ import {
   getSections as getSectionsApi,
   updateChapter,
   reorderChaptersForCategory,
+  pingHealth,
 } from "../services/backendApi";
 import { isContentStaff } from "../utils/roles";
 
 const COURSES_SS_SUBJECT = "courses:lastSubjectId";
 const COURSES_SS_CATEGORY = "courses:lastCategoryId";
+const SECTIONS_TREE_CACHE_KEY = "courses_sections_tree_v1";
+const SECTIONS_CACHE_TTL_MS = 8 * 60 * 1000;
+
+function readSectionsTreeCache() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(SECTIONS_TREE_CACHE_KEY);
+    if (!raw) return null;
+    const { t, data } = JSON.parse(raw);
+    if (!data || !t) return null;
+    if (Date.now() - t > SECTIONS_CACHE_TTL_MS) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function writeSectionsTreeCache(data) {
+  if (typeof window === "undefined" || !data) return;
+  try {
+    sessionStorage.setItem(
+      SECTIONS_TREE_CACHE_KEY,
+      JSON.stringify({ t: Date.now(), data })
+    );
+  } catch {
+    // ignore
+  }
+}
 
 const readCoursesSelection = (visibleSubjects, preferredSubjectId) => {
   const list = visibleSubjects || [];
@@ -85,41 +114,56 @@ const Home = () => {
 
   useEffect(() => {
     let cancelled = false;
+    if (useBackend) pingHealth();
+
+    const applyFromSectionsPayload = (allSections, cu) => {
+      const abilitiesSection =
+        (allSections || []).find((s) => s?.id === "قسم_قدرات") || null;
+      setSection(abilitiesSection);
+
+      const allSubjects = abilitiesSection?.subjects || [];
+      const visibleSubjects =
+        cu && cu.role === "student"
+          ? allSubjects.filter((subj) => hasSubjectAccess(cu, subj?.id))
+          : allSubjects;
+      setSubjects(visibleSubjects);
+
+      const preferred =
+        visibleSubjects.find((s) => s?.id === "مادة_اللفظي")?.id ||
+        visibleSubjects.find((s) => s?.id === "مادة_الكمي")?.id ||
+        visibleSubjects[0]?.id ||
+        "";
+      const { nextSubject, nextCategory } = readCoursesSelection(
+        visibleSubjects,
+        preferred
+      );
+      setSelectedSubjectId((prev) => prev || nextSubject);
+      setSelectedCategoryId(nextCategory);
+    };
+
     async function load() {
       try {
         const cu = getCurrentUser();
-        setCurrentUser(cu || null);
-        let allSections = [];
+        if (!cancelled) setCurrentUser(cu || null);
         if (useBackend) {
+          const cached = readSectionsTreeCache();
+          if (cached) {
+            const allCached = Array.isArray(cached)
+              ? cached
+              : cached?.results || [];
+            if (!cancelled) applyFromSectionsPayload(allCached, cu);
+            if (!cancelled) setLoading(false);
+          }
           const data = await getSectionsApi();
-          allSections = Array.isArray(data) ? data : data?.results || [];
+          if (cancelled) return;
+          writeSectionsTreeCache(data);
+          const allSections = Array.isArray(data) ? data : data?.results || [];
+          applyFromSectionsPayload(allSections, cu);
         } else {
-          allSections = getSections() || [];
+          const allSections = getSections() || [];
+          if (cancelled) return;
+          applyFromSectionsPayload(allSections, cu);
         }
-        if (cancelled) return;
-        const abilitiesSection =
-          (allSections || []).find((s) => s?.id === "قسم_قدرات") || null;
-        setSection(abilitiesSection);
-
-        const allSubjects = abilitiesSection?.subjects || [];
-        const visibleSubjects =
-          cu && cu.role === "student"
-            ? allSubjects.filter((subj) => hasSubjectAccess(cu, subj?.id))
-            : allSubjects;
-        setSubjects(visibleSubjects);
-
-        // Default tab: اللفظي then الكمي; keep last subject/category (sessionStorage) or URL params
-        const preferred =
-          visibleSubjects.find((s) => s?.id === "مادة_اللفظي")?.id ||
-          visibleSubjects.find((s) => s?.id === "مادة_الكمي")?.id ||
-          visibleSubjects[0]?.id ||
-          "";
-        const { nextSubject, nextCategory } = readCoursesSelection(
-          visibleSubjects,
-          preferred
-        );
-        setSelectedSubjectId((prev) => prev || nextSubject);
-        setSelectedCategoryId(nextCategory);
       } catch (e) {
         if (!cancelled) {
           setSection(null);

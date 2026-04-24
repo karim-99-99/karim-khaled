@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import {
   getVideoByLevel,
   getItemById,
@@ -34,6 +34,7 @@ const Video = () => {
   const { sectionId, subjectId, categoryId, chapterId, itemId, levelId } =
     useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [video, setVideo] = useState(null);
   const [actualVideoUrl, setActualVideoUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -155,7 +156,13 @@ const Video = () => {
   const handleBack = () => {
     if (sectionId && categoryId && itemId) {
       navigate(
-        `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`
+        `/section/${sectionId}/subject/${subjectId}/category/${categoryId}/chapter/${chapterId}/items`,
+        {
+          state: {
+            chapter:
+              location.state?.chapter || { id: chapterId, items: [] },
+          },
+        }
       );
     } else {
       navigate(`/subject/${subjectId}/chapter/${chapterId}/levels`);
