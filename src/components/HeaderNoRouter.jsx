@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { getCurrentUser, logout } from "../services/storageService";
 import logoimage from "../assets/karim.png";
 import ProfileAvatar from "./ProfileAvatar";
+import StudentResultsModal from "./StudentResultsModal";
 import { isContentStaff, isFullAdmin } from "../utils/roles";
 
 const HeaderNoRouter = ({
@@ -15,6 +16,7 @@ const HeaderNoRouter = ({
   );
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [showStudentResults, setShowStudentResults] = useState(false);
 
   useEffect(() => {
     const user = propCurrentUser || getCurrentUser();
@@ -164,6 +166,41 @@ const HeaderNoRouter = ({
                     >
                       الدورات المجانية
                     </Link>
+                    {currentUser?.role === "student" && (
+                      <>
+                        <Link
+                          to="/tracker"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          متابعة التقدم
+                        </Link>
+                        <Link
+                          to="/incorrect-answers"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          الأجوبة الخاطئة
+                        </Link>
+                        <button
+                          type="button"
+                          className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gradient-to-l hover:from-amber-50 hover:to-teal-50 transition-colors font-medium"
+                          onClick={() => {
+                            setShowStudentResults(true);
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          نتائجي ✨
+                        </button>
+                      </>
+                    )}
                     <button
                       onClick={() => {
                         handleNavClick("about");
@@ -333,6 +370,41 @@ const HeaderNoRouter = ({
                       >
                         الدورات المجانية
                       </Link>
+                      {currentUser?.role === "student" && (
+                        <>
+                          <Link
+                            to="/tracker"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            متابعة التقدم
+                          </Link>
+                          <Link
+                            to="/incorrect-answers"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            الأجوبة الخاطئة
+                          </Link>
+                          <button
+                            type="button"
+                            className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gradient-to-l hover:from-amber-50 hover:to-teal-50 transition-colors font-medium"
+                            onClick={() => {
+                              setShowStudentResults(true);
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            نتائجي ✨
+                          </button>
+                        </>
+                      )}
                       <button
                         onClick={() => {
                           handleNavClick("about");
@@ -516,6 +588,12 @@ const HeaderNoRouter = ({
           </div>
         )}
       </div>
+      {currentUser?.role === "student" && (
+        <StudentResultsModal
+          open={showStudentResults}
+          onClose={() => setShowStudentResults(false)}
+        />
+      )}
     </header>
   );
 };
