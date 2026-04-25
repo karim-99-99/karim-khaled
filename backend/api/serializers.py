@@ -1,3 +1,5 @@
+import re
+
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
@@ -325,6 +327,20 @@ class VideoSerializer(serializers.ModelSerializer):
                   'is_public',
                   'created_at', 'updated_at', 'created_by']
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
+
+    def validate_video_url(self, value):
+        if not value:
+            return value
+        value = value.strip()
+        is_bunny_id = (
+            re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', value, re.I)
+            or re.match(r'^\d{6,}$', value)
+        )
+        if not is_bunny_id:
+            raise serializers.ValidationError(
+                'Protected videos must be stored as a Bunny Stream Video ID only.'
+            )
+        return value
     
     def get_video_file_url(self, obj):
         # Return video_url if it exists (external link), otherwise return file URL

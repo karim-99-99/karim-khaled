@@ -22,7 +22,6 @@ import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
 import {
-  isBackendOn,
   getChapterById as getChapterByIdApi,
   updateLesson,
   addLesson,
@@ -179,7 +178,7 @@ const Levels = () => {
             setFiles(Array.isArray(f) ? f : []);
           })
           .catch(() => {});
-      } catch (e) {
+      } catch {
         if (!c) setLoading(false);
       }
     }
@@ -228,7 +227,9 @@ const Levels = () => {
         const key = `quiz_progress_${itemId}_${currentUser.id || "guest"}`;
         const saved = localStorage.getItem(key);
         if (saved) return "started";
-      } catch (_) {}
+      } catch {
+        // Missing/invalid saved progress should not block the lesson list.
+      }
     }
     return "not_started";
   };
@@ -261,7 +262,7 @@ const Levels = () => {
           if (!completedIds.has(id)) map[id] = "started";
         });
         setLessonStatusMap(map);
-      } catch (e) {
+      } catch {
         if (!c) setLessonStatusMap({});
       }
     })();
@@ -660,7 +661,9 @@ const Levels = () => {
               return (
                 <div
                   key={item.id}
-                  className={`relative overflow-hidden border-2 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 ${cardBg}`}
+                  className={`relative overflow-hidden border-2 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 scroll-mt-24 ${cardBg}`}
+                  role="group"
+                  aria-labelledby={`lesson-title-${item.id}`}
                 >
                   {isVerbal && (
                     <div
@@ -813,7 +816,10 @@ const Levels = () => {
                         autoFocus
                       />
                     ) : (
-                      <h2 className="text-base md:text-lg lg:text-xl font-bold text-dark-900 mb-1">
+                      <h2
+                        id={`lesson-title-${item.id}`}
+                        className="text-base md:text-lg lg:text-xl font-bold text-dark-900 mb-1"
+                      >
                         {item.name}
                       </h2>
                     )}
@@ -824,6 +830,7 @@ const Levels = () => {
                       <>
                         <button
                           onClick={() => handleVideoClick(item.id)}
+                          aria-label={`${isArabicBrowser() ? "رفع فيديو للدرس" : "Upload video for"} ${item.name}`}
                           className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2"
                         >
                           📤{" "}
@@ -836,6 +843,7 @@ const Levels = () => {
 
                         <button
                           onClick={() => handleFileClick(item.id)}
+                          aria-label={`${isArabicBrowser() ? "رفع ملف مرفق للدرس" : "Upload file for"} ${item.name}`}
                           className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition font-medium flex items-center justify-center gap-2"
                         >
                           📄{" "}
@@ -845,6 +853,7 @@ const Levels = () => {
                         <button
                           type="button"
                           onClick={(e) => handleQuizClick(item.id, e)}
+                          aria-label={`${isArabicBrowser() ? manageLabel : "Manage quiz for"} ${item.name}`}
                           className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
                         >
                           📝 {isArabicBrowser() ? manageLabel : "Manage Quiz"}
@@ -877,6 +886,7 @@ const Levels = () => {
                               {showVideo && (
                                 <button
                                   onClick={() => handleVideoClick(item.id)}
+                                  aria-label={`${isArabicBrowser() ? "مشاهدة فيديو الدرس" : "Watch video for"} ${item.name}`}
                                   className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium flex items-center justify-center gap-2"
                                 >
                                   🎥{" "}
@@ -889,6 +899,7 @@ const Levels = () => {
                               {showFile && (
                                 <button
                                   onClick={() => handleFileClick(item.id)}
+                                  aria-label={`${isArabicBrowser() ? "قراءة ملف الدرس" : "Read file for"} ${item.name}`}
                                   className="bg-purple-500 text-white px-4 py-2 rounded-lg hover:bg-purple-600 transition font-medium flex items-center justify-center gap-2"
                                 >
                                   📄{" "}
@@ -902,6 +913,7 @@ const Levels = () => {
                                 <button
                                   type="button"
                                   onClick={(e) => handleQuizClick(item.id, e)}
+                                  aria-label={`${isArabicBrowser() ? solveLabel : "Take quiz for"} ${item.name}`}
                                   className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition font-medium flex items-center justify-center gap-2"
                                 >
                                   📝{" "}

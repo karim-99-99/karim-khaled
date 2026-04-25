@@ -12,8 +12,6 @@ import ProgressBar from "../components/ProgressBar";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
 import MathRenderer from "../components/MathRenderer";
-import { hasCategoryAccess } from "../components/ProtectedRoute";
-import { isContentStaff } from "../utils/roles";
 import {
   isBackendOn,
   getQuestionsByLevel as getQuestionsByLevelApi,
@@ -111,13 +109,6 @@ const Quiz = () => {
       return { attempts: [] };
     }
   };
-  const isAdmin = isContentStaff(currentUser);
-  const categoryName = (categoryId || "").includes("تأسيس")
-    ? "التأسيس"
-    : "التجميعات";
-  const canAccessMedia =
-    isAdmin || (currentUser && hasCategoryAccess(currentUser, categoryName));
-
   useEffect(() => {
     if (location.state?.retake) {
       localStorage.removeItem(progressKey);
@@ -307,7 +298,7 @@ const Quiz = () => {
                 videoFile ? { ...levelVideo, url: videoFile.url } : levelVideo
               );
             }
-          } catch (e) {
+          } catch {
             if (!c) setVideo(levelVideo);
           }
         } else {
@@ -339,14 +330,6 @@ const Quiz = () => {
 
     // Auto-save progress
     saveProgress(newAnswers, currentIndex);
-  };
-
-  // Check if user's answer is correct
-  const isUserAnswerCorrect = () => {
-    const userAnswer = answers[currentQuestion?.id] || selectedAnswer;
-    const ans = currentQuestion?.answers || [];
-    const correctAnswer = ans.find((a) => a.isCorrect);
-    return userAnswer === correctAnswer?.id;
   };
 
   // Save progress to localStorage
@@ -496,7 +479,7 @@ const Quiz = () => {
         });
         if (meta.attempts.length > 40) meta.attempts = meta.attempts.slice(-40);
         localStorage.setItem(examMetaKey, JSON.stringify(meta));
-      } catch (e) {
+      } catch {
         /* non-fatal */
       }
     }
@@ -636,7 +619,7 @@ const Quiz = () => {
         </div>
       )}
 
-      <div className="py-8 px-4">
+      <div className="py-8 px-4 pb-28 xl:pb-8">
         <div className="max-w-7xl mx-auto flex gap-4">
           {/* Sidebar */}
           <div
@@ -644,7 +627,7 @@ const Quiz = () => {
               showSidebar ? "w-64 opacity-100" : "w-0 opacity-0"
             } transition-all duration-300 flex-shrink-0 overflow-hidden`}
           >
-            <div className="bg-white rounded-xl shadow-lg p-4 sticky top-4 w-64">
+            <div className="bg-white rounded-xl shadow-lg p-4 sticky top-20 w-64 max-h-[calc(100vh-6rem)] overflow-y-auto pb-24 xl:pb-4">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-lg">
                   {isArabicBrowser() ? "الأسئلة" : "Questions"}

@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { getSubjects, getVideos, getVideoByLevel, addVideo, updateVideo, deleteVideo, getLevelsByChapter, getCategoriesBySubject, getChaptersByCategory, getItemById, getChapterById, getCategoryById, getSections } from '../../services/storageService';
+import { getSubjects, getVideoByLevel, addVideo, updateVideo, deleteVideo, getLevelsByChapter, getChaptersByCategory, getSections } from '../../services/storageService';
 import { saveVideoFile, getVideoFile, deleteVideoFile } from '../../services/videoStorage';
 import * as backendApi from '../../services/backendApi';
 import Header from '../../components/Header';
-import { isArabicBrowser } from '../../utils/language';
 import {
   normalizeVideoUrl,
   isEmbedVideoUrl,
   getEmbedVideoSrc,
   isBunnyVideoId,
+  needsBunnySignedUrl,
 } from '../../utils/videoUrl';
 
 const Videos = () => {
@@ -199,7 +199,11 @@ const Videos = () => {
     }
     const video = getVideoByLevel(selectedLevel);
     if (video && video.isFileUpload && video.url?.startsWith('indexeddb://')) {
-      try { await deleteVideoFile(selectedLevel); } catch (_) {}
+      try {
+        await deleteVideoFile(selectedLevel);
+      } catch {
+        // Best-effort cleanup for local IndexedDB uploads.
+      }
     }
     deleteVideo(videoId);
     setVideos(getVideoByLevel(selectedLevel) ? [getVideoByLevel(selectedLevel)] : []);
@@ -309,10 +313,15 @@ const Videos = () => {
         return;
       }
 
-      // Bunny Stream: allow raw Video ID (UUID / numeric) without forcing https://
+      // Protected videos must be stored as Bunny Stream IDs when using the backend.
+      // The player later asks Django for a signed URL; raw public links are not protected.
       if (isBunnyVideoId(videoUrl)) {
         // Keep as-is; backend will generate signed iframe URL at playback time
       } else {
+        if (useBackend) {
+          alert('للحماية يجب إدخال Bunny Stream Video ID فقط أو رفع الملف إلى Bunny / For protected videos, use only a Bunny Stream Video ID or upload the file to Bunny');
+          return;
+        }
         if (!videoUrl.startsWith('http') && !videoUrl.startsWith('https')) {
           videoUrl = 'https://' + videoUrl;
         }
@@ -537,7 +546,15 @@ const Videos = () => {
                   <p className="text-sm md:text-base text-dark-500 mb-4">{videos[0].titleEn}</p>
                 )}
                 <div className="aspect-video w-full max-w-2xl">
-                  {isEmbedVideoUrl(videos[0].url) ? (
+                  {needsBunnySignedUrl(videos[0].url) ? (
+                    <div className="w-full h-full rounded bg-slate-900 text-white flex items-center justify-center text-center p-4">
+                      <p className="font-medium">
+                        فيديو Bunny محمي. يظهر للطلاب عبر رابط موقّع من الخادم فقط.
+                        <br />
+                        Bunny video is protected and only plays through a backend-signed URL.
+                      </p>
+                    </div>
+                  ) : isEmbedVideoUrl(videos[0].url) ? (
                     <iframe
                       src={getEmbedVideoSrc(videos[0].url) || videos[0].url}
                       className="w-full h-full rounded"
@@ -589,7 +606,7 @@ const Videos = () => {
                             : 'bg-gray-200 text-dark-600 hover:bg-gray-300'
                         }`}
                       >
-                        رابط (Drive / سحابة / YouTube) / Link
+                        Bunny Video ID
                       </button>
                       <button
                         type="button"
@@ -612,7 +629,7 @@ const Videos = () => {
                   {uploadMethod === 'url' && (
                     <div>
                       <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                        رابط أو معرّف الفيديو / Video link or ID
+                        معرّف Bunny Video ID
                       </label>
                       <input
                         type="text"
@@ -621,14 +638,14 @@ const Videos = () => {
                         value={formData.url}
                         onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                         required={uploadMethod === 'url'}
-                        placeholder="Bunny Video ID (UUID) أو رابط YouTube / Drive / مباشر..."
+                        placeholder="Bunny Video ID (UUID)"
                         className="w-full px-4 py-2 border rounded-lg"
                       />
                       <p className="text-xs md:text-sm text-dark-500 mt-1">
-                        لـ Bunny Stream: الصق <strong>Video ID</strong> فقط (UUID). لباقي المنصات: رابط كامل يبدأ بـ https://
+                        للصلاحيات والحماية: الصق <strong>Video ID</strong> فقط من Bunny Stream. لا تحفظ رابط iframe أو رابط مباشر.
                       </p>
                       <p className="text-xs md:text-sm text-dark-500">
-                        Bunny: paste the <strong>Video ID</strong> only. Else: full URL (YouTube, Drive, direct).
+                        For protection: paste the Bunny <strong>Video ID</strong> only. Playback uses a backend-signed URL.
                       </p>
                     </div>
                   )}
@@ -663,8 +680,7 @@ const Videos = () => {
                       </p>
                       {useBackend && (
                         <p className="text-xs md:text-sm text-primary-600 mt-2 font-medium">
-                          إذا ضبطت على Render المتغير <code className="bg-gray-100 px-1 rounded">BUNNY_STREAM_API_KEY</code> (مفتاح API من Bunny → Library → API)، يُرفع الملف تلقائياً إلى{" "}
-                          <strong>Bunny Stream</strong> ويُحفظ Video ID في الموقع. بدون هذا المفتاح يُخزَّن الملف على Cloudinary/الخادم كالسابق.
+                          يجب ضبط <code className="bg-gray-100 px-1 rounded">BUNNY_STREAM_API_KEY</code> و <code className="bg-gray-100 px-1 rounded">BUNNY_LIBRARY_ID</code> على Render. بدونها سيرفض الخادم الرفع حتى لا يُحفظ الفيديو كرابط/ملف عام.
                         </p>
                       )}
                     </div>

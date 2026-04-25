@@ -748,6 +748,16 @@ class VideoViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         stream_key, library_id = self._bunny_stream_key_and_library()
         upload = request.FILES.get('video_file')
+        if upload and (not stream_key or not library_id):
+            return Response(
+                {
+                    'error': (
+                        'Bunny Stream upload is required for protected videos. '
+                        'Set BUNNY_STREAM_API_KEY and BUNNY_LIBRARY_ID on the server.'
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         if upload and stream_key and library_id:
             lesson_id = request.data.get('lesson')
             if not lesson_id:
@@ -776,6 +786,16 @@ class VideoViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         stream_key, library_id = self._bunny_stream_key_and_library()
         upload = request.FILES.get('video_file')
+        if upload and (not stream_key or not library_id):
+            return Response(
+                {
+                    'error': (
+                        'Bunny Stream upload is required for protected videos. '
+                        'Set BUNNY_STREAM_API_KEY and BUNNY_LIBRARY_ID on the server.'
+                    )
+                },
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         if upload and stream_key and library_id:
             instance = self.get_object()
             title = request.data.get('title')
@@ -1821,10 +1841,38 @@ class BunnySignedUrlView(APIView):
     """
     permission_classes = [IsAuthenticatedDeviceAllowed]
 
+    def _can_access_video(self, user, video):
+        if not user or not user.is_authenticated:
+            return False
+        if getattr(user, 'role', None) in ('admin', 'content_admin') or getattr(user, 'is_staff', False):
+            return True
+        if getattr(user, 'role', None) != 'student':
+            return False
+        if not getattr(user, 'is_active_account', False) or not user.is_within_account_period():
+            return False
+
+        category_name = (getattr(video.category, 'name', '') or '').strip()
+        if category_name == 'التأسيس' or 'تأسيس' in category_name:
+            return bool(getattr(user, 'abilities_categories_foundation', False))
+        if category_name == 'التجميعات' or 'تجميع' in category_name:
+            return bool(getattr(user, 'abilities_categories_collections', False))
+        return False
+
     def get(self, request):
         video_id = request.query_params.get('video_id', '').strip()
         if not video_id:
             return Response({'error': 'video_id is required'}, status=400)
+
+        video = (
+            Video.objects
+            .select_related('category', 'lesson')
+            .filter(video_url=video_id)
+            .first()
+        )
+        if not video:
+            return Response({'error': 'Video is not registered for this course.'}, status=404)
+        if not self._can_access_video(request.user, video):
+            return Response({'error': 'You do not have permission to watch this video.'}, status=403)
 
         library_id = getattr(django_settings, 'BUNNY_LIBRARY_ID', '').strip()
         security_key = getattr(django_settings, 'BUNNY_SECURITY_KEY', '').strip()
