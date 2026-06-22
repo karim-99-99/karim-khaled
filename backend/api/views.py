@@ -2,7 +2,6 @@ import os
 import uuid
 import hashlib
 import time
-import re
 from io import StringIO
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
@@ -27,7 +26,7 @@ from .models import (
 _CHAPTER_SHALLOW_QS = Chapter.objects.annotate(
     lesson_count=Count('items')
 ).order_by('order')
-from .utils import get_client_ip
+from .utils import get_client_ip, extract_bunny_video_id
 from .bunny_stream import bunny_create_and_upload, BunnyStreamError
 from .permissions import IsAuthenticatedDeviceAllowed
 from .serializers import (
@@ -45,43 +44,6 @@ from .serializers import (
 
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
 PUBLIC_FOUNDATION_SUBJECT_IDS = ['مادة_اللفظي', 'مادة_الكمي']
-
-BUNNY_VIDEO_UUID_RE = re.compile(
-    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-    re.I,
-)
-BUNNY_VIDEO_NUMERIC_RE = re.compile(r'^\d{6,}$')
-
-
-def extract_bunny_video_id(value):
-    """
-    Accept a raw Bunny video ID or common Bunny URL formats and return the video ID.
-    This keeps playback working for legacy rows that stored full Bunny URLs.
-    """
-    if not value or not isinstance(value, str):
-        return None
-
-    v = value.strip()
-    if BUNNY_VIDEO_UUID_RE.match(v) or BUNNY_VIDEO_NUMERIC_RE.match(v):
-        return v
-
-    patterns = [
-        # https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID?...
-        r'iframe\.mediadelivery\.net\/embed\/[^/]+\/([^/?#]+)',
-        # https://video.bunnycdn.com/play/VIDEO_ID?...
-        r'video\.bunnycdn\.com\/play\/([^/?#]+)',
-        # https://vz-*.b-cdn.net/VIDEO_ID/playlist.m3u8
-        r'(?:^|\/)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d{6,})(?:[/?#]|$)',
-    ]
-
-    for pattern in patterns:
-        m = re.search(pattern, v, re.I)
-        if not m:
-            continue
-        candidate = (m.group(1) or '').strip()
-        if BUNNY_VIDEO_UUID_RE.match(candidate) or BUNNY_VIDEO_NUMERIC_RE.match(candidate):
-            return candidate
-    return None
 
 
 class QuestionPagination(PageNumberPagination):
