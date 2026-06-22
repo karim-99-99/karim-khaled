@@ -2,6 +2,7 @@ import os
 import uuid
 import hashlib
 import time
+import re
 from io import StringIO
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
@@ -44,6 +45,43 @@ from .serializers import (
 
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
 PUBLIC_FOUNDATION_SUBJECT_IDS = ['مادة_اللفظي', 'مادة_الكمي']
+
+BUNNY_VIDEO_UUID_RE = re.compile(
+    r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+    re.I,
+)
+BUNNY_VIDEO_NUMERIC_RE = re.compile(r'^\d{6,}$')
+
+
+def extract_bunny_video_id(value):
+    """
+    Accept a raw Bunny video ID or common Bunny URL formats and return the video ID.
+    This keeps playback working for legacy rows that stored full Bunny URLs.
+    """
+    if not value or not isinstance(value, str):
+        return None
+
+    v = value.strip()
+    if BUNNY_VIDEO_UUID_RE.match(v) or BUNNY_VIDEO_NUMERIC_RE.match(v):
+        return v
+
+    patterns = [
+        # https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID?...
+        r'iframe\.mediadelivery\.net\/embed\/[^/]+\/([^/?#]+)',
+        # https://video.bunnycdn.com/play/VIDEO_ID?...
+        r'video\.bunnycdn\.com\/play\/([^/?#]+)',
+        # https://vz-*.b-cdn.net/VIDEO_ID/playlist.m3u8
+        r'(?:^|\/)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d{6,})(?:[/?#]|$)',
+    ]
+
+    for pattern in patterns:
+        m = re.search(pattern, v, re.I)
+        if not m:
+            continue
+        candidate = (m.group(1) or '').strip()
+        if BUNNY_VIDEO_UUID_RE.match(candidate) or BUNNY_VIDEO_NUMERIC_RE.match(candidate):
+            return candidate
+    return None
 
 
 class QuestionPagination(PageNumberPagination):
@@ -1841,6 +1879,22 @@ class BunnySignedUrlView(APIView):
     """
     permission_classes = [IsAuthenticatedDeviceAllowed]
 
+    def _find_video_by_bunny_id(self, bunny_video_id):
+        qs = Video.objects.select_related('category', 'lesson')
+
+        # Fast path: modern rows store raw Bunny video ID directly in video_url.
+        video = qs.filter(video_url=bunny_video_id).first()
+        if video:
+            return video
+
+        # Backward compatibility: some legacy rows stored a full Bunny URL.
+        # Narrow in SQL first, then verify exact extracted ID in Python.
+        candidates = qs.filter(video_url__icontains=bunny_video_id)[:100]
+        for candidate in candidates:
+            if extract_bunny_video_id(candidate.video_url or '') == bunny_video_id:
+                return candidate
+        return None
+
     def _can_access_video(self, user, video):
         if not user or not user.is_authenticated:
             return False
@@ -1859,16 +1913,15 @@ class BunnySignedUrlView(APIView):
         return False
 
     def get(self, request):
-        video_id = request.query_params.get('video_id', '').strip()
-        if not video_id:
+        raw_video_id = request.query_params.get('video_id', '').strip()
+        if not raw_video_id:
             return Response({'error': 'video_id is required'}, status=400)
 
-        video = (
-            Video.objects
-            .select_related('category', 'lesson')
-            .filter(video_url=video_id)
-            .first()
-        )
+        video_id = extract_bunny_video_id(raw_video_id)
+        if not video_id:
+            return Response({'error': 'Invalid Bunny video_id format.'}, status=400)
+
+        video = self._find_video_by_bunny_id(video_id)
         if not video:
             return Response({'error': 'Video is not registered for this course.'}, status=404)
         if not self._can_access_video(request.user, video):

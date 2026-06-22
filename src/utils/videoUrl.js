@@ -69,6 +69,25 @@ export function isBunnyVideoId(value) {
   return false;
 }
 
+function extractBunnyVideoIdFromKnownUrls(value) {
+  const v = value.trim();
+  const patterns = [
+    // https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID?...
+    /iframe\.mediadelivery\.net\/embed\/[^/]+\/([^/?#]+)/i,
+    // https://video.bunnycdn.com/play/VIDEO_ID?...
+    /video\.bunnycdn\.com\/play\/([^/?#]+)/i,
+    // https://vz-*.b-cdn.net/VIDEO_ID/playlist.m3u8 (and similar)
+    /(?:^|\/)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|\d{6,})(?:[/?#]|$)/i,
+  ];
+  for (const pattern of patterns) {
+    const match = v.match(pattern);
+    if (!match) continue;
+    const candidate = (match[1] || '').trim();
+    if (isBunnyVideoId(candidate)) return candidate;
+  }
+  return null;
+}
+
 /**
  * Whether a stored value needs a backend-signed Bunny URL before it can be shown.
  * This is true for raw Bunny video IDs and for existing bunny embed URLs that
@@ -79,7 +98,9 @@ export function needsBunnySignedUrl(value) {
   const v = value.trim();
   return (
     isBunnyVideoId(v) ||
-    v.includes('iframe.mediadelivery.net')
+    v.includes('iframe.mediadelivery.net') ||
+    v.includes('video.bunnycdn.com') ||
+    v.includes('.b-cdn.net')
   );
 }
 
@@ -91,9 +112,7 @@ export function extractBunnyVideoId(value) {
   const v = value.trim();
   // Raw ID
   if (isBunnyVideoId(v)) return v;
-  // Already an embed URL: https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID?...
-  const match = v.match(/iframe\.mediadelivery\.net\/embed\/[^/]+\/([^?]+)/);
-  return match ? match[1] : null;
+  return extractBunnyVideoIdFromKnownUrls(v);
 }
 
 /**
@@ -134,6 +153,9 @@ export function formatBunnyLoadError(err) {
   }
   if (m.includes('Account access is not valid')) {
     return 'انتهت صلاحية اشتراكك أو فترة الحساب. تواصل مع المدير.';
+  }
+  if (m.includes('Video is not registered for this course')) {
+    return 'الفيديو مسجّل بصيغة قديمة على الخادم. تم إصلاح دعم الصيغ القديمة؛ حدّث الخادم ثم أعد المحاولة، أو افتح الفيديو من لوحة الإدارة واحفظه مرة واحدة.';
   }
   if (m.includes('CORS') || m.includes('الاتصال بالخادم')) return m;
   if (m.includes('انتهت الجلسة')) return m;
