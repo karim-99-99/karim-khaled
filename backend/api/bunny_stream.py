@@ -48,6 +48,33 @@ def bunny_upload_video(library_id: int, access_key: str, video_guid: str, file_b
         raise BunnyStreamError(f"Network error during upload: {e}") from e
 
 
+def bunny_video_exists(library_id: int, access_key: str, video_guid: str) -> bool:
+    """
+    Check if a video GUID exists in a specific Bunny Stream library.
+    Requires the library API key (AccessKey).
+    """
+    safe_guid = quote(str(video_guid), safe="")
+    url = f"https://video.bunnycdn.com/library/{int(library_id)}/videos/{safe_guid}"
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("AccessKey", access_key)
+    req.add_header("Accept", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+            # A successful response includes the GUID.
+            return str(video_guid) in raw
+    except urllib.error.HTTPError as e:
+        # 404 => definitely not in this library.
+        if e.code == 404:
+            return False
+        err_body = e.read().decode("utf-8", errors="replace")
+        raise BunnyStreamError(
+            f"Video lookup HTTP {e.code} for library {library_id}: {err_body}"
+        ) from e
+    except urllib.error.URLError as e:
+        raise BunnyStreamError(f"Network error during Bunny video lookup: {e}") from e
+
+
 def bunny_create_and_upload(library_id: int, access_key: str, title: str, file_bytes: bytes) -> str:
     if not file_bytes:
         raise BunnyStreamError("Empty file")

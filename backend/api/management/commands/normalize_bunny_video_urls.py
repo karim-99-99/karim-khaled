@@ -15,6 +15,7 @@ from django.db import transaction
 from api.models import Video
 from api.utils import (
     extract_bunny_video_id,
+    extract_bunny_library_id,
     is_bunny_video_id,
     looks_like_bunny_url,
 )
@@ -64,7 +65,7 @@ class Command(BaseCommand):
         already_raw = 0
         non_bunny_rows = 0
         bunny_unparsed = 0
-        candidates = []  # (video_id, old_url, new_id)
+        candidates = []  # (video_id, old_url, new_id, library_id)
 
         for video in qs:
             old = (video.video_url or "").strip()
@@ -90,10 +91,12 @@ class Command(BaseCommand):
                     )
                 continue
 
-            candidates.append((video.id, old, new_id))
+            new_lib = extract_bunny_library_id(old)
+            candidates.append((video.id, old, new_id, new_lib))
             if verbose_list:
+                lib_msg = f" [lib={new_lib}]" if new_lib else ""
                 self.stdout.write(
-                    f"[candidate] {video.id}: {old[:120]} -> {new_id}"
+                    f"[candidate] {video.id}: {old[:120]} -> {new_id}{lib_msg}"
                 )
 
         self.stdout.write("")
@@ -107,8 +110,9 @@ class Command(BaseCommand):
 
         if candidates and not verbose_list:
             self.stdout.write("Sample candidates (up to 20):")
-            for video_id, old, new_id in candidates[:20]:
-                self.stdout.write(f"  - {video_id}: {old[:90]} -> {new_id}")
+            for video_id, old, new_id, new_lib in candidates[:20]:
+                lib_msg = f" [lib={new_lib}]" if new_lib else ""
+                self.stdout.write(f"  - {video_id}: {old[:90]} -> {new_id}{lib_msg}")
 
         if not apply_changes:
             self.stdout.write("")
@@ -125,8 +129,11 @@ class Command(BaseCommand):
             return
 
         with transaction.atomic():
-            for video_id, _, new_id in candidates:
-                Video.objects.filter(pk=video_id).update(video_url=new_id)
+            for video_id, _, new_id, new_lib in candidates:
+                updates = {"video_url": new_id}
+                if new_lib:
+                    updates["bunny_library_id"] = new_lib
+                Video.objects.filter(pk=video_id).update(**updates)
 
         self.stdout.write("")
         self.stdout.write(

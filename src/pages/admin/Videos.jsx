@@ -27,7 +27,7 @@ const Videos = () => {
   const [videos, setVideos] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingVideo, setEditingVideo] = useState(null);
-  const [formData, setFormData] = useState({ url: '', title: '', titleEn: '' });
+  const [formData, setFormData] = useState({ url: '', title: '', titleEn: '', bunnyLibraryId: '' });
   const [uploadMethod, setUploadMethod] = useState('url');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
@@ -165,6 +165,7 @@ const Videos = () => {
       url: '',
       title: '',
       titleEn: '',
+      bunnyLibraryId: '',
     });
     setUploadedFile(null);
     setUploadProgress('');
@@ -178,6 +179,7 @@ const Videos = () => {
       url: video.url || '',
       title: video.title || '',
       titleEn: video.titleEn || '',
+      bunnyLibraryId: video.bunnyLibraryId || '',
     });
     setUploadMethod(video.isFileUpload ? 'file' : 'url');
     setUploadedFile(null);
@@ -260,12 +262,14 @@ const Videos = () => {
           await backendApi.updateVideo(editingVideo.id, {
             title: formData.title,
             description: formData.titleEn || '',
+              ...(formData.bunnyLibraryId?.trim() && { bunny_library_id: formData.bunnyLibraryId.trim() }),
             ...(uploadedFile && { video_file: uploadedFile }),
           });
         } else {
           await backendApi.addVideo(selectedLevel, {
             title: formData.title,
             description: formData.titleEn || '',
+              ...(formData.bunnyLibraryId?.trim() && { bunny_library_id: formData.bunnyLibraryId.trim() }),
             video_file: uploadedFile,
           });
         }
@@ -278,7 +282,7 @@ const Videos = () => {
         return;
       }
       setShowForm(false);
-      setFormData({ url: '', title: '', titleEn: '' });
+      setFormData({ url: '', title: '', titleEn: '', bunnyLibraryId: '' });
       setUploadedFile(null);
       setUploadProgress('');
       setUploadMethod('url');
@@ -340,12 +344,14 @@ const Videos = () => {
               title: formData.title,
               description: formData.titleEn || '',
               video_url: videoUrl,
+              ...(formData.bunnyLibraryId?.trim() && { bunny_library_id: formData.bunnyLibraryId.trim() }),
             });
           } else {
             await backendApi.addVideo(selectedLevel, {
               title: formData.title,
               description: formData.titleEn || '',
               video_url: videoUrl,
+              ...(formData.bunnyLibraryId?.trim() && { bunny_library_id: formData.bunnyLibraryId.trim() }),
             });
           }
           const v = await backendApi.getVideoByLevel(selectedLevel);
@@ -357,7 +363,7 @@ const Videos = () => {
           return;
         }
         setShowForm(false);
-        setFormData({ url: '', title: '', titleEn: '' });
+        setFormData({ url: '', title: '', titleEn: '', bunnyLibraryId: '' });
         setUploadProgress('');
         return;
       }
@@ -394,6 +400,7 @@ const Videos = () => {
         url: '',
         title: '',
         titleEn: '',
+        bunnyLibraryId: '',
       });
       setUploadedFile(null);
       setUploadProgress('');
@@ -646,6 +653,28 @@ const Videos = () => {
                       </p>
                       <p className="text-xs md:text-sm text-dark-500">
                         For protection: paste the Bunny <strong>Video ID</strong> only. Playback uses a backend-signed URL.
+                      </p>
+                    </div>
+                  )}
+
+                  {useBackend && (
+                    <div>
+                      <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                        Bunny Library ID (اختياري)
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="off"
+                        value={formData.bunnyLibraryId || ''}
+                        onChange={(e) =>
+                          setFormData({ ...formData, bunnyLibraryId: e.target.value })
+                        }
+                        placeholder="مثال: 631057"
+                        className="w-full px-4 py-2 border rounded-lg"
+                      />
+                      <p className="text-xs md:text-sm text-dark-500 mt-1">
+                        اتركه فارغاً لاستخدام المكتبة الافتراضية. أدخله إذا كان الفيديو في مكتبة Bunny مختلفة.
                       </p>
                     </div>
                   )}

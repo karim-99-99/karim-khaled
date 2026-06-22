@@ -323,7 +323,7 @@ class VideoSerializer(serializers.ModelSerializer):
         model = Video
         fields = ['id', 'lesson', 'chapter', 'category', 'subject', 'section',
                   'title', 'description', 'video_file', 'video_file_url',
-                  'video_url', 'thumbnail', 'thumbnail_url', 'duration', 'order',
+                  'video_url', 'bunny_library_id', 'thumbnail', 'thumbnail_url', 'duration', 'order',
                   'is_public',
                   'created_at', 'updated_at', 'created_by']
         read_only_fields = ['id', 'created_at', 'updated_at', 'created_by']
@@ -339,6 +339,18 @@ class VideoSerializer(serializers.ModelSerializer):
         if not is_bunny_id:
             raise serializers.ValidationError(
                 'Protected videos must be stored as a Bunny Stream Video ID only.'
+            )
+        return value
+
+    def validate_bunny_library_id(self, value):
+        if value is None:
+            return value
+        value = str(value).strip()
+        if not value:
+            return None
+        if not re.match(r'^\d+$', value):
+            raise serializers.ValidationError(
+                'bunny_library_id must be a numeric Bunny library id.'
             )
         return value
     

@@ -1004,6 +1004,7 @@ const mapVideoFromBackend = (v) => {
     title: v.title,
     titleEn: v.description,
     url,
+    bunnyLibraryId: v.bunny_library_id || null,
     levelId: lid,
     itemId: lid,
     isFileUpload: !!v.video_file,
@@ -1041,6 +1042,9 @@ export const addVideo = async (lessonId, formData) => {
   fd.append("lesson", lessonId);
   fd.append("title", formData.title || "");
   if (formData.description) fd.append("description", formData.description);
+  if (formData.bunny_library_id) {
+    fd.append("bunny_library_id", String(formData.bunny_library_id).trim());
+  }
   if (formData.video_file) {
     fd.append("video_file", formData.video_file);
   } else if (formData.video_url) {
@@ -1056,6 +1060,9 @@ export const updateVideo = async (videoId, formData) => {
   if (formData.title != null) fd.append("title", formData.title);
   if (formData.description != null)
     fd.append("description", formData.description);
+  if (formData.bunny_library_id !== undefined) {
+    fd.append("bunny_library_id", formData.bunny_library_id || "");
+  }
   if (formData.video_file) {
     fd.append("video_file", formData.video_file);
     // Clear video_url if uploading a file

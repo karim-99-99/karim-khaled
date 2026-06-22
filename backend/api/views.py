@@ -26,8 +26,8 @@ from .models import (
 _CHAPTER_SHALLOW_QS = Chapter.objects.annotate(
     lesson_count=Count('items')
 ).order_by('order')
-from .utils import get_client_ip, extract_bunny_video_id
-from .bunny_stream import bunny_create_and_upload, BunnyStreamError
+from .utils import get_client_ip, extract_bunny_video_id, extract_bunny_library_id
+from .bunny_stream import bunny_create_and_upload, bunny_video_exists, BunnyStreamError
 from .permissions import IsAuthenticatedDeviceAllowed
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, LoginSerializer,
@@ -44,6 +44,53 @@ from .serializers import (
 
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
 PUBLIC_FOUNDATION_SUBJECT_IDS = ['مادة_اللفظي', 'مادة_الكمي']
+
+
+def _get_bunny_library_configs():
+    """
+    Build per-library Bunny config map.
+
+    Supported env shape:
+    - Default (single-library):
+      BUNNY_LIBRARY_ID, BUNNY_SECURITY_KEY, BUNNY_STREAM_API_KEY
+    - Additional libraries:
+      BUNNY_ADDITIONAL_LIBRARY_IDS=631057,700123
+      BUNNY_SECURITY_KEY_631057=...
+      BUNNY_STREAM_API_KEY_631057=...
+      BUNNY_SECURITY_KEY_700123=...
+      BUNNY_STREAM_API_KEY_700123=...
+    """
+    configs = {}
+
+    default_library = str(getattr(django_settings, "BUNNY_LIBRARY_ID", "") or "").strip()
+    default_security = str(getattr(django_settings, "BUNNY_SECURITY_KEY", "") or "").strip()
+    default_api = str(getattr(django_settings, "BUNNY_STREAM_API_KEY", "") or "").strip()
+    if default_library:
+        configs[default_library] = {
+            "library_id": default_library,
+            "security_key": default_security,
+            "stream_api_key": default_api,
+            "is_default": True,
+        }
+
+    additional = os.environ.get("BUNNY_ADDITIONAL_LIBRARY_IDS", "")
+    for raw_lib in (additional or "").split(","):
+        lib = str(raw_lib or "").strip()
+        if not lib:
+            continue
+        sec = os.environ.get(f"BUNNY_SECURITY_KEY_{lib}", "").strip()
+        api = os.environ.get(f"BUNNY_STREAM_API_KEY_{lib}", "").strip()
+        entry = configs.get(lib, {"library_id": lib, "is_default": False})
+        if sec:
+            entry["security_key"] = sec
+        entry.setdefault("security_key", "")
+        if api:
+            entry["stream_api_key"] = api
+        entry.setdefault("stream_api_key", "")
+        entry["is_default"] = entry.get("is_default", False)
+        configs[lib] = entry
+
+    return configs
 
 
 class QuestionPagination(PageNumberPagination):
@@ -84,18 +131,32 @@ class HealthView(APIView):
         payload = {"status": "ok"}
         # Safe flags for debugging Bunny (never expose secret values)
         if request.query_params.get("bunny") in ("1", "true", "yes"):
-            lib = bool(getattr(django_settings, "BUNNY_LIBRARY_ID", "").strip())
-            embed = bool(getattr(django_settings, "BUNNY_SECURITY_KEY", "").strip())
-            upload = bool(getattr(django_settings, "BUNNY_STREAM_API_KEY", "").strip())
+            cfg = _get_bunny_library_configs()
+            default_lib = str(getattr(django_settings, "BUNNY_LIBRARY_ID", "") or "").strip()
+            default_cfg = cfg.get(default_lib, {}) if default_lib else {}
+            lib = bool(default_lib)
+            embed = bool((default_cfg.get("security_key") or "").strip())
+            upload = bool((default_cfg.get("stream_api_key") or "").strip())
+            per_library = {
+                lib_id: {
+                    "embed_token_key_set": bool((c.get("security_key") or "").strip()),
+                    "stream_api_key_set": bool((c.get("stream_api_key") or "").strip()),
+                    "is_default": bool(c.get("is_default")),
+                }
+                for lib_id, c in cfg.items()
+            }
             payload["bunny"] = {
                 "library_id_set": lib,
                 "embed_token_key_set": embed,
                 "stream_api_key_set": upload,
                 "embed_ready": lib and embed,
                 "upload_ready": lib and upload,
+                "libraries_count": len(cfg),
+                "libraries": per_library,
                 "hint": (
                     "BUNNY_SECURITY_KEY must be the Token authentication key from Stream → Security "
-                    "(not the Library API Key). Allowed Domains must include your Vercel host, e.g. karim-khaled.vercel.app"
+                    "(not the Library API Key). Allowed Domains must include your Vercel host, e.g. karim-khaled.vercel.app. "
+                    "For multi-library: set BUNNY_ADDITIONAL_LIBRARY_IDS and per-library keys."
                 ),
             }
         return Response(payload, status=status.HTTP_200_OK)
@@ -727,15 +788,19 @@ class VideoViewSet(viewsets.ModelViewSet):
             return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
 
-    def _bunny_stream_key_and_library(self):
-        key = getattr(django_settings, 'BUNNY_STREAM_API_KEY', '').strip()
-        lib = getattr(django_settings, 'BUNNY_LIBRARY_ID', '').strip()
+    def _bunny_stream_key_and_library(self, requested_library_id=None):
+        configs = _get_bunny_library_configs()
+        default_lib = str(getattr(django_settings, 'BUNNY_LIBRARY_ID', '') or '').strip()
+        selected = str(requested_library_id or '').strip() or default_lib
+        cfg = configs.get(selected, {})
+        key = str(cfg.get('stream_api_key', '') or '').strip()
+        lib = str(selected or '').strip()
         if not key or not lib:
-            return None, None
+            return None, None, selected or None
         try:
-            return key, int(lib)
+            return key, int(lib), lib
         except ValueError:
-            return None, None
+            return None, None, selected or None
 
     def _sync_video_hierarchy(self, video):
         if video.lesson:
@@ -746,14 +811,16 @@ class VideoViewSet(viewsets.ModelViewSet):
             video.save()
 
     def create(self, request, *args, **kwargs):
-        stream_key, library_id = self._bunny_stream_key_and_library()
+        requested_library_id = str(request.data.get('bunny_library_id') or '').strip() or None
+        stream_key, library_id, library_id_str = self._bunny_stream_key_and_library(requested_library_id)
         upload = request.FILES.get('video_file')
         if upload and (not stream_key or not library_id):
             return Response(
                 {
                     'error': (
                         'Bunny Stream upload is required for protected videos. '
-                        'Set BUNNY_STREAM_API_KEY and BUNNY_LIBRARY_ID on the server.'
+                        'Set matching BUNNY_STREAM_API_KEY/BUNNY_LIBRARY_ID for this library '
+                        '(or BUNNY_ADDITIONAL_LIBRARY_IDS with BUNNY_STREAM_API_KEY_<LIB_ID>).'
                     )
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -776,6 +843,7 @@ class VideoViewSet(viewsets.ModelViewSet):
                 title=title,
                 description=description,
                 video_url=guid,
+                bunny_library_id=library_id_str,
                 created_by=request.user,
             )
             self._sync_video_hierarchy(video)
@@ -784,14 +852,16 @@ class VideoViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
-        stream_key, library_id = self._bunny_stream_key_and_library()
+        requested_library_id = str(request.data.get('bunny_library_id') or '').strip() or None
+        stream_key, library_id, library_id_str = self._bunny_stream_key_and_library(requested_library_id)
         upload = request.FILES.get('video_file')
         if upload and (not stream_key or not library_id):
             return Response(
                 {
                     'error': (
                         'Bunny Stream upload is required for protected videos. '
-                        'Set BUNNY_STREAM_API_KEY and BUNNY_LIBRARY_ID on the server.'
+                        'Set matching BUNNY_STREAM_API_KEY/BUNNY_LIBRARY_ID for this library '
+                        '(or BUNNY_ADDITIONAL_LIBRARY_IDS with BUNNY_STREAM_API_KEY_<LIB_ID>).'
                     )
                 },
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -812,6 +882,7 @@ class VideoViewSet(viewsets.ModelViewSet):
                 instance.video_file.delete(save=False)
             instance.video_file = None
             instance.video_url = guid
+            instance.bunny_library_id = library_id_str
             instance.save()
             self._sync_video_hierarchy(instance)
             serializer = self.get_serializer(instance)
@@ -1891,6 +1962,69 @@ class BunnySignedUrlView(APIView):
 
         return None, requested_video_id
 
+    def _resolve_bunny_library(self, video, video_id, requested_library_id=None):
+        """
+        Resolve the Bunny library config for this video across multiple libraries.
+        Prefers verifiable matches (via Bunny Stream API) and caches the match on the video row.
+        """
+        configs = _get_bunny_library_configs()
+        if not configs:
+            return None, None
+
+        pinned = str(getattr(video, 'bunny_library_id', '') or '').strip()
+        from_video_url = extract_bunny_library_id(getattr(video, 'video_url', '') or '')
+        default_lib = str(getattr(django_settings, 'BUNNY_LIBRARY_ID', '') or '').strip()
+        requested = str(requested_library_id or '').strip()
+
+        ordered_ids = []
+        for lib in [pinned, requested, from_video_url, default_lib]:
+            if lib and lib not in ordered_ids:
+                ordered_ids.append(lib)
+        for lib in configs.keys():
+            if lib and lib not in ordered_ids:
+                ordered_ids.append(lib)
+
+        # Pass 1: verify existence via per-library API key when available.
+        for lib in ordered_ids:
+            cfg = configs.get(lib) or {}
+            sec = str(cfg.get('security_key', '') or '').strip()
+            api = str(cfg.get('stream_api_key', '') or '').strip()
+            if not sec:
+                continue
+            if not api:
+                continue
+            try:
+                if bunny_video_exists(int(lib), api, video_id):
+                    if str(getattr(video, 'bunny_library_id', '') or '').strip() != lib:
+                        video.bunny_library_id = lib
+                        video.save(update_fields=['bunny_library_id'])
+                    return lib, cfg
+            except (ValueError, BunnyStreamError):
+                continue
+
+        # Pass 2: if we cannot verify, trust explicit per-video / explicit request hints.
+        for lib in [pinned, requested, from_video_url]:
+            cfg = configs.get(lib) if lib else None
+            if not cfg:
+                continue
+            sec = str(cfg.get('security_key', '') or '').strip()
+            if sec:
+                if lib and str(getattr(video, 'bunny_library_id', '') or '').strip() != lib:
+                    video.bunny_library_id = lib
+                    video.save(update_fields=['bunny_library_id'])
+                return lib, cfg
+
+        # Pass 3: final fallback when exactly one signing-capable library exists.
+        secure_cfgs = [(lib, c) for lib, c in configs.items() if str(c.get('security_key', '') or '').strip()]
+        if len(secure_cfgs) == 1:
+            lib, cfg = secure_cfgs[0]
+            if str(getattr(video, 'bunny_library_id', '') or '').strip() != lib:
+                video.bunny_library_id = lib
+                video.save(update_fields=['bunny_library_id'])
+            return lib, cfg
+
+        return None, None
+
     def _can_access_video(self, user, video):
         if not user or not user.is_authenticated:
             return False
@@ -1913,6 +2047,10 @@ class BunnySignedUrlView(APIView):
         if not raw_video_id:
             return Response({'error': 'video_id is required'}, status=400)
         lesson_id = request.query_params.get('lesson_id', '').strip()
+        requested_library_id = (
+            request.query_params.get('library_id', '').strip()
+            or extract_bunny_library_id(raw_video_id)
+        )
 
         video_id = extract_bunny_video_id(raw_video_id)
         video = None
@@ -1930,12 +2068,23 @@ class BunnySignedUrlView(APIView):
         if not self._can_access_video(request.user, video):
             return Response({'error': 'You do not have permission to watch this video.'}, status=403)
 
-        library_id = getattr(django_settings, 'BUNNY_LIBRARY_ID', '').strip()
-        security_key = getattr(django_settings, 'BUNNY_SECURITY_KEY', '').strip()
+        library_id, lib_cfg = self._resolve_bunny_library(
+            video,
+            video_id,
+            requested_library_id=requested_library_id,
+        )
+        security_key = str((lib_cfg or {}).get('security_key', '') or '').strip()
 
         if not library_id or not security_key:
             return Response(
-                {'error': 'Bunny Stream is not configured on this server.'},
+                {
+                    'error': (
+                        'Bunny Stream is not configured for this video library. '
+                        'Set matching keys for all used libraries: '
+                        'BUNNY_ADDITIONAL_LIBRARY_IDS + BUNNY_SECURITY_KEY_<LIB_ID> '
+                        'and BUNNY_STREAM_API_KEY_<LIB_ID>.'
+                    )
+                },
                 status=503,
             )
 

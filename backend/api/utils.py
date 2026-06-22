@@ -78,3 +78,18 @@ def extract_bunny_video_id(value):
                 return candidate
 
     return None
+
+
+def extract_bunny_library_id(value):
+    """
+    Extract Bunny library id from known embed URL format:
+    https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID?...
+    """
+    if not value or not isinstance(value, str):
+        return None
+    v = value.strip()
+    m = re.search(r'iframe\.mediadelivery\.net\/embed\/([^/]+)\/[^/?#]+', v, re.I)
+    if not m:
+        return None
+    lib = (m.group(1) or '').strip()
+    return lib or None

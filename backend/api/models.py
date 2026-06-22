@@ -231,6 +231,8 @@ class Video(models.Model):
     video_file = models.FileField(upload_to='videos/', blank=True, null=True)
     # External link OR Bunny Stream Video ID (UUID / numeric). Keep flexible.
     video_url = models.CharField(max_length=800, blank=True, null=True)
+    # For multi-library Bunny setups: which Stream library contains this video.
+    bunny_library_id = models.CharField(max_length=50, blank=True, null=True)
     thumbnail = models.ImageField(upload_to='videos/thumbnails/', blank=True, null=True)
     duration = models.IntegerField(default=0)  # Duration in seconds
     order = models.IntegerField(default=0)
