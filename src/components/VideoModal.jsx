@@ -57,7 +57,7 @@ const VideoModal = ({
         setActualVideoUrl(null);
         return;
       }
-      const signed = await getBunnySignedUrl(bunnyId);
+      const signed = await getBunnySignedUrl(bunnyId, lessonId || null);
       setActualVideoUrl(signed);
     } catch (err) {
       setBunnyError(formatBunnyLoadError(err));
@@ -65,7 +65,7 @@ const VideoModal = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [lessonId]);
 
   useEffect(() => {
     const loadVideo = async () => {

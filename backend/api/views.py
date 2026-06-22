@@ -1857,6 +1857,40 @@ class BunnySignedUrlView(APIView):
                 return candidate
         return None
 
+    def _find_video_by_lesson_hint(self, lesson_id, requested_video_id=None):
+        """
+        Fallback resolver for legacy/inconsistent rows:
+        when direct video_id matching fails, resolve by lesson_id.
+        """
+        if not lesson_id:
+            return None, requested_video_id
+
+        qs = (
+            Video.objects
+            .select_related('category', 'lesson')
+            .filter(lesson_id=lesson_id)
+            .exclude(video_url__isnull=True)
+            .exclude(video_url='')
+        )[:20]
+
+        # 1) Prefer a row that matches the requested id after extraction.
+        if requested_video_id:
+            for candidate in qs:
+                candidate_id = extract_bunny_video_id(candidate.video_url or '')
+                if candidate_id and candidate_id == requested_video_id:
+                    return candidate, candidate_id
+
+        # 2) If lesson has exactly one Bunny-like row, trust it.
+        bunny_candidates = []
+        for candidate in qs:
+            candidate_id = extract_bunny_video_id(candidate.video_url or '')
+            if candidate_id:
+                bunny_candidates.append((candidate, candidate_id))
+        if len(bunny_candidates) == 1:
+            return bunny_candidates[0]
+
+        return None, requested_video_id
+
     def _can_access_video(self, user, video):
         if not user or not user.is_authenticated:
             return False
@@ -1878,12 +1912,19 @@ class BunnySignedUrlView(APIView):
         raw_video_id = request.query_params.get('video_id', '').strip()
         if not raw_video_id:
             return Response({'error': 'video_id is required'}, status=400)
+        lesson_id = request.query_params.get('lesson_id', '').strip()
 
         video_id = extract_bunny_video_id(raw_video_id)
-        if not video_id:
+        video = None
+        if video_id:
+            video = self._find_video_by_bunny_id(video_id)
+            if not video and lesson_id:
+                video, video_id = self._find_video_by_lesson_hint(lesson_id, video_id)
+        elif lesson_id:
+            video, video_id = self._find_video_by_lesson_hint(lesson_id, None)
+        else:
             return Response({'error': 'Invalid Bunny video_id format.'}, status=400)
 
-        video = self._find_video_by_bunny_id(video_id)
         if not video:
             return Response({'error': 'Video is not registered for this course.'}, status=404)
         if not self._can_access_video(request.user, video):

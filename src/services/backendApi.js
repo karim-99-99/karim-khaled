@@ -933,9 +933,10 @@ export const updatePassage = async (passageId, { passageText, questions }) => {
  * The BUNNY_SECURITY_KEY never leaves the Django server.
  * Also sends a lightweight session fingerprint (sk) for abuse tracing.
  * @param {string} bunnyVideoId - The raw Bunny video UUID / numeric ID
+ * @param {string|null} lessonId - Optional lesson id fallback for legacy rows
  * @returns {Promise<string>} A signed iframe.mediadelivery.net URL
  */
-export const getBunnySignedUrl = async (bunnyVideoId) => {
+export const getBunnySignedUrl = async (bunnyVideoId, lessonId = null) => {
   if (!bunnyVideoId) throw new Error("bunnyVideoId is required");
   // Lightweight session key: tab-scoped random string, stable during the session
   if (!sessionStorage.getItem("_vsk")) {
@@ -946,6 +947,7 @@ export const getBunnySignedUrl = async (bunnyVideoId) => {
   }
   const sk = sessionStorage.getItem("_vsk") || "";
   const params = new URLSearchParams({ video_id: bunnyVideoId, sk });
+  if (lessonId) params.set("lesson_id", String(lessonId));
   const data = await request(`/videos/bunny-signed-url/?${params}`);
   if (!data?.url) throw new Error("Bunny signed URL not returned by server");
   return data.url;
