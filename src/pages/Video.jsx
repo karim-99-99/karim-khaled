@@ -128,7 +128,11 @@ const Video = () => {
           } else {
             setBunnyLoading(true);
             try {
-              const signedUrl = await getBunnySignedUrl(bunnyId, actualItemId);
+              const signedUrl = await getBunnySignedUrl(
+                bunnyId,
+                actualItemId,
+                itemVideo.bunnyLibraryId || null
+              );
               if (!c) setActualVideoUrl(signedUrl);
             } catch (err) {
               if (!c) setBunnyError(formatBunnyLoadError(err));
@@ -298,7 +302,11 @@ const Video = () => {
                       setBunnyError(null);
                       setBunnyLoading(true);
                       const bunnyId = extractBunnyVideoId(video?.url);
-                      getBunnySignedUrl(bunnyId, actualItemId)
+                      getBunnySignedUrl(
+                        bunnyId,
+                        actualItemId,
+                        video?.bunnyLibraryId || null
+                      )
                         .then((url) => {
                           setActualVideoUrl(url);
                           setBunnyLoading(false);

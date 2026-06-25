@@ -116,6 +116,19 @@ export function extractBunnyVideoId(value) {
 }
 
 /**
+ * Extract Bunny library id from embed URL:
+ * https://iframe.mediadelivery.net/embed/LIBRARY_ID/VIDEO_ID?...
+ */
+export function extractBunnyLibraryId(value) {
+  if (!value || typeof value !== 'string') return null;
+  const v = value.trim();
+  const match = v.match(/iframe\.mediadelivery\.net\/embed\/([^/]+)\/[^/?#]+/i);
+  if (!match) return null;
+  const lib = (match[1] || '').trim();
+  return lib || null;
+}
+
+/**
  * Get iframe src for a stored video URL (already normalized or raw).
  * NOTE: Bunny URLs must go through the backend signing flow — this function
  * returns null for them so callers can trigger the signed-URL fetch.

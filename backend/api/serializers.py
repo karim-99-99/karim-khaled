@@ -6,8 +6,10 @@ from django.contrib.auth.password_validation import validate_password
 from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
     Question, Answer, Video, File, StudentProgress, LessonProgress,
-    QuizAttempt, VideoWatch, StudentGroup, StudentGroupMembership
+    QuizAttempt, VideoWatch, StudentGroup, StudentGroupMembership,
+    BunnyStreamLibrary,
 )
+from .utils import is_bunny_video_id, extract_bunny_video_id
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -353,6 +355,24 @@ class VideoSerializer(serializers.ModelSerializer):
                 'bunny_library_id must be a numeric Bunny library id.'
             )
         return value
+
+    def validate(self, attrs):
+        video_url = attrs.get('video_url')
+        if video_url is None and self.instance is not None:
+            video_url = self.instance.video_url
+        bunny_library_id = attrs.get('bunny_library_id')
+        if bunny_library_id is None and self.instance is not None:
+            bunny_library_id = self.instance.bunny_library_id
+
+        if video_url:
+            bunny_id = extract_bunny_video_id(str(video_url).strip())
+            if bunny_id and is_bunny_video_id(bunny_id) and not str(bunny_library_id or '').strip():
+                raise serializers.ValidationError({
+                    'bunny_library_id': (
+                        'Bunny library id is required when video_url is a Bunny Stream video id.'
+                    )
+                })
+        return attrs
     
     def get_video_file_url(self, obj):
         # Return video_url if it exists (external link), otherwise return file URL
@@ -370,6 +390,38 @@ class VideoSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.thumbnail.url)
         return None
+
+
+class BunnyStreamLibrarySerializer(serializers.ModelSerializer):
+    """Bunny library credentials — staff only (never expose to students)."""
+
+    class Meta:
+        model = BunnyStreamLibrary
+        fields = [
+            'library_id', 'label', 'security_key', 'stream_api_key',
+            'is_active', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['created_at', 'updated_at']
+
+    def validate_library_id(self, value):
+        value = str(value or '').strip()
+        if not value:
+            raise serializers.ValidationError('library_id is required.')
+        if not re.match(r'^\d+$', value):
+            raise serializers.ValidationError('library_id must be a numeric Bunny library id.')
+        return value
+
+    def validate_security_key(self, value):
+        value = str(value or '').strip()
+        if not value:
+            raise serializers.ValidationError('security_key is required.')
+        return value
+
+    def validate_stream_api_key(self, value):
+        value = str(value or '').strip()
+        if not value:
+            raise serializers.ValidationError('stream_api_key is required.')
+        return value
 
 
 class FileSerializer(serializers.ModelSerializer):

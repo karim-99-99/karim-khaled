@@ -934,9 +934,14 @@ export const updatePassage = async (passageId, { passageText, questions }) => {
  * Also sends a lightweight session fingerprint (sk) for abuse tracing.
  * @param {string} bunnyVideoId - The raw Bunny video UUID / numeric ID
  * @param {string|null} lessonId - Optional lesson id fallback for legacy rows
+ * @param {string|null} libraryId - Optional Bunny library id for multi-library setups
  * @returns {Promise<string>} A signed iframe.mediadelivery.net URL
  */
-export const getBunnySignedUrl = async (bunnyVideoId, lessonId = null) => {
+export const getBunnySignedUrl = async (
+  bunnyVideoId,
+  lessonId = null,
+  libraryId = null
+) => {
   if (!bunnyVideoId) throw new Error("bunnyVideoId is required");
   // Lightweight session key: tab-scoped random string, stable during the session
   if (!sessionStorage.getItem("_vsk")) {
@@ -948,6 +953,7 @@ export const getBunnySignedUrl = async (bunnyVideoId, lessonId = null) => {
   const sk = sessionStorage.getItem("_vsk") || "";
   const params = new URLSearchParams({ video_id: bunnyVideoId, sk });
   if (lessonId) params.set("lesson_id", String(lessonId));
+  if (libraryId) params.set("library_id", String(libraryId));
   const data = await request(`/videos/bunny-signed-url/?${params}`);
   if (!data?.url) throw new Error("Bunny signed URL not returned by server");
   return data.url;
@@ -979,6 +985,37 @@ export const getBunnyHealth = async () => {
   } catch {
     return null;
   }
+};
+
+/** Staff-only: Bunny libraries registered in the admin website (not Render env). */
+export const getBunnyLibraries = async () => {
+  const list = await request("/bunny-libraries/");
+  return Array.isArray(list) ? list : list?.results || [];
+};
+
+export const addBunnyLibrary = async (payload) => {
+  const data = await request("/bunny-libraries/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  _bunnyHealthCache = { at: 0, value: null };
+  return data;
+};
+
+export const updateBunnyLibrary = async (libraryId, payload) => {
+  const data = await request(
+    `/bunny-libraries/${encodeURIComponent(libraryId)}/`,
+    { method: "PATCH", body: JSON.stringify(payload) }
+  );
+  _bunnyHealthCache = { at: 0, value: null };
+  return data;
+};
+
+export const deleteBunnyLibrary = async (libraryId) => {
+  await request(`/bunny-libraries/${encodeURIComponent(libraryId)}/`, {
+    method: "DELETE",
+  });
+  _bunnyHealthCache = { at: 0, value: null };
 };
 
 /**

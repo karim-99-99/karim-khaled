@@ -10,6 +10,8 @@ import {
   getEmbedVideoSrc,
   isBunnyVideoId,
   needsBunnySignedUrl,
+  extractBunnyVideoId,
+  extractBunnyLibraryId,
 } from '../../utils/videoUrl';
 
 const Videos = () => {
@@ -27,12 +29,28 @@ const Videos = () => {
   const [videos, setVideos] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editingVideo, setEditingVideo] = useState(null);
-  const [formData, setFormData] = useState({ url: '', title: '', titleEn: '', bunnyLibraryId: '' });
+  const [formData, setFormData] = useState({
+    url: '',
+    bunnyVideoId: '',
+    bunnyLibraryId: '',
+    title: '',
+    titleEn: '',
+  });
   const [uploadMethod, setUploadMethod] = useState('url');
   const [uploadedFile, setUploadedFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState('');
   const [chaptersForCategory, setChaptersForCategory] = useState([]);
   const [levelsForChapter, setLevelsForChapter] = useState([]);
+  const [bunnyLibraries, setBunnyLibraries] = useState([]);
+  const [showLibraryForm, setShowLibraryForm] = useState(false);
+  const [librarySaving, setLibrarySaving] = useState(false);
+  const [registerNewLibrary, setRegisterNewLibrary] = useState(false);
+  const [libraryForm, setLibraryForm] = useState({
+    library_id: '',
+    label: '',
+    security_key: '',
+    stream_api_key: '',
+  });
 
   const findItemParents = (itemId) => {
     const sections = getSections();
@@ -134,6 +152,213 @@ const Videos = () => {
     else setLevelsForChapter(getLevelsByChapter(selectedChapter) || []);
   }, [selectedChapter, useBackend]);
 
+  const loadBunnyLibraries = async () => {
+    if (!useBackend) return;
+    try {
+      const libs = await backendApi.getBunnyLibraries();
+      setBunnyLibraries(
+        libs.filter((lib) => lib.is_active !== false)
+      );
+    } catch {
+      setBunnyLibraries([]);
+    }
+  };
+
+  useEffect(() => {
+    if (useBackend) loadBunnyLibraries();
+  }, [useBackend]);
+
+  const emptyLibraryForm = () => ({
+    library_id: '',
+    label: '',
+    security_key: '',
+    stream_api_key: '',
+  });
+
+  const validateBunnyLibraryForm = (data) => {
+    const lib = (data.library_id || '').trim();
+    if (!lib) return 'يرجى إدخال Bunny Library ID';
+    if (!/^\d+$/.test(lib)) return 'Library ID يجب أن يكون رقماً';
+    if (!(data.security_key || '').trim()) {
+      return 'يرجى إدخال Token Authentication Key من Bunny → Security';
+    }
+    if (!(data.stream_api_key || '').trim()) {
+      return 'يرجى إدخال API Key من Bunny → API';
+    }
+    return null;
+  };
+
+  const handleSaveLibrary = async (e) => {
+    e.preventDefault();
+    const err = validateBunnyLibraryForm(libraryForm);
+    if (err) {
+      alert(err);
+      return;
+    }
+    setLibrarySaving(true);
+    try {
+      await backendApi.addBunnyLibrary({
+        library_id: libraryForm.library_id.trim(),
+        label: libraryForm.label.trim(),
+        security_key: libraryForm.security_key.trim(),
+        stream_api_key: libraryForm.stream_api_key.trim(),
+      });
+      await loadBunnyLibraries();
+      setLibraryForm(emptyLibraryForm());
+      setShowLibraryForm(false);
+      setFormData((prev) => ({
+        ...prev,
+        bunnyLibraryId: libraryForm.library_id.trim(),
+      }));
+      alert('تم تسجيل المكتبة بنجاح / Library registered');
+    } catch (saveErr) {
+      alert(saveErr.message || 'فشل تسجيل المكتبة');
+    } finally {
+      setLibrarySaving(false);
+    }
+  };
+
+  const handleDeleteLibrary = async (libraryId) => {
+    if (!window.confirm(`حذف مكتبة ${libraryId}؟ / Delete library ${libraryId}?`)) return;
+    try {
+      await backendApi.deleteBunnyLibrary(libraryId);
+      await loadBunnyLibraries();
+      if (formData.bunnyLibraryId === libraryId) {
+        setFormData((prev) => ({ ...prev, bunnyLibraryId: '' }));
+      }
+    } catch (err) {
+      alert(err.message || 'فشل الحذف');
+    }
+  };
+
+  const ensureLibraryForVideo = async () => {
+    if (registerNewLibrary) {
+      const err = validateBunnyLibraryForm(libraryForm);
+      if (err) throw new Error(err);
+      const libId = libraryForm.library_id.trim();
+      await backendApi.addBunnyLibrary({
+        library_id: libId,
+        label: libraryForm.label.trim(),
+        security_key: libraryForm.security_key.trim(),
+        stream_api_key: libraryForm.stream_api_key.trim(),
+      });
+      await loadBunnyLibraries();
+      setRegisterNewLibrary(false);
+      setLibraryForm(emptyLibraryForm());
+      return libId;
+    }
+
+    const libId = (formData.bunnyLibraryId || '').trim();
+    if (!libId) {
+      throw new Error('اختر مكتبة Bunny أو سجّل مكتبة جديدة / Select or register a Bunny library');
+    }
+    const exists = bunnyLibraries.some((lib) => String(lib.library_id) === libId);
+    if (!exists) {
+      throw new Error(
+        'هذه المكتبة غير مسجّلة. سجّلها أولاً من قسم «مكتبات Bunny» أو اختر «مكتبة جديدة».'
+      );
+    }
+    return libId;
+  };
+
+  const renderBunnyLibraryPicker = (helpText) => (
+    <div>
+      <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+        Bunny Library *
+      </label>
+      {!registerNewLibrary ? (
+        <>
+          <select
+            value={formData.bunnyLibraryId || ''}
+            onChange={(e) =>
+              setFormData({ ...formData, bunnyLibraryId: e.target.value })
+            }
+            required
+            className="w-full px-4 py-2 border rounded-lg bg-white"
+          >
+            <option value="">— اختر المكتبة —</option>
+            {bunnyLibraries.map((lib) => (
+              <option key={lib.library_id} value={lib.library_id}>
+                {lib.label
+                  ? `${lib.label} (${lib.library_id})`
+                  : lib.library_id}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              setRegisterNewLibrary(true);
+              setLibraryForm({
+                ...emptyLibraryForm(),
+                library_id: formData.bunnyLibraryId || '',
+              });
+            }}
+            className="mt-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
+          >
+            + تسجيل مكتبة Bunny جديدة
+          </button>
+        </>
+      ) : (
+        <div className="space-y-3 border rounded-lg p-4 bg-gray-50">
+          <p className="text-sm font-medium text-dark-600">
+            تسجيل مكتبة جديدة (مرة واحدة فقط لكل مكتبة)
+          </p>
+          <input
+            type="text"
+            inputMode="numeric"
+            placeholder="Library ID"
+            value={libraryForm.library_id}
+            onChange={(e) =>
+              setLibraryForm({ ...libraryForm, library_id: e.target.value })
+            }
+            className="w-full px-4 py-2 border rounded-lg"
+          />
+          <input
+            type="text"
+            placeholder="اسم اختياري / Optional label"
+            value={libraryForm.label}
+            onChange={(e) =>
+              setLibraryForm({ ...libraryForm, label: e.target.value })
+            }
+            className="w-full px-4 py-2 border rounded-lg"
+          />
+          <input
+            type="password"
+            autoComplete="off"
+            placeholder="Token Authentication Key (Bunny → Security)"
+            value={libraryForm.security_key}
+            onChange={(e) =>
+              setLibraryForm({ ...libraryForm, security_key: e.target.value })
+            }
+            className="w-full px-4 py-2 border rounded-lg"
+          />
+          <input
+            type="password"
+            autoComplete="off"
+            placeholder="API Key (Bunny → API)"
+            value={libraryForm.stream_api_key}
+            onChange={(e) =>
+              setLibraryForm({ ...libraryForm, stream_api_key: e.target.value })
+            }
+            className="w-full px-4 py-2 border rounded-lg"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setRegisterNewLibrary(false);
+              setLibraryForm(emptyLibraryForm());
+            }}
+            className="text-sm text-dark-500 hover:text-dark-700"
+          >
+            إلغاء — اختر مكتبة مسجّلة
+          </button>
+        </div>
+      )}
+      <p className="text-xs md:text-sm text-dark-500 mt-1">{helpText}</p>
+    </div>
+  );
+
   const handleSubjectChange = (subjectId) => {
     setSelectedSubject(subjectId);
     setSelectedCategory('');
@@ -159,17 +384,39 @@ const Videos = () => {
     setSelectedLevel(levelId);
   };
 
+  const emptyFormData = () => ({
+    url: '',
+    bunnyVideoId: '',
+    bunnyLibraryId: '',
+    title: '',
+    titleEn: '',
+  });
+
+  const resolveBunnyVideoId = (value) => {
+    const trimmed = (value || '').trim();
+    if (!trimmed) return null;
+    return extractBunnyVideoId(trimmed) || (isBunnyVideoId(trimmed) ? trimmed : null);
+  };
+
+  const validateBunnyVideoIdField = (videoId) => {
+    const vid = (videoId || '').trim();
+    if (!vid) {
+      return 'يرجى إدخال Bunny Video ID / Please enter Bunny Video ID';
+    }
+    if (!resolveBunnyVideoId(vid)) {
+      return 'يرجى إدخال Bunny Video ID صالح (UUID أو رقم) / Enter a valid Bunny Video ID';
+    }
+    return null;
+  };
+
   const handleAddNew = () => {
     setEditingVideo(null);
-    setFormData({
-      url: '',
-      title: '',
-      titleEn: '',
-      bunnyLibraryId: '',
-    });
+    setFormData(emptyFormData());
     setUploadedFile(null);
     setUploadProgress('');
     setUploadMethod('url');
+    setRegisterNewLibrary(false);
+    setLibraryForm(emptyLibraryForm());
     setShowForm(true);
   };
 
@@ -177,9 +424,10 @@ const Videos = () => {
     setEditingVideo(video);
     setFormData({
       url: video.url || '',
+      bunnyVideoId: extractBunnyVideoId(video.url || '') || '',
+      bunnyLibraryId: video.bunnyLibraryId || extractBunnyLibraryId(video.url || '') || '',
       title: video.title || '',
       titleEn: video.titleEn || '',
-      bunnyLibraryId: video.bunnyLibraryId || '',
     });
     setUploadMethod(video.isFileUpload ? 'file' : 'url');
     setUploadedFile(null);
@@ -258,18 +506,19 @@ const Videos = () => {
       }
       setUploadProgress('جاري الحفظ... / Saving...');
       try {
+        const bunnyLibraryId = await ensureLibraryForVideo();
         if (editingVideo) {
           await backendApi.updateVideo(editingVideo.id, {
             title: formData.title,
             description: formData.titleEn || '',
-              ...(formData.bunnyLibraryId?.trim() && { bunny_library_id: formData.bunnyLibraryId.trim() }),
+            bunny_library_id: bunnyLibraryId,
             ...(uploadedFile && { video_file: uploadedFile }),
           });
         } else {
           await backendApi.addVideo(selectedLevel, {
             title: formData.title,
             description: formData.titleEn || '',
-              ...(formData.bunnyLibraryId?.trim() && { bunny_library_id: formData.bunnyLibraryId.trim() }),
+            bunny_library_id: bunnyLibraryId,
             video_file: uploadedFile,
           });
         }
@@ -282,7 +531,7 @@ const Videos = () => {
         return;
       }
       setShowForm(false);
-      setFormData({ url: '', title: '', titleEn: '', bunnyLibraryId: '' });
+      setFormData(emptyFormData());
       setUploadedFile(null);
       setUploadProgress('');
       setUploadMethod('url');
@@ -309,49 +558,29 @@ const Videos = () => {
         return;
       }
     } else {
-      // URL method: link (YouTube, Google Drive, cloud, or direct)
-      let videoUrl = formData.url.trim();
-
-      if (!videoUrl) {
-        alert('يرجى إدخال رابط الفيديو / Please enter a video URL');
-        return;
-      }
-
-      // Protected videos must be stored as Bunny Stream IDs when using the backend.
-      // The player later asks Django for a signed URL; raw public links are not protected.
-      if (isBunnyVideoId(videoUrl)) {
-        // Keep as-is; backend will generate signed iframe URL at playback time
-      } else {
-        if (useBackend) {
-          alert('للحماية يجب إدخال Bunny Stream Video ID فقط أو رفع الملف إلى Bunny / For protected videos, use only a Bunny Stream Video ID or upload the file to Bunny');
-          return;
-        }
-        if (!videoUrl.startsWith('http') && !videoUrl.startsWith('https')) {
-          videoUrl = 'https://' + videoUrl;
-        }
-        videoUrl = normalizeVideoUrl(videoUrl);
-        if (!videoUrl.startsWith('http')) {
-          alert('يرجى إدخال رابط صحيح (YouTube، Drive، أو رابط مباشر) أو Video ID من Bunny / Please enter a valid URL or Bunny Video ID');
-          return;
-        }
-      }
-
       if (useBackend) {
+        const videoError = validateBunnyVideoIdField(formData.bunnyVideoId);
+        if (videoError) {
+          alert(videoError);
+          return;
+        }
         setUploadProgress('جاري الحفظ... / Saving...');
         try {
+          const bunnyLibraryId = await ensureLibraryForVideo();
+          const videoUrl = resolveBunnyVideoId(formData.bunnyVideoId);
           if (editingVideo) {
             await backendApi.updateVideo(editingVideo.id, {
               title: formData.title,
               description: formData.titleEn || '',
               video_url: videoUrl,
-              ...(formData.bunnyLibraryId?.trim() && { bunny_library_id: formData.bunnyLibraryId.trim() }),
+              bunny_library_id: bunnyLibraryId,
             });
           } else {
             await backendApi.addVideo(selectedLevel, {
               title: formData.title,
               description: formData.titleEn || '',
               video_url: videoUrl,
-              ...(formData.bunnyLibraryId?.trim() && { bunny_library_id: formData.bunnyLibraryId.trim() }),
+              bunny_library_id: bunnyLibraryId,
             });
           }
           const v = await backendApi.getVideoByLevel(selectedLevel);
@@ -363,8 +592,25 @@ const Videos = () => {
           return;
         }
         setShowForm(false);
-        setFormData({ url: '', title: '', titleEn: '', bunnyLibraryId: '' });
+        setFormData(emptyFormData());
         setUploadProgress('');
+        return;
+      }
+
+      // Local-only URL method: link (YouTube, Google Drive, cloud, or direct)
+      let videoUrl = formData.url.trim();
+
+      if (!videoUrl) {
+        alert('يرجى إدخال رابط الفيديو / Please enter a video URL');
+        return;
+      }
+
+      if (!videoUrl.startsWith('http') && !videoUrl.startsWith('https')) {
+        videoUrl = 'https://' + videoUrl;
+      }
+      videoUrl = normalizeVideoUrl(videoUrl);
+      if (!videoUrl.startsWith('http')) {
+        alert('يرجى إدخال رابط صحيح (YouTube، Drive، أو رابط مباشر) / Please enter a valid URL');
         return;
       }
 
@@ -377,7 +623,6 @@ const Videos = () => {
 
       if (editingVideo) {
         updateVideo(editingVideo.id, videoData);
-        // If editing and switching from file to URL, delete the old file
         if (editingVideo.isFileUpload) {
           try {
             await deleteVideoFile(selectedLevel);
@@ -396,12 +641,7 @@ const Videos = () => {
     // Delay closing to show success message
     setTimeout(() => {
       setShowForm(false);
-      setFormData({
-        url: '',
-        title: '',
-        titleEn: '',
-        bunnyLibraryId: '',
-      });
+      setFormData(emptyFormData());
       setUploadedFile(null);
       setUploadProgress('');
       setUploadMethod('url');
@@ -431,6 +671,115 @@ const Videos = () => {
             ← رجوع / Back
           </button>
         </div>
+
+        {useBackend && (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
+              <div>
+                <h2 className="text-lg md:text-xl font-bold text-dark-600">
+                  مكتبات Bunny / Bunny Libraries
+                </h2>
+                <p className="text-xs md:text-sm text-dark-500 mt-1">
+                  سجّل كل مكتبة مرة واحدة هنا. بعدها أضف الفيديوهات باختيار المكتبة + Video ID فقط.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLibraryForm((v) => !v)}
+                className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition font-medium"
+              >
+                {showLibraryForm ? 'إغلاق' : '+ إضافة مكتبة'}
+              </button>
+            </div>
+
+            {bunnyLibraries.length > 0 ? (
+              <ul className="divide-y border rounded-lg mb-4">
+                {bunnyLibraries.map((lib) => (
+                  <li
+                    key={lib.library_id}
+                    className="flex flex-wrap justify-between items-center gap-2 px-4 py-3"
+                  >
+                    <div>
+                      <span className="font-mono font-semibold text-dark-700">
+                        {lib.library_id}
+                      </span>
+                      {lib.label && (
+                        <span className="text-dark-500 text-sm mr-2"> — {lib.label}</span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLibrary(lib.library_id)}
+                      className="text-red-600 text-sm hover:text-red-700"
+                    >
+                      حذف
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-dark-500 mb-4">
+                لا توجد مكتبات مسجّلة بعد. أضف مكتبتك الأولى (685337، 687985، 687043، أو أي مكتبة أخرى).
+              </p>
+            )}
+
+            {showLibraryForm && (
+              <form onSubmit={handleSaveLibrary} className="border rounded-lg p-4 bg-gray-50 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    required
+                    placeholder="Library ID (من Bunny)"
+                    value={libraryForm.library_id}
+                    onChange={(e) =>
+                      setLibraryForm({ ...libraryForm, library_id: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                  <input
+                    type="text"
+                    placeholder="اسم اختياري (مثال: رياضيات)"
+                    value={libraryForm.label}
+                    onChange={(e) =>
+                      setLibraryForm({ ...libraryForm, label: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border rounded-lg"
+                  />
+                </div>
+                <input
+                  type="password"
+                  autoComplete="off"
+                  required
+                  placeholder="Token Authentication Key — Bunny → Security"
+                  value={libraryForm.security_key}
+                  onChange={(e) =>
+                    setLibraryForm({ ...libraryForm, security_key: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border rounded-lg"
+                />
+                <input
+                  type="password"
+                  autoComplete="off"
+                  required
+                  placeholder="API Key — Bunny → API"
+                  value={libraryForm.stream_api_key}
+                  onChange={(e) =>
+                    setLibraryForm({ ...libraryForm, stream_api_key: e.target.value })
+                  }
+                  className="w-full px-4 py-2 border rounded-lg"
+                />
+                <button
+                  type="submit"
+                  disabled={librarySaving}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-60"
+                >
+                  {librarySaving ? 'جاري الحفظ...' : 'حفظ المكتبة'}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -552,6 +901,18 @@ const Videos = () => {
                 {videos[0].titleEn && (
                   <p className="text-sm md:text-base text-dark-500 mb-4">{videos[0].titleEn}</p>
                 )}
+                {useBackend && needsBunnySignedUrl(videos[0].url) && (
+                  <div className="text-xs md:text-sm text-dark-500 mb-4 font-mono bg-gray-50 rounded p-3 space-y-1">
+                    <p>
+                      <span className="font-semibold">Bunny Library ID:</span>{' '}
+                      {videos[0].bunnyLibraryId || '—'}
+                    </p>
+                    <p>
+                      <span className="font-semibold">Bunny Video ID:</span>{' '}
+                      {extractBunnyVideoId(videos[0].url) || videos[0].url}
+                    </p>
+                  </div>
+                )}
                 <div className="aspect-video w-full max-w-2xl">
                   {needsBunnySignedUrl(videos[0].url) ? (
                     <div className="w-full h-full rounded bg-slate-900 text-white flex items-center justify-center text-center p-4">
@@ -603,7 +964,7 @@ const Videos = () => {
                         type="button"
                         onClick={() => {
                           setUploadMethod('url');
-                          setFormData({ ...formData, url: '' });
+                          setFormData({ ...formData, url: '', bunnyVideoId: '' });
                           setUploadedFile(null);
                           setUploadProgress('');
                         }}
@@ -632,11 +993,38 @@ const Videos = () => {
                     </div>
                   </div>
 
-                  {/* URL Input */}
-                  {uploadMethod === 'url' && (
+                  {/* Bunny manual entry (backend) or generic URL (local) */}
+                  {uploadMethod === 'url' && useBackend && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {renderBunnyLibraryPicker(
+                        'سجّل المكتبة مرة واحدة، ثم لكل فيديو أدخل Video ID فقط. لا حاجة لتعديل Render.'
+                      )}
+                      <div>
+                        <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
+                          Bunny Video ID *
+                        </label>
+                        <input
+                          type="text"
+                          autoComplete="off"
+                          value={formData.bunnyVideoId || ''}
+                          onChange={(e) =>
+                            setFormData({ ...formData, bunnyVideoId: e.target.value })
+                          }
+                          required
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                          className="w-full px-4 py-2 border rounded-lg"
+                        />
+                        <p className="text-xs md:text-sm text-dark-500 mt-1">
+                          الصق <strong>Video ID</strong> فقط من نفس المكتبة — لا تلصق رابط iframe.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {uploadMethod === 'url' && !useBackend && (
                     <div>
                       <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                        معرّف Bunny Video ID
+                        رابط الفيديو / Video URL
                       </label>
                       <input
                         type="text"
@@ -645,43 +1033,22 @@ const Videos = () => {
                         value={formData.url}
                         onChange={(e) => setFormData({ ...formData, url: e.target.value })}
                         required={uploadMethod === 'url'}
-                        placeholder="Bunny Video ID (UUID)"
+                        placeholder="YouTube, Google Drive, or direct link"
                         className="w-full px-4 py-2 border rounded-lg"
                       />
-                      <p className="text-xs md:text-sm text-dark-500 mt-1">
-                        للصلاحيات والحماية: الصق <strong>Video ID</strong> فقط من Bunny Stream. لا تحفظ رابط iframe أو رابط مباشر.
-                      </p>
-                      <p className="text-xs md:text-sm text-dark-500">
-                        For protection: paste the Bunny <strong>Video ID</strong> only. Playback uses a backend-signed URL.
-                      </p>
-                    </div>
-                  )}
-
-                  {useBackend && (
-                    <div>
-                      <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
-                        Bunny Library ID (اختياري)
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        autoComplete="off"
-                        value={formData.bunnyLibraryId || ''}
-                        onChange={(e) =>
-                          setFormData({ ...formData, bunnyLibraryId: e.target.value })
-                        }
-                        placeholder="مثال: 631057"
-                        className="w-full px-4 py-2 border rounded-lg"
-                      />
-                      <p className="text-xs md:text-sm text-dark-500 mt-1">
-                        اتركه فارغاً لاستخدام المكتبة الافتراضية. أدخله إذا كان الفيديو في مكتبة Bunny مختلفة.
-                      </p>
                     </div>
                   )}
 
                   {/* File Upload */}
                   {uploadMethod === 'file' && (
                     <div>
+                      {useBackend && (
+                        <div className="mb-4">
+                          {renderBunnyLibraryPicker(
+                            'اختر المكتبة المسجّلة التي سيتم رفع الفيديو إليها.'
+                          )}
+                        </div>
+                      )}
                       <label className="block text-sm md:text-base font-medium text-dark-600 mb-2">
                         رفع ملف فيديو / Upload Video File
                       </label>
@@ -709,7 +1076,7 @@ const Videos = () => {
                       </p>
                       {useBackend && (
                         <p className="text-xs md:text-sm text-primary-600 mt-2 font-medium">
-                          يجب ضبط <code className="bg-gray-100 px-1 rounded">BUNNY_STREAM_API_KEY</code> و <code className="bg-gray-100 px-1 rounded">BUNNY_LIBRARY_ID</code> على Render. بدونها سيرفض الخادم الرفع حتى لا يُحفظ الفيديو كرابط/ملف عام.
+                          يُرفع الفيديو إلى المكتبة المسجّلة في الموقع (قسم مكتبات Bunny).
                         </p>
                       )}
                     </div>

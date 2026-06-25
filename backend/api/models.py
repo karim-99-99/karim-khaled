@@ -250,6 +250,30 @@ class Video(models.Model):
         return self.title
 
 
+class BunnyStreamLibrary(models.Model):
+    """
+    Bunny Stream library credentials registered by admin in the website.
+    Lets staff add new libraries without editing Render env vars each time.
+    """
+    library_id = models.CharField(max_length=50, unique=True)
+    label = models.CharField(max_length=200, blank=True, default='')
+    security_key = models.CharField(max_length=500, help_text='Token Authentication key from Bunny Security tab')
+    stream_api_key = models.CharField(max_length=500, help_text='Library API key from Bunny API tab')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name='bunny_libraries'
+    )
+
+    class Meta:
+        ordering = ['library_id']
+        verbose_name_plural = 'Bunny stream libraries'
+
+    def __str__(self):
+        return self.label or f"Library {self.library_id}"
+
+
 class File(models.Model):
     """Files (PDFs, documents, etc.)"""
     id = models.CharField(max_length=100, primary_key=True)

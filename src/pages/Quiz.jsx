@@ -922,6 +922,7 @@ const Quiz = () => {
         title={video?.title || "فيديو تعليمي"}
         lessonId={actualItemId}
         videoId={video?.id}
+        bunnyLibraryId={video?.bunnyLibraryId || null}
       />
     </div>
   );

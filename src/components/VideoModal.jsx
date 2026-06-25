@@ -27,6 +27,7 @@ const VideoModal = ({
   title = "فيديو تعليمي",
   lessonId,
   videoId,
+  bunnyLibraryId = null,
 }) => {
   const [actualVideoUrl, setActualVideoUrl] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -57,7 +58,11 @@ const VideoModal = ({
         setActualVideoUrl(null);
         return;
       }
-      const signed = await getBunnySignedUrl(bunnyId, lessonId || null);
+      const signed = await getBunnySignedUrl(
+        bunnyId,
+        lessonId || null,
+        bunnyLibraryId || null
+      );
       setActualVideoUrl(signed);
     } catch (err) {
       setBunnyError(formatBunnyLoadError(err));
@@ -65,7 +70,7 @@ const VideoModal = ({
     } finally {
       setLoading(false);
     }
-  }, [lessonId]);
+  }, [lessonId, bunnyLibraryId]);
 
   useEffect(() => {
     const loadVideo = async () => {
