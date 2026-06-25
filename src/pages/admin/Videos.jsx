@@ -672,7 +672,7 @@ const Videos = () => {
           </button>
         </div>
 
-        {useBackend && (
+        {useBackend ? (
           <div className="bg-white rounded-lg shadow p-6 mb-6">
             <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
               <div>
@@ -778,6 +778,14 @@ const Videos = () => {
                 </button>
               </form>
             )}
+          </div>
+        ) : (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 text-sm text-amber-900">
+            <p className="font-semibold mb-1">قسم مكتبات Bunny غير متاح حالياً</p>
+            <p>
+              يجب تسجيل الدخول وربط الموقع بالخادم (VITE_API_URL على Vercel). بعد ذلك سيظهر قسم
+              «مكتبات Bunny» في أعلى هذه الصفحة.
+            </p>
           </div>
         )}
 
