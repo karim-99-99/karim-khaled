@@ -12,6 +12,7 @@ import {
   needsBunnySignedUrl,
   extractBunnyVideoId,
   extractBunnyLibraryId,
+  formatBunnyLoadError,
 } from '../../utils/videoUrl';
 
 const Videos = () => {
@@ -51,6 +52,9 @@ const Videos = () => {
     security_key: '',
     stream_api_key: '',
   });
+  const [adminPreviewUrl, setAdminPreviewUrl] = useState(null);
+  const [adminPreviewLoading, setAdminPreviewLoading] = useState(false);
+  const [adminPreviewError, setAdminPreviewError] = useState(null);
 
   const findItemParents = (itemId) => {
     const sections = getSections();
@@ -151,6 +155,51 @@ const Videos = () => {
     if (useBackend) backendApi.getLevelsByChapter(selectedChapter).then(setLevelsForChapter).catch(() => setLevelsForChapter([]));
     else setLevelsForChapter(getLevelsByChapter(selectedChapter) || []);
   }, [selectedChapter, useBackend]);
+
+  useEffect(() => {
+    const video = videos[0];
+    if (!video || !useBackend || !needsBunnySignedUrl(video.url)) {
+      setAdminPreviewUrl(null);
+      setAdminPreviewError(null);
+      setAdminPreviewLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadPreview = async () => {
+      setAdminPreviewLoading(true);
+      setAdminPreviewError(null);
+      setAdminPreviewUrl(null);
+
+      const bunnyId = extractBunnyVideoId(video.url);
+      if (!bunnyId) {
+        if (!cancelled) {
+          setAdminPreviewError('معرّف الفيديو (Bunny) غير صالح.');
+          setAdminPreviewLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const lessonId = selectedLevel || video.levelId || video.itemId || null;
+        const signedUrl = await backendApi.getBunnySignedUrl(
+          bunnyId,
+          lessonId,
+          video.bunnyLibraryId || null
+        );
+        if (!cancelled) setAdminPreviewUrl(signedUrl);
+      } catch (err) {
+        if (!cancelled) setAdminPreviewError(formatBunnyLoadError(err));
+      } finally {
+        if (!cancelled) setAdminPreviewLoading(false);
+      }
+    };
+
+    loadPreview();
+    return () => {
+      cancelled = true;
+    };
+  }, [videos, selectedLevel, useBackend]);
 
   const loadBunnyLibraries = async () => {
     if (!useBackend) return;
@@ -923,13 +972,27 @@ const Videos = () => {
                 )}
                 <div className="aspect-video w-full max-w-2xl">
                   {needsBunnySignedUrl(videos[0].url) ? (
-                    <div className="w-full h-full rounded bg-slate-900 text-white flex items-center justify-center text-center p-4">
-                      <p className="font-medium">
-                        فيديو Bunny محمي. يظهر للطلاب عبر رابط موقّع من الخادم فقط.
-                        <br />
-                        Bunny video is protected and only plays through a backend-signed URL.
-                      </p>
-                    </div>
+                    adminPreviewLoading ? (
+                      <div className="w-full h-full rounded bg-slate-900 text-white flex items-center justify-center text-center p-4">
+                        <p className="font-medium">جاري تحميل الفيديو...</p>
+                      </div>
+                    ) : adminPreviewError ? (
+                      <div className="w-full h-full rounded bg-slate-900 text-red-300 flex items-center justify-center text-center p-4">
+                        <p className="font-medium">{adminPreviewError}</p>
+                      </div>
+                    ) : adminPreviewUrl ? (
+                      <iframe
+                        src={getEmbedVideoSrc(adminPreviewUrl) || adminPreviewUrl}
+                        title={videos[0].title || 'فيديو تعليمي'}
+                        className="w-full h-full rounded"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div className="w-full h-full rounded bg-slate-900 text-white flex items-center justify-center text-center p-4">
+                        <p className="font-medium">تعذّر تحميل معاينة الفيديو.</p>
+                      </div>
+                    )
                   ) : isEmbedVideoUrl(videos[0].url) ? (
                     <iframe
                       src={getEmbedVideoSrc(videos[0].url) || videos[0].url}
