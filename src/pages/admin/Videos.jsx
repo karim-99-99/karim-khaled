@@ -126,7 +126,7 @@ const Videos = () => {
       return;
     }
     if (useBackend) {
-      backendApi.getVideoByLevel(selectedLevel).then((v) => setVideos(v ? [v] : [])).catch(() => setVideos([]));
+      backendApi.getVideoByLevel(selectedLevel, { force: true }).then((v) => setVideos(v ? [v] : [])).catch(() => setVideos([]));
       return;
     }
     (async () => {
@@ -489,7 +489,7 @@ const Videos = () => {
     if (useBackend) {
       try {
         await backendApi.deleteVideo(videoId);
-        const v = await backendApi.getVideoByLevel(selectedLevel);
+        const v = await backendApi.getVideoByLevel(selectedLevel, { force: true });
         setVideos(v ? [v] : []);
       } catch (e) {
         alert(e.message || 'خطأ في الحذف');
@@ -571,7 +571,7 @@ const Videos = () => {
             video_file: uploadedFile,
           });
         }
-        const v = await backendApi.getVideoByLevel(selectedLevel);
+        const v = await backendApi.getVideoByLevel(selectedLevel, { force: true });
         setVideos(v ? [v] : []);
         setUploadProgress('تم الحفظ! / Saved!');
       } catch (err) {
@@ -632,7 +632,7 @@ const Videos = () => {
               bunny_library_id: bunnyLibraryId,
             });
           }
-          const v = await backendApi.getVideoByLevel(selectedLevel);
+          const v = await backendApi.getVideoByLevel(selectedLevel, { force: true });
           setVideos(v ? [v] : []);
           setUploadProgress('تم الحفظ! / Saved!');
         } catch (err) {

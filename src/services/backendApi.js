@@ -1041,6 +1041,7 @@ const mapVideoFromBackend = (v) => {
     title: v.title,
     titleEn: v.description,
     url,
+    lesson: lid,
     bunnyLibraryId: v.bunny_library_id || null,
     levelId: lid,
     itemId: lid,

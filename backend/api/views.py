@@ -749,7 +749,9 @@ class VideoViewSet(viewsets.ModelViewSet):
         if lesson_id:
             queryset = queryset.filter(lesson_id=lesson_id)
         if chapter_id:
-            queryset = queryset.filter(chapter_id=chapter_id)
+            queryset = queryset.filter(
+                Q(chapter_id=chapter_id) | Q(lesson__chapter_id=chapter_id)
+            )
         return queryset
     
     def get_permissions(self):
@@ -771,12 +773,7 @@ class VideoViewSet(viewsets.ModelViewSet):
             return None, None, selected or None
 
     def _sync_video_hierarchy(self, video):
-        if video.lesson:
-            video.chapter = video.lesson.chapter
-            video.category = video.lesson.chapter.category
-            video.subject = video.lesson.chapter.category.subject
-            video.section = video.lesson.chapter.category.subject.section
-            video.save()
+        video.sync_hierarchy_from_lesson()
 
     def create(self, request, *args, **kwargs):
         requested_library_id = str(request.data.get('bunny_library_id') or '').strip() or None
@@ -869,15 +866,14 @@ class VideoViewSet(viewsets.ModelViewSet):
         )
         
         # Set related fields if lesson exists
-        if video.lesson:
-            video.chapter = video.lesson.chapter
-            video.category = video.lesson.chapter.category
-            video.subject = video.lesson.chapter.category.subject
-            video.section = video.lesson.chapter.category.subject.section
-            video.save()
+        video.sync_hierarchy_from_lesson()
         
         # Update serializer instance for response
         serializer.instance = video
+
+    def perform_update(self, serializer):
+        video = serializer.save()
+        video.sync_hierarchy_from_lesson()
 
 
 class FileViewSet(viewsets.ModelViewSet):
@@ -893,7 +889,9 @@ class FileViewSet(viewsets.ModelViewSet):
         if lesson_id:
             queryset = queryset.filter(lesson_id=lesson_id)
         if chapter_id:
-            queryset = queryset.filter(chapter_id=chapter_id)
+            queryset = queryset.filter(
+                Q(chapter_id=chapter_id) | Q(lesson__chapter_id=chapter_id)
+            )
         return queryset
     
     def get_permissions(self):
@@ -2003,7 +2001,10 @@ class BunnySignedUrlView(APIView):
         if not getattr(user, 'is_active_account', False) or not user.is_within_account_period():
             return False
 
-        category_name = (getattr(video.category, 'name', '') or '').strip()
+        if not video.category_id:
+            video.sync_hierarchy_from_lesson()
+
+        category_name = video.resolved_category_name()
         if category_name == 'التأسيس' or 'تأسيس' in category_name:
             return bool(getattr(user, 'abilities_categories_foundation', False))
         if category_name == 'التجميعات' or 'تجميع' in category_name:

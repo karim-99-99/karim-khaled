@@ -193,11 +193,19 @@ const Levels = () => {
   }, [chapterId]);
 
   const norm = (id) => (id == null ? "" : String(id));
+  const videoLessonId = (v) => {
+    if (!v) return "";
+    const lesson = v.lesson;
+    if (lesson != null && typeof lesson === "object") {
+      return norm(lesson.id ?? lesson.pk ?? "");
+    }
+    return norm(lesson ?? v.itemId ?? v.levelId ?? "");
+  };
   const getVideoForItem = (itemId) => {
     if (useBackend)
       return (
         (videos || []).find(
-          (v) => norm(v.lesson || v.itemId || v.levelId) === norm(itemId)
+          (v) => videoLessonId(v) === norm(itemId)
         ) || null
       );
     return getVideoByLevel(itemId);

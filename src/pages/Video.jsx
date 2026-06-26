@@ -60,7 +60,7 @@ const Video = () => {
       let itemVideo = null;
       if (isBackendOn()) {
         const [v, i] = await Promise.all([
-          getVideoByLevelApi(actualItemId),
+          getVideoByLevelApi(actualItemId, { force: true }),
           getItemByIdApi(actualItemId),
         ]);
         itemVideo = v;

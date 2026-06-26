@@ -246,6 +246,32 @@ class Video(models.Model):
     class Meta:
         ordering = ['order', '-created_at']
     
+    def sync_hierarchy_from_lesson(self, save=True):
+        """Copy chapter/category/subject/section from lesson for student chapter listings."""
+        if not self.lesson_id:
+            return False
+        lesson = self.lesson
+        if not lesson or not getattr(lesson, 'chapter_id', None):
+            return False
+        chapter = lesson.chapter
+        if not chapter:
+            return False
+        self.chapter = chapter
+        self.category = chapter.category
+        self.subject = chapter.category.subject
+        self.section = chapter.category.subject.section
+        if save:
+            self.save(update_fields=['chapter', 'category', 'subject', 'section'])
+        return True
+
+    def resolved_category_name(self):
+        """Category name for access checks; follows lesson when FK is missing."""
+        if self.category_id and self.category:
+            return (self.category.name or '').strip()
+        if self.lesson_id and self.lesson and self.lesson.chapter and self.lesson.chapter.category:
+            return (self.lesson.chapter.category.name or '').strip()
+        return ''
+
     def __str__(self):
         return self.title
 

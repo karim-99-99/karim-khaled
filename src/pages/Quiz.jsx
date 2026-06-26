@@ -251,7 +251,7 @@ const Quiz = () => {
         }
 
         Promise.all([
-          getVideoByLevelApi(actualItemId),
+          getVideoByLevelApi(actualItemId, { force: true }),
           getItemByIdApi(actualItemId),
         ]).then(([lv, lev]) => {
           if (c) return;
