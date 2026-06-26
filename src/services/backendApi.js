@@ -108,6 +108,22 @@ const request = async (path, options = {}) => {
   return res.json();
 };
 
+/** Follow DRF pagination until all rows are loaded (global PAGE_SIZE defaults to 20). */
+const fetchAllPaginated = async (path) => {
+  const items = [];
+  let nextPath = path;
+  while (nextPath) {
+    const data = await request(nextPath);
+    if (Array.isArray(data)) {
+      items.push(...data);
+      break;
+    }
+    items.push(...(data?.results || []));
+    nextPath = data?.next || null;
+  }
+  return items;
+};
+
 export const isBackendOn = () => isApiBaseConfigured() && !!getToken();
 
 /** Ping backend health endpoint to wake Render from cold start (fire-and-forget). */
@@ -1056,10 +1072,10 @@ export const getVideos = async (opts = null) => {
   const params = new URLSearchParams();
   if (lessonId) params.set("lesson_id", lessonId);
   if (chapterId) params.set("chapter_id", chapterId);
+  params.set("page_size", "500");
   const qs = params.toString();
-  const path = qs ? `/videos/?${qs}` : "/videos/";
-  const list = await request(path);
-  const arr = Array.isArray(list) ? list : list?.results || [];
+  const path = `/videos/?${qs}`;
+  const arr = await fetchAllPaginated(path);
   return arr.map(mapVideoFromBackend);
 };
 
@@ -1154,10 +1170,10 @@ export const getFiles = async (opts = null) => {
   const params = new URLSearchParams();
   if (lessonId) params.set("lesson_id", lessonId);
   if (chapterId) params.set("chapter_id", chapterId);
+  params.set("page_size", "500");
   const qs = params.toString();
-  const path = qs ? `/files/?${qs}` : "/files/";
-  const list = await request(path);
-  const arr = Array.isArray(list) ? list : list?.results || [];
+  const path = `/files/?${qs}`;
+  const arr = await fetchAllPaginated(path);
   return arr.map(mapFileFromBackend);
 };
 

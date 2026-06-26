@@ -56,6 +56,13 @@ class QuestionPagination(PageNumberPagination):
     max_page_size = 2000
 
 
+class LessonMediaPagination(PageNumberPagination):
+    """Chapter lesson lists can exceed the global PAGE_SIZE=20 default."""
+    page_size = 500
+    page_size_query_param = 'page_size'
+    max_page_size = 2000
+
+
 class IsAdminUser(permissions.BasePermission):
     """مدير كامل فقط (إدارة مستخدمين، تتبع، مجموعات)."""
 
@@ -741,6 +748,7 @@ class VideoViewSet(viewsets.ModelViewSet):
     queryset = Video.objects.select_related('lesson', 'chapter', 'category', 'subject', 'section', 'created_by').all()
     serializer_class = VideoSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
+    pagination_class = LessonMediaPagination
     
     def get_queryset(self):
         queryset = super().get_queryset().exclude(section_id__in=DISABLED_SECTION_IDS)
@@ -881,6 +889,7 @@ class FileViewSet(viewsets.ModelViewSet):
     queryset = File.objects.select_related('lesson', 'chapter', 'category', 'subject', 'section', 'created_by').all()
     serializer_class = FileSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
+    pagination_class = LessonMediaPagination
     
     def get_queryset(self):
         queryset = super().get_queryset().exclude(section_id__in=DISABLED_SECTION_IDS)
