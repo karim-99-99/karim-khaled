@@ -674,3 +674,78 @@ p, span, div, h1, h2, h3, h4, h5, h6, li {
   background-color: #ec802b;
   animation: route-loading-shimmer 0.9s ease-in-out infinite;
 }
+
+/* Course pages — scattered word float + card press glow */
+@keyframes course-word-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(var(--word-rotate, 0deg));
+  }
+  50% {
+    transform: translateY(-5px) rotate(var(--word-rotate, 0deg));
+  }
+}
+
+.course-scatter-word {
+  animation: course-word-float 3s ease-in-out infinite;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.course-card-word {
+  animation: course-word-float 2.8s ease-in-out infinite;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+
+.course-nav-group--has-selection .course-card-btn:not(.course-card-btn--selected) {
+  opacity: 0.52;
+  filter: saturate(0.65);
+}
+
+.course-card-btn {
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    opacity 180ms ease,
+    filter 180ms ease;
+}
+
+.course-card-btn:active:not(:disabled),
+.course-card-btn--pressed {
+  transform: scale(1.03) translateY(-2px);
+}
+
+.course-card-btn--dimmed {
+  opacity: 0.48;
+  filter: saturate(0.55) brightness(0.92);
+  transform: scale(0.98);
+}
+
+.course-card-btn--selected,
+.course-card-btn--pressed {
+  opacity: 1;
+  filter: saturate(1.15) brightness(1.06);
+}
+
+.course-card-btn--selected {
+  transform: scale(1.03);
+  border-width: 3px !important;
+  border-color: #ec802b !important;
+  background-color: rgba(236, 128, 43, 0.18) !important;
+  box-shadow: 0 8px 24px rgba(236, 128, 43, 0.22);
+}
+
+.course-card-btn--selected.course-card-btn--pressed {
+  background-color: rgba(236, 128, 43, 0.28) !important;
+}
+
+.course-card-btn--selected-accent {
+  transform: scale(1.03);
+  border-width: 3px !important;
+  border-color: #66bcb4 !important;
+  background-color: rgba(102, 188, 180, 0.18) !important;
+  box-shadow: 0 8px 24px rgba(102, 188, 180, 0.2);
+}

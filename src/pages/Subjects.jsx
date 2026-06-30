@@ -2,6 +2,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { getSectionById, getCurrentUser } from '../services/storageService';
 import { useEffect, useState } from 'react';
 import Header from '../components/Header';
+import CourseScatteredBackground from '../components/CourseScatteredBackground';
+import CourseNavButton from '../components/CourseNavButton';
 import { hasSubjectAccess } from '../components/ProtectedRoute';
 import { isBackendOn, getSectionById as getSectionByIdApi } from '../services/backendApi';
 
@@ -10,6 +12,7 @@ const Subjects = () => {
   const navigate = useNavigate();
   const [section, setSection] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pressedCardId, setPressedCardId] = useState(null);
   const currentUser = getCurrentUser();
 
   const useBackend = !!import.meta.env.VITE_API_URL;
@@ -55,7 +58,9 @@ const Subjects = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-secondary-50 relative overflow-hidden">
+      <CourseScatteredBackground variant="quantitative" />
+      <div className="relative z-10">
       <Header />
       <div className="py-12 px-4">
         <div className="max-w-6xl mx-auto">
@@ -72,7 +77,7 @@ const Subjects = () => {
           <p className="text-base md:text-lg lg:text-xl text-dark-600 font-medium">اختر المادة</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 ${pressedCardId ? 'course-nav-group course-nav-group--has-selection' : ''}`}>
           {(section.subjects || [])
             .filter(subject => {
               // Filter subjects based on user permissions (if logged in as student)
@@ -95,8 +100,13 @@ const Subjects = () => {
             const icon = icons[subject.name] || '📖';
 
             return (
-              <button
+              <CourseNavButton
                 key={subject.id}
+                cardId={subject.id}
+                groupPressedId={pressedCardId}
+                onPressStart={setPressedCardId}
+                onPressEnd={() => setPressedCardId(null)}
+                variant="quantitative"
                 onClick={() => handleSubjectClick(subject.id)}
                 className="bg-secondary-100 border-2 border-secondary-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-center"
               >
@@ -105,11 +115,12 @@ const Subjects = () => {
                   {subject.name}
                 </h2>
              
-              </button>
+              </CourseNavButton>
             );
           })}
         </div>
         </div>
+      </div>
       </div>
     </div>
   );

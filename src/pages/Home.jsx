@@ -10,6 +10,9 @@ import {
 } from "../services/storageService";
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
+import CourseScatteredBackground from "../components/CourseScatteredBackground";
+import CourseNavButton from "../components/CourseNavButton";
+import { resolveCourseBackgroundVariant } from "../data/courseBackgroundWords";
 import {
   hasSectionAccess,
   hasSubjectAccess,
@@ -109,6 +112,7 @@ const Home = () => {
   const [newChapterName, setNewChapterName] = useState("");
   const [editingChapterId, setEditingChapterId] = useState("");
   const [editingChapterName, setEditingChapterName] = useState("");
+  const [pressedCardId, setPressedCardId] = useState(null);
 
   const useBackend = !!import.meta.env.VITE_API_URL;
 
@@ -461,161 +465,18 @@ const Home = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+    <div className="min-h-screen bg-secondary-50 relative overflow-hidden">
+      <CourseScatteredBackground
+        variant={resolveCourseBackgroundVariant({
+          subjectId: selectedSubjectId,
+          categoryName: selectedCategory?.name,
+        })}
+      />
+      <div className="relative z-10">
       <Header />
-
-      {/* Decorative Background Elements - Using brand colors: E8CCAD, EC802B, EDC55B, 66BCB4 */}
-      {/* Small orange circle - top left - visible on mobile */}
-      <div
-        className="absolute top-20 left-4 w-16 h-16 md:w-24 md:h-24 rounded-full opacity-15"
-        style={{ zIndex: 0, background: "#EC802B" }}
-      ></div>
-
-      {/* Small beige circle - bottom left - visible on mobile */}
-      <div
-        className="absolute bottom-20 left-8 w-12 h-12 md:w-20 md:h-20 rounded-full opacity-20"
-        style={{ zIndex: 0, background: "#E8CCAD" }}
-      ></div>
-
-      {/* Small turquoise circle - top right - visible on mobile */}
-      <div
-        className="absolute top-32 right-12 w-12 h-12 md:w-18 md:h-18 rounded-full opacity-20"
-        style={{ zIndex: 0, background: "#66BCB4" }}
-      ></div>
-
-      {/* Small golden yellow circle - mid right */}
-      <div
-        className="absolute top-1/2 right-8 w-14 h-14 md:w-20 md:h-20 rounded-full opacity-15 hidden md:block"
-        style={{ zIndex: 0, background: "#EDC55B" }}
-      ></div>
-
-      {/* Small dotted turquoise square - mid left */}
-      <div
-        className="absolute top-1/3 left-16 w-12 h-12 md:w-18 md:h-18 opacity-20 hidden md:block"
-        style={{ zIndex: 0 }}
-      >
-        <svg width="100%" height="100%">
-          <defs>
-            <pattern
-              id="dots-square-turquoise-home"
-              x="0"
-              y="0"
-              width="6"
-              height="6"
-              patternUnits="userSpaceOnUse"
-            >
-              <circle cx="3" cy="3" r="1" fill="#66BCB4" />
-            </pattern>
-          </defs>
-          <rect
-            width="100%"
-            height="100%"
-            fill="url(#dots-square-turquoise-home)"
-          />
-        </svg>
-      </div>
-
-      {/* Small dotted golden yellow triangle - bottom center left */}
-      <div
-        className="absolute bottom-32 left-1/4 w-10 h-10 md:w-14 md:h-14 opacity-15 hidden md:block transform -translate-x-1/2"
-        style={{ zIndex: 0 }}
-      >
-        <svg width="100%" height="100%">
-          <polygon
-            points="50,10 90,90 10,90"
-            stroke="#EDC55B"
-            strokeWidth="1.5"
-            fill="none"
-            strokeDasharray="2,2"
-          />
-        </svg>
-      </div>
-
-      {/* Small orange circles - scattered */}
-      <div
-        className="absolute top-1/4 left-1/3 w-6 h-6 md:w-8 md:h-8 rounded-full opacity-25 hidden md:block"
-        style={{ zIndex: 0, background: "#EC802B" }}
-      ></div>
-      <div
-        className="absolute bottom-1/3 right-1/4 w-7 h-7 md:w-10 md:h-10 rounded-full opacity-20 hidden md:block"
-        style={{ zIndex: 0, background: "#EC802B" }}
-      ></div>
-
-      {/* Small beige square with wavy pattern - top center */}
-      <div
-        className="absolute top-40 left-1/2 w-14 h-14 md:w-20 md:h-20 opacity-15 hidden md:block transform -translate-x-1/2"
-        style={{ zIndex: 0 }}
-      >
-        <svg width="100%" height="100%" viewBox="0 0 100 100">
-          <rect
-            width="60"
-            height="60"
-            x="20"
-            y="20"
-            fill="#E8CCAD"
-            opacity="0.3"
-          />
-          <path
-            d="M 25,50 Q 30,35 40,50 T 55,50 T 75,50"
-            stroke="#EC802B"
-            strokeWidth="1.5"
-            fill="none"
-          />
-        </svg>
-      </div>
-
-      {/* Small golden yellow pie chart segment - bottom right */}
-      <div
-        className="absolute bottom-24 right-16 w-10 h-10 md:w-14 md:h-14 opacity-20 hidden md:block"
-        style={{ zIndex: 0 }}
-      >
-        <svg width="100%" height="100%" viewBox="0 0 100 100">
-          <path
-            d="M 50,50 L 50,20 A 30,30 0 0,1 80,50 Z"
-            fill="#EDC55B"
-            opacity="0.5"
-          />
-        </svg>
-      </div>
-
-      {/* Small X shape - decorative */}
-      <div
-        className="absolute top-1/3 right-1/4 w-6 h-6 md:w-8 md:h-8 opacity-12 hidden md:block"
-        style={{ zIndex: 0 }}
-      >
-        <svg width="100%" height="100%" viewBox="0 0 24 24">
-          <line
-            x1="4"
-            y1="4"
-            x2="20"
-            y2="20"
-            stroke="#3D3D3D"
-            strokeWidth="1.5"
-          />
-          <line
-            x1="20"
-            y1="4"
-            x2="4"
-            y2="20"
-            stroke="#3D3D3D"
-            strokeWidth="1.5"
-          />
-        </svg>
-      </div>
-
-      {/* Small turquoise circles - additional decorative elements */}
-      <div
-        className="absolute top-2/3 left-1/2 w-8 h-8 md:w-12 md:h-12 rounded-full opacity-15 hidden md:block transform -translate-x-1/2"
-        style={{ zIndex: 0, background: "#66BCB4" }}
-      ></div>
-      <div
-        className="absolute bottom-1/4 right-1/3 w-9 h-9 md:w-12 md:h-12 rounded-full opacity-20 hidden md:block"
-        style={{ zIndex: 0, background: "#66BCB4" }}
-      ></div>
 
       <div
         className="relative max-w-6xl mx-auto px-4 py-8 md:py-12"
-        style={{ zIndex: 1 }}
       >
         <div className="text-center mb-6 md:mb-8">
           <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
@@ -674,67 +535,30 @@ const Home = () => {
               </div>
 
               {/* اختيار التأسيس / التجميعات */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${selectedCategoryId || pressedCardId ? 'course-nav-group course-nav-group--has-selection' : ''}`}>
                 {categories.map((category) => {
                   const isTasis = category.name === "التأسيس";
-                  const isVerbal = selectedSubjectId === "مادة_اللفظي";
-                  const isQuantitative = selectedSubjectId === "مادة_الكمي";
-                  const bgLetters = isTasis
-                    ? "أ ب ت ث ج ح خ د ذ ر"
-                    : "ت ج م ع ي ا ت ج م ع";
-                  const bgMath = [
-                    "١+٢=٣",
-                    "٤×٥",
-                    "٦−٧",
-                    "٨÷٢",
-                    "٠",
-                    "√٤=٢",
-                    "π",
-                    "٩",
-                    "∑",
-                    "٤٩",
-                  ];
+                  const isSelected = selectedCategoryId === category.id;
+                  const cardVariant = resolveCourseBackgroundVariant({
+                    subjectId: selectedSubjectId,
+                    categoryName: category.name,
+                  });
                   return (
-                    <button
+                    <CourseNavButton
                       key={category.id}
                       type="button"
+                      cardId={category.id}
+                      groupPressedId={pressedCardId}
+                      onPressStart={setPressedCardId}
+                      onPressEnd={() => setPressedCardId(null)}
+                      selected={isSelected}
+                      dimmed={!!selectedCategoryId && !isSelected}
+                      variant={cardVariant}
                       onClick={() => handleCategoryClick(category.id)}
-                      className={`relative overflow-hidden border-2 rounded-2xl p-5 hover:shadow-xl transition-all duration-300 text-right ${
-                        selectedCategoryId === category.id
-                          ? "bg-primary-50 border-primary-300"
-                          : "bg-secondary-50 border-secondary-200"
+                      className={`border-2 rounded-2xl p-5 hover:shadow-xl transition-all duration-300 text-right ${
+                        isSelected ? "" : "bg-secondary-50 border-secondary-200"
                       }`}
                     >
-                      {/* خلفية لفظي: حروف عربية | كمي: معادلات وأرقام عربية */}
-                      <div
-                        className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
-                        aria-hidden
-                        style={{ fontFamily: "'Amiri', serif" }}
-                      >
-                        {isQuantitative
-                          ? bgMath.map((item, i) => (
-                              <span
-                                key={`${category.id}-m-${i}`}
-                                className="font-bold text-dark-800 text-4xl sm:text-5xl md:text-6xl"
-                                style={{
-                                  transform: `rotate(${(i % 3) * 6 - 6}deg)`,
-                                }}
-                              >
-                                {item}
-                              </span>
-                            ))
-                          : bgLetters.split(" ").map((char, i) => (
-                              <span
-                                key={`${category.id}-${i}`}
-                                className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
-                                style={{
-                                  transform: `rotate(${(i % 3) * 6 - 6}deg)`,
-                                }}
-                              >
-                                {char}
-                              </span>
-                            ))}
-                      </div>
                       <div className="relative z-10">
                         <div className="flex items-center justify-between mb-3">
                           <div className="text-4xl">
@@ -756,7 +580,7 @@ const Home = () => {
                             : "تدريبات وتجميعات مطابقة للاختبار"}
                         </div>
                       </div>
-                    </button>
+                    </CourseNavButton>
                   );
                 })}
               </div>
@@ -860,63 +684,29 @@ const Home = () => {
                           المركز من القائمة (#) بجانب كل بطاقة.
                         </p>
                       )}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 ${pressedCardId ? 'course-nav-group course-nav-group--has-selection' : ''}`}>
                       {chapters.map((ch) => {
-                        const isVerbal = selectedSubjectId === "مادة_اللفظي";
-                        const isQuantitative = selectedSubjectId === "مادة_الكمي";
-                        const chapterBgLetters = "ف ص و ل أ ب ت ث ج ح";
-                        const chapterBgMath = [
-                          "١+٢=٣", "٤×٥", "٦−٧", "٨÷٢", "٠", "√٤=٢", "π", "٩", "∑", "٤٩",
-                        ];
                         const chapterIndex = chapters.findIndex(
                           (x) => x?.id === ch.id
                         );
                         const canMoveUp = chapterIndex > 0;
                         const canMoveDown =
                           chapterIndex !== -1 && chapterIndex < chapters.length - 1;
+                        const chapterVariant = resolveCourseBackgroundVariant({
+                          subjectId: selectedSubjectId,
+                          categoryName: selectedCategory?.name,
+                        });
                         return (
-                          <div
+                          <CourseNavButton
                             key={ch.id}
-                            className="relative overflow-hidden bg-white border-2 border-gray-200 rounded-2xl p-4 text-right hover:shadow-lg hover:border-primary-300 transition"
+                            as="div"
+                            cardId={ch.id}
+                            groupPressedId={pressedCardId}
+                            onPressStart={setPressedCardId}
+                            onPressEnd={() => setPressedCardId(null)}
+                            variant={chapterVariant}
+                            className="bg-white border-2 border-gray-200 rounded-2xl p-4 text-right hover:shadow-lg hover:border-primary-300 transition"
                           >
-                            {isVerbal && (
-                              <div
-                                className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
-                                aria-hidden
-                                style={{ fontFamily: "'Amiri', serif" }}
-                              >
-                                {chapterBgLetters.split(" ").map((char, i) => (
-                                  <span
-                                    key={`ch-${ch.id}-${i}`}
-                                    className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
-                                    style={{
-                                      transform: `rotate(${(i % 3) * 6 - 6}deg)`,
-                                    }}
-                                  >
-                                    {char}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {isQuantitative && (
-                              <div
-                                className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
-                                aria-hidden
-                                style={{ fontFamily: "'Amiri', serif" }}
-                              >
-                                {chapterBgMath.map((item, i) => (
-                                  <span
-                                    key={`ch-q-${ch.id}-${i}`}
-                                    className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
-                                    style={{
-                                      transform: `rotate(${(i % 3) * 6 - 6}deg)`,
-                                    }}
-                                  >
-                                    {item}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
                             <div className="relative z-10">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="text-2xl">📘</div>
@@ -1069,7 +859,7 @@ const Home = () => {
                                 </button>
                               )}
                             </div>
-                          </div>
+                          </CourseNavButton>
                         );
                       })}
                     </div>
@@ -1080,6 +870,7 @@ const Home = () => {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );

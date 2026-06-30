@@ -9,6 +9,9 @@ import {
   setChapterOrderByIds,
 } from "../services/storageService";
 import Header from "../components/Header";
+import CourseScatteredBackground from "../components/CourseScatteredBackground";
+import CourseNavButton from "../components/CourseNavButton";
+import { resolveCourseBackgroundVariant } from "../data/courseBackgroundWords";
 import { isArabicBrowser } from "../utils/language";
 import { isContentStaff } from "../utils/roles";
 import {
@@ -32,6 +35,7 @@ const Chapters = () => {
   const [editName, setEditName] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [newChapterName, setNewChapterName] = useState("");
+  const [pressedCardId, setPressedCardId] = useState(null);
 
   const useBackend = !!import.meta.env.VITE_API_URL;
 
@@ -218,9 +222,15 @@ const Chapters = () => {
   }
 
   const sortedChapterList = getSortedChapters();
+  const bgVariant = resolveCourseBackgroundVariant({
+    subjectId,
+    categoryName: category?.name,
+  });
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-secondary-50 relative overflow-hidden">
+      <CourseScatteredBackground variant={bgVariant} />
+      <div className="relative z-10">
       <Header />
       <div className="py-12 px-4">
         <div className="max-w-6xl mx-auto">
@@ -314,60 +324,22 @@ const Chapters = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 ${pressedCardId ? 'course-nav-group course-nav-group--has-selection' : ''}`}>
             {sortedChapterList.map((chapter, itemIndex) => {
               const canChUp = itemIndex > 0;
               const canChDown = itemIndex < sortedChapterList.length - 1;
-              const isVerbal = subjectId === "مادة_اللفظي";
-              const isQuantitative = subjectId === "مادة_الكمي";
-              const chapterBgLetters = "ف ص و ل أ ب ت ث ج ح";
-              const chapterBgMath = [
-                "١+٢=٣", "٤×٥", "٦−٧", "٨÷٢", "٠", "√٤=٢", "π", "٩", "∑", "٤٩",
-              ];
               return (
-              <div
+              <CourseNavButton
                 key={chapter.id}
+                as="div"
+                cardId={chapter.id}
+                groupPressedId={pressedCardId}
+                onPressStart={setPressedCardId}
+                onPressEnd={() => setPressedCardId(null)}
+                variant={bgVariant}
                 onClick={(e) => handleChapterClick(chapter.id, e)}
-                className="bg-secondary-100 border-2 border-secondary-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-right cursor-pointer relative overflow-hidden"
+                className="bg-secondary-100 border-2 border-secondary-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-right cursor-pointer"
               >
-                {isVerbal && (
-                  <div
-                    className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
-                    aria-hidden
-                    style={{ fontFamily: "'Amiri', serif" }}
-                  >
-                    {chapterBgLetters.split(" ").map((char, i) => (
-                      <span
-                        key={`ch-${chapter.id}-${i}`}
-                        className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
-                        style={{
-                          transform: `rotate(${(i % 3) * 6 - 6}deg)`,
-                        }}
-                      >
-                        {char}
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {isQuantitative && (
-                  <div
-                    className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
-                    aria-hidden
-                    style={{ fontFamily: "'Amiri', serif" }}
-                  >
-                    {chapterBgMath.map((item, i) => (
-                      <span
-                        key={`ch-q-${chapter.id}-${i}`}
-                        className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
-                        style={{
-                          transform: `rotate(${(i % 3) * 6 - 6}deg)`,
-                        }}
-                      >
-                        {item}
-                      </span>
-                    ))}
-                  </div>
-                )}
                 {isAdmin && (
                   <div className="absolute top-2 left-2 flex flex-wrap gap-1.5 z-10 max-w-[min(100%,12rem)]">
                     <button
@@ -479,11 +451,12 @@ const Chapters = () => {
                   {isTajmiat ? "بنك" : "درس"}
                 </div>
                 </div>
-              </div>
+              </CourseNavButton>
             );
             })}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

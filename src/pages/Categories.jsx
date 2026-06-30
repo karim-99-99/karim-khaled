@@ -2,6 +2,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { getSubjectById, getCurrentUser } from "../services/storageService";
 import { useEffect, useState } from "react";
 import Header from "../components/Header";
+import CourseScatteredBackground from "../components/CourseScatteredBackground";
+import CourseNavButton from "../components/CourseNavButton";
+import { resolveCourseBackgroundVariant } from "../data/courseBackgroundWords";
 import {
   isBackendOn,
   getSubjectById as getSubjectByIdApi,
@@ -13,6 +16,7 @@ const Categories = () => {
   const navigate = useNavigate();
   const [subject, setSubject] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pressedCardId, setPressedCardId] = useState(null);
   const currentUser = getCurrentUser();
   const isAdmin = isContentStaff(currentUser);
 
@@ -71,8 +75,12 @@ const Categories = () => {
     );
   };
 
+  const bgVariant = resolveCourseBackgroundVariant({ subjectId });
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-secondary-50 relative overflow-hidden">
+      <CourseScatteredBackground variant={bgVariant} />
+      <div className="relative z-10">
       <Header />
       <div className="py-12 px-4">
         <div className="max-w-6xl mx-auto">
@@ -98,73 +106,26 @@ const Categories = () => {
               <p className="text-xl text-gray-600">لا توجد تصنيفات متاحة</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 ${pressedCardId ? 'course-nav-group course-nav-group--has-selection' : ''}`}>
               {categories.map((category) => {
                 const isVerbal = subjectId === "مادة_اللفظي";
-                const isQuantitative = subjectId === "مادة_الكمي";
-                const isTasis = category.name === "التأسيس";
-                const isTajmiat = category.name === "التجميعات";
-                const showLetterBg = isVerbal && (isTasis || isTajmiat);
-                const showMathBg = isQuantitative && (isTasis || isTajmiat);
-                const bgLetters = isTasis
-                  ? "أ ب ت ث ج ح خ د ذ ر"
-                  : "ت ج م ع ي ا ت ج م ع";
-                const bgMath = [
-                  "١+٢=٣",
-                  "٤×٥",
-                  "٦−٧",
-                  "٨÷٢",
-                  "٠",
-                  "√٤=٢",
-                  "π",
-                  "٩",
-                  "∑",
-                  "٤٩",
-                ];
+                const cardVariant = resolveCourseBackgroundVariant({
+                  subjectId,
+                  categoryName: category.name,
+                });
                 return (
-                  <button
+                  <CourseNavButton
                     key={category.id}
+                    cardId={category.id}
+                    groupPressedId={pressedCardId}
+                    onPressStart={setPressedCardId}
+                    onPressEnd={() => setPressedCardId(null)}
+                    variant={cardVariant}
                     onClick={() => handleCategoryClick(category.id)}
-                    className="bg-accent-100 border-2 border-accent-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-center relative overflow-hidden"
+                    className={`bg-accent-100 border-2 border-accent-300 rounded-xl hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 p-6 text-center ${
+                      isVerbal ? "hover:border-primary-400" : "hover:border-accent-400"
+                    }`}
                   >
-                    {showLetterBg && (
-                      <div
-                        className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
-                        aria-hidden
-                        style={{ fontFamily: "'Amiri', serif" }}
-                      >
-                        {bgLetters.split(" ").map((char, i) => (
-                          <span
-                            key={`${category.id}-${i}`}
-                            className="font-bold text-dark-800 text-5xl sm:text-6xl md:text-7xl"
-                            style={{
-                              transform: `rotate(${(i % 3) * 6 - 6}deg)`,
-                            }}
-                          >
-                            {char}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {showMathBg && (
-                      <div
-                        className="absolute inset-0 flex flex-wrap content-center justify-center gap-2 sm:gap-3 p-4 opacity-[0.12] select-none pointer-events-none"
-                        aria-hidden
-                        style={{ fontFamily: "'Amiri', serif" }}
-                      >
-                        {bgMath.map((item, i) => (
-                          <span
-                            key={`${category.id}-m-${i}`}
-                            className="font-bold text-dark-800 text-4xl sm:text-5xl md:text-6xl"
-                            style={{
-                              transform: `rotate(${(i % 3) * 6 - 6}deg)`,
-                            }}
-                          >
-                            {item}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                     {!category.hasTests && (
                       <div className="absolute top-4 left-4 z-10 bg-pink-200 text-dark-700 px-3 py-1 rounded-full text-sm font-semibold">
                         مجانا
@@ -188,12 +149,13 @@ const Categories = () => {
                         </div>
                       )}
                     </div>
-                  </button>
+                  </CourseNavButton>
                 );
               })}
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
