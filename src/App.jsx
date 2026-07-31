@@ -48,6 +48,7 @@ const ClassroomsManagement = lazy(() =>
 const FilesManagement = lazy(() => import("./pages/admin/FilesManagement.jsx"));
 const StudentTracker = lazy(() => import("./pages/StudentTracker.jsx"));
 const IncorrectAnswers = lazy(() => import("./pages/IncorrectAnswers.jsx"));
+const Profile = lazy(() => import("./pages/Profile.jsx"));
 const AdminTracker = lazy(() => import("./pages/admin/AdminTracker.jsx"));
 const AdminQuizReview = lazy(() =>
   import("./pages/admin/AdminQuizReview.jsx")
@@ -340,6 +341,15 @@ function App() {
                   element={
                     <ProtectedRoute requiredRole="admin" checkActive={false}>
                       <AdminQuizReview />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute checkActive={false}>
+                      <Profile />
                     </ProtectedRoute>
                   }
                 />

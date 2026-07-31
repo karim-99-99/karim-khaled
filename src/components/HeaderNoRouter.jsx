@@ -166,6 +166,16 @@ const HeaderNoRouter = ({
                     >
                       الدورات المجانية
                     </Link>
+                    <Link
+                      to="/profile"
+                      className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors font-medium"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      الملف الشخصي
+                    </Link>
                     {currentUser?.role === "student" && (
                       <>
                         <Link
@@ -369,6 +379,16 @@ const HeaderNoRouter = ({
                         }}
                       >
                         الدورات المجانية
+                      </Link>
+                      <Link
+                        to="/profile"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right font-medium"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        الملف الشخصي
                       </Link>
                       {currentUser?.role === "student" && (
                         <>

@@ -98,6 +98,37 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
 
+class ChangePasswordSerializer(serializers.Serializer):
+    """Student/self: change password with current password verification."""
+    old_password = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(
+        write_only=True, required=True, validators=[validate_password]
+    )
+    new_password2 = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['new_password2']:
+            raise serializers.ValidationError(
+                {'new_password': "Password fields didn't match."}
+            )
+        return attrs
+
+
+class AdminResetPasswordSerializer(serializers.Serializer):
+    """Admin: set a new password for any student (no old password)."""
+    new_password = serializers.CharField(
+        write_only=True, required=True, validators=[validate_password]
+    )
+    new_password2 = serializers.CharField(write_only=True, required=True)
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['new_password2']:
+            raise serializers.ValidationError(
+                {'new_password': "Password fields didn't match."}
+            )
+        return attrs
+
+
 class AnswerSerializer(serializers.ModelSerializer):
     """Answer serializer"""
     

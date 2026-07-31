@@ -33,6 +33,7 @@ from .bunny_stream import bunny_create_and_upload, bunny_video_exists, BunnyStre
 from .permissions import IsAuthenticatedDeviceAllowed
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, LoginSerializer,
+    ChangePasswordSerializer, AdminResetPasswordSerializer,
     SectionListSerializer,
     SubjectSerializer, SubjectReadSerializer, SubjectAdminListSerializer,
     CategorySerializer, CategoryReadListSerializer, CategoryReadDetailSerializer,
@@ -333,6 +334,44 @@ class UserViewSet(viewsets.ModelViewSet):
         user.save(update_fields=['avatar_choice'])
         serializer = self.get_serializer(user)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='change-password')
+    def change_password(self, request):
+        """Logged-in user changes own password (must provide old password)."""
+        serializer = ChangePasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        if not user.check_password(serializer.validated_data['old_password']):
+            return Response(
+                {'old_password': ['كلمة المرور الحالية غير صحيحة.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        user.set_password(serializer.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        return Response({'detail': 'تم تغيير كلمة المرور بنجاح.'})
+
+    @action(detail=True, methods=['post'], url_path='reset-password', permission_classes=[IsAdminUser])
+    def reset_password(self, request, pk=None):
+        """Admin sets a new password for any student (no old password required)."""
+        user = self.get_object()
+        if user.role != 'student':
+            return Response(
+                {'error': 'يمكن إعادة تعيين كلمة المرور للطلاب فقط.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = AdminResetPasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(serializer.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        # Force re-login on other sessions
+        Token.objects.filter(user=user).delete()
+        return Response({
+            'detail': 'تم إعادة تعيين كلمة المرور بنجاح.',
+            'user_id': user.id,
+            'username': user.username,
+        })
     
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def update_permissions(self, request, pk=None):

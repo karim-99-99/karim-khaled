@@ -28,6 +28,13 @@ const AdminUsers = () => {
   const [allowMultiDevice, setAllowMultiDevice] = useState(false);
   const [accountActiveFrom, setAccountActiveFrom] = useState("");
   const [accountActiveUntil, setAccountActiveUntil] = useState("");
+  const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
+  const [resetPasswordUser, setResetPasswordUser] = useState(null);
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetNewPassword2, setResetNewPassword2] = useState("");
+  const [resetPwdBusy, setResetPwdBusy] = useState(false);
+  const [resetPwdError, setResetPwdError] = useState("");
+  const [resetPwdSuccess, setResetPwdSuccess] = useState("");
   const navigate = useNavigate();
   const currentUser = getCurrentUser();
   const useBackend = backendApi.isBackendOn();
@@ -108,6 +115,90 @@ const AdminUsers = () => {
     } catch (error) {
       console.error("Error toggling user status:", error);
       alert(error.message || "حدث خطأ أثناء تحديث حالة المستخدم");
+    }
+  };
+
+  const handleOpenResetPassword = (user) => {
+    if (user.role !== "student") {
+      alert(
+        isArabicBrowser()
+          ? "إعادة تعيين كلمة المرور متاحة للطلاب فقط."
+          : "Password reset is available for students only."
+      );
+      return;
+    }
+    setResetPasswordUser(user);
+    setResetNewPassword("");
+    setResetNewPassword2("");
+    setResetPwdError("");
+    setResetPwdSuccess("");
+    setShowResetPasswordModal(true);
+  };
+
+  const handleCloseResetPassword = () => {
+    setShowResetPasswordModal(false);
+    setResetPasswordUser(null);
+    setResetNewPassword("");
+    setResetNewPassword2("");
+    setResetPwdError("");
+    setResetPwdSuccess("");
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    if (!resetPasswordUser) return;
+    setResetPwdError("");
+    setResetPwdSuccess("");
+    if (!resetNewPassword || !resetNewPassword2) {
+      setResetPwdError(
+        isArabicBrowser()
+          ? "يرجى إدخال كلمة المرور الجديدة مرتين."
+          : "Please enter the new password twice."
+      );
+      return;
+    }
+    if (resetNewPassword !== resetNewPassword2) {
+      setResetPwdError(
+        isArabicBrowser()
+          ? "كلمتا المرور غير متطابقتين."
+          : "Passwords do not match."
+      );
+      return;
+    }
+    if (resetNewPassword.length < 8) {
+      setResetPwdError(
+        isArabicBrowser()
+          ? "كلمة المرور يجب أن تكون 8 أحرف على الأقل."
+          : "Password must be at least 8 characters."
+      );
+      return;
+    }
+    setResetPwdBusy(true);
+    try {
+      if (useBackend) {
+        await backendApi.adminResetStudentPassword(resetPasswordUser.id, {
+          newPassword: resetNewPassword,
+          newPassword2: resetNewPassword2,
+        });
+      } else {
+        updateUserLocal(resetPasswordUser.id, { password: resetNewPassword });
+      }
+      setResetPwdSuccess(
+        isArabicBrowser()
+          ? "تم إعادة تعيين كلمة المرور. يجب على الطالب تسجيل الدخول من جديد."
+          : "Password reset. The student must log in again."
+      );
+      setResetNewPassword("");
+      setResetNewPassword2("");
+    } catch (error) {
+      setResetPwdError(
+        error.message ||
+          (isArabicBrowser()
+            ? "فشل إعادة تعيين كلمة المرور."
+            : "Failed to reset password.")
+      );
+    } finally {
+      setResetPwdBusy(false);
     }
   };
 
@@ -492,6 +583,22 @@ const AdminUsers = () => {
                               {user.role === "student" && (
                                 <button
                                   type="button"
+                                  onClick={() => handleOpenResetPassword(user)}
+                                  className="px-3 py-1 bg-orange-100 text-orange-900 rounded-lg text-sm font-medium hover:bg-orange-200 transition"
+                                  title={
+                                    isArabicBrowser()
+                                      ? "إعادة تعيين كلمة المرور"
+                                      : "Reset password"
+                                  }
+                                >
+                                  {isArabicBrowser()
+                                    ? "كلمة المرور"
+                                    : "Password"}
+                                </button>
+                              )}
+                              {user.role === "student" && (
+                                <button
+                                  type="button"
                                   onClick={() =>
                                     handleSetContentRole(user.id, "content_admin")
                                   }
@@ -843,6 +950,94 @@ const AdminUsers = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset student password modal */}
+      {showResetPasswordModal && resetPasswordUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6" dir="rtl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-dark-700">
+                {isArabicBrowser()
+                  ? "إعادة تعيين كلمة المرور"
+                  : "Reset password"}
+              </h2>
+              <button
+                type="button"
+                onClick={handleCloseResetPassword}
+                className="text-gray-500 hover:text-gray-700 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+            <p className="text-sm text-dark-600 mb-4">
+              {isArabicBrowser() ? "الطالب:" : "Student:"}{" "}
+              <strong>
+                {resetPasswordUser.name ||
+                  resetPasswordUser.username ||
+                  resetPasswordUser.email}
+              </strong>
+            </p>
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-dark-600 mb-1">
+                  {isArabicBrowser() ? "كلمة المرور الجديدة" : "New password"}
+                </label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={resetNewPassword}
+                  onChange={(e) => setResetNewPassword(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-dark-600 mb-1">
+                  {isArabicBrowser()
+                    ? "تأكيد كلمة المرور"
+                    : "Confirm password"}
+                </label>
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  value={resetNewPassword2}
+                  onChange={(e) => setResetNewPassword2(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              {resetPwdError && (
+                <p className="text-sm text-red-600">{resetPwdError}</p>
+              )}
+              {resetPwdSuccess && (
+                <p className="text-sm text-green-700 font-medium">
+                  {resetPwdSuccess}
+                </p>
+              )}
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleCloseResetPassword}
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                >
+                  {isArabicBrowser() ? "إغلاق" : "Close"}
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetPwdBusy}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-medium disabled:opacity-60"
+                >
+                  {resetPwdBusy
+                    ? isArabicBrowser()
+                      ? "جاري الحفظ..."
+                      : "Saving..."
+                    : isArabicBrowser()
+                      ? "تعيين كلمة المرور"
+                      : "Set password"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

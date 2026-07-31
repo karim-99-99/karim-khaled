@@ -86,16 +86,28 @@ const request = async (path, options = {}) => {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
+    const firstFieldError = (() => {
+      if (!err || typeof err !== "object") return null;
+      for (const key of Object.keys(err)) {
+        if (key === "detail" || key === "error" || key === "code") continue;
+        const v = err[key];
+        if (Array.isArray(v) && v[0]) return String(v[0]);
+        if (typeof v === "string" && v) return v;
+      }
+      return null;
+    })();
     const msg =
       err.detail ||
       err.error ||
       (Array.isArray(err.detail) ? err.detail[0] : null) ||
+      firstFieldError ||
       err.password?.[0] ||
       (typeof err === "object" && Object.keys(err || {}).length
         ? JSON.stringify(err)
         : null) ||
       `خطأ ${res.status}`;
     const e = new Error(msg);
+    e.data = err;
     if (
       res.status === 403 &&
       (err.code === "device_restricted" ||
@@ -305,6 +317,36 @@ export const setMyAvatarChoice = async (avatarChoice) => {
     body: JSON.stringify({ avatar_choice: avatarChoice }),
   });
   return mapUserFromBackend(data);
+};
+
+/** Change own password (requires current password). */
+export const changeMyPassword = async ({
+  oldPassword,
+  newPassword,
+  newPassword2,
+}) => {
+  return request("/users/change-password/", {
+    method: "POST",
+    body: JSON.stringify({
+      old_password: oldPassword,
+      new_password: newPassword,
+      new_password2: newPassword2,
+    }),
+  });
+};
+
+/** Admin: reset a student's password (no old password). */
+export const adminResetStudentPassword = async (
+  userId,
+  { newPassword, newPassword2 }
+) => {
+  return request(`/users/${encodeURIComponent(userId)}/reset-password/`, {
+    method: "POST",
+    body: JSON.stringify({
+      new_password: newPassword,
+      new_password2: newPassword2,
+    }),
+  });
 };
 
 // ——— Sections & structure (read) ———
