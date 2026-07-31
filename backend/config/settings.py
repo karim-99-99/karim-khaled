@@ -68,6 +68,7 @@ if os.environ.get('USE_CLOUDINARY', 'false').lower() == 'true':
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'django.middleware.gzip.GZipMiddleware',  # Compress JSON/API responses
     'whitenoise.middleware.WhiteNoiseMiddleware',  # For serving static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -77,6 +78,28 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Cache chapter dashboard content (videos/files/lessons). Prefer Redis when set.
+# Shared content rarely changes; student progress is never stored in this cache.
+_redis_url = (os.environ.get('REDIS_URL') or '').strip()
+if _redis_url:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': _redis_url,
+            'KEY_PREFIX': 'qk',
+            'TIMEOUT': 60 * 15,
+        }
+    }
+else:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'qodrat-api',
+            'TIMEOUT': 60 * 15,
+            'OPTIONS': {'MAX_ENTRIES': 2000},
+        }
+    }
 
 ROOT_URLCONF = 'config.urls'
 

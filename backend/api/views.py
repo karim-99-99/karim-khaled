@@ -12,7 +12,7 @@ from rest_framework.authtoken.models import Token
 from django.conf import settings as django_settings
 from django.contrib.auth import authenticate, login, logout
 from django.core.management import call_command
-from django.db.models import Q, Count, Avg, Max, Sum, Prefetch
+from django.db.models import Q, Count, Avg, Max, Sum, Prefetch, Exists, OuterRef
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 
@@ -43,6 +43,11 @@ from .serializers import (
     QuizAttemptSerializer, QuizAttemptCreateSerializer, VideoWatchSerializer,
     StudentGroupSerializer, StudentGroupMembershipSerializer,
     BunnyStreamLibrarySerializer,
+)
+from .chapter_dashboard import (
+    build_chapter_dashboard,
+    invalidate_chapter_dashboard_cache,
+    invalidate_chapter_dashboard_for_lesson,
 )
 
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
@@ -456,7 +461,11 @@ class ChapterViewSet(viewsets.ModelViewSet):
             qs = qs.filter(category_id=cid)
         qs = qs.exclude(category__subject__section_id__in=DISABLED_SECTION_IDS)
         if self.action == 'retrieve':
-            items_qs = Lesson.objects.annotate(question_count=Count('questions')).order_by('order', 'name')
+            items_qs = Lesson.objects.annotate(
+                question_count=Count('questions', distinct=True),
+                has_video=Exists(Video.objects.filter(lesson_id=OuterRef('pk'))),
+                has_file=Exists(File.objects.filter(lesson_id=OuterRef('pk'))),
+            ).order_by('order', 'name')
             qs = qs.prefetch_related(Prefetch('items', queryset=items_qs))
         elif self.action != 'list':
             qs = qs.prefetch_related('items')
@@ -465,9 +474,20 @@ class ChapterViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'reorder']:
             return [IsStaffUser()]
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'dashboard']:
             return [permissions.AllowAny()]
         return [IsAuthenticatedDeviceAllowed()]
+
+    @action(detail=True, methods=['get'], url_path='dashboard')
+    def dashboard(self, request, pk=None):
+        """
+        Single payload for Levels page: chapter + lite videos/files + lessonStatus.
+        Shared content is cached; student progress is always computed fresh.
+        """
+        data = build_chapter_dashboard(pk, request.user)
+        if data is None:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(data)
 
     @action(detail=False, methods=['post'], url_path='reorder')
     def reorder(self, request):
@@ -499,6 +519,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
             seen.add(cid)
             next_order += 1
             updated += 1
+            invalidate_chapter_dashboard_cache(cid)
         # Trailing chapters (not in order list) keep relative order
         trailing = [c for c in chapters if c.id not in seen]
         trailing.sort(key=lambda c: (c.order or 0, c.name))
@@ -506,6 +527,7 @@ class ChapterViewSet(viewsets.ModelViewSet):
             ch.order = next_order
             ch.save(update_fields=['order'])
             next_order += 1
+            invalidate_chapter_dashboard_cache(ch.id)
         return Response({'updated': updated})
 
     def perform_create(self, serializer):
@@ -534,6 +556,16 @@ class ChapterViewSet(viewsets.ModelViewSet):
             id_val = f"{prefix}{next_num}"
         
         serializer.save(id=id_val)
+        invalidate_chapter_dashboard_cache(id_val)
+
+    def perform_update(self, serializer):
+        chapter = serializer.save()
+        invalidate_chapter_dashboard_cache(chapter.id)
+
+    def perform_destroy(self, instance):
+        cid = instance.id
+        instance.delete()
+        invalidate_chapter_dashboard_cache(cid)
 
 
 class LessonViewSet(viewsets.ModelViewSet):
@@ -590,6 +622,7 @@ class LessonViewSet(viewsets.ModelViewSet):
             le.order = next_order
             le.save(update_fields=['order'])
             next_order += 1
+        invalidate_chapter_dashboard_cache(chapter_id)
         return Response({'updated': updated})
 
     def perform_create(self, serializer):
@@ -618,6 +651,16 @@ class LessonViewSet(viewsets.ModelViewSet):
             id_val = f"{prefix}{next_num}"
         
         serializer.save(id=id_val)
+        invalidate_chapter_dashboard_cache(getattr(ch, 'id', None))
+
+    def perform_update(self, serializer):
+        lesson = serializer.save()
+        invalidate_chapter_dashboard_cache(getattr(lesson, 'chapter_id', None))
+
+    def perform_destroy(self, instance):
+        chapter_id = instance.chapter_id
+        instance.delete()
+        invalidate_chapter_dashboard_cache(chapter_id)
 
 
 class QuestionViewSet(viewsets.ModelViewSet):
@@ -692,6 +735,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
             if qid in id_to_question:
                 id_to_question[qid].order_index = i + 1
                 id_to_question[qid].save(update_fields=['order_index'])
+        invalidate_chapter_dashboard_for_lesson(lesson_id)
         return Response({'updated': len(order_ids)})
     
     def perform_create(self, serializer):
@@ -729,6 +773,16 @@ class QuestionViewSet(viewsets.ModelViewSet):
         
         # Update serializer instance for response
         serializer.instance = question
+        invalidate_chapter_dashboard_cache(getattr(question, 'chapter_id', None))
+
+    def perform_update(self, serializer):
+        question = serializer.save()
+        invalidate_chapter_dashboard_cache(getattr(question, 'chapter_id', None))
+
+    def perform_destroy(self, instance):
+        chapter_id = instance.chapter_id
+        instance.delete()
+        invalidate_chapter_dashboard_cache(chapter_id)
 
 
 class BunnyStreamLibraryViewSet(viewsets.ModelViewSet):
@@ -820,6 +874,9 @@ class VideoViewSet(viewsets.ModelViewSet):
                 created_by=request.user,
             )
             self._sync_video_hierarchy(video)
+            invalidate_chapter_dashboard_cache(video.chapter_id)
+            if video.lesson_id:
+                invalidate_chapter_dashboard_for_lesson(video.lesson_id)
             serializer = self.get_serializer(video)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return super().create(request, *args, **kwargs)
@@ -858,6 +915,9 @@ class VideoViewSet(viewsets.ModelViewSet):
             instance.bunny_library_id = library_id_str
             instance.save()
             self._sync_video_hierarchy(instance)
+            invalidate_chapter_dashboard_cache(instance.chapter_id)
+            if instance.lesson_id:
+                invalidate_chapter_dashboard_for_lesson(instance.lesson_id)
             serializer = self.get_serializer(instance)
             return Response(serializer.data)
         return super().update(request, *args, **kwargs)
@@ -878,10 +938,24 @@ class VideoViewSet(viewsets.ModelViewSet):
         
         # Update serializer instance for response
         serializer.instance = video
+        invalidate_chapter_dashboard_cache(video.chapter_id)
+        if video.lesson_id:
+            invalidate_chapter_dashboard_for_lesson(video.lesson_id)
 
     def perform_update(self, serializer):
         video = serializer.save()
         video.sync_hierarchy_from_lesson()
+        invalidate_chapter_dashboard_cache(video.chapter_id)
+        if video.lesson_id:
+            invalidate_chapter_dashboard_for_lesson(video.lesson_id)
+
+    def perform_destroy(self, instance):
+        chapter_id = instance.chapter_id
+        lesson_id = instance.lesson_id
+        instance.delete()
+        invalidate_chapter_dashboard_cache(chapter_id)
+        if lesson_id:
+            invalidate_chapter_dashboard_for_lesson(lesson_id)
 
 
 class FileViewSet(viewsets.ModelViewSet):
@@ -929,6 +1003,29 @@ class FileViewSet(viewsets.ModelViewSet):
         
         # Update serializer instance for response
         serializer.instance = file_obj
+        invalidate_chapter_dashboard_cache(file_obj.chapter_id)
+        if file_obj.lesson_id:
+            invalidate_chapter_dashboard_for_lesson(file_obj.lesson_id)
+
+    def perform_update(self, serializer):
+        file_obj = serializer.save()
+        if file_obj.lesson:
+            file_obj.chapter = file_obj.lesson.chapter
+            file_obj.category = file_obj.lesson.chapter.category
+            file_obj.subject = file_obj.lesson.chapter.category.subject
+            file_obj.section = file_obj.lesson.chapter.category.subject.section
+            file_obj.save(update_fields=['chapter', 'category', 'subject', 'section'])
+        invalidate_chapter_dashboard_cache(file_obj.chapter_id)
+        if file_obj.lesson_id:
+            invalidate_chapter_dashboard_for_lesson(file_obj.lesson_id)
+
+    def perform_destroy(self, instance):
+        chapter_id = instance.chapter_id
+        lesson_id = instance.lesson_id
+        instance.delete()
+        invalidate_chapter_dashboard_cache(chapter_id)
+        if lesson_id:
+            invalidate_chapter_dashboard_for_lesson(lesson_id)
 
     @action(detail=True, methods=['get'], url_path='content')
     def content(self, request, pk=None):

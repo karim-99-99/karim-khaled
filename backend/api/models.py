@@ -245,6 +245,10 @@ class Video(models.Model):
     
     class Meta:
         ordering = ['order', '-created_at']
+        indexes = [
+            models.Index(fields=['chapter', 'order'], name='api_video_chapter_order_idx'),
+            models.Index(fields=['lesson'], name='api_video_lesson_idx'),
+        ]
     
     def sync_hierarchy_from_lesson(self, save=True):
         """Copy chapter/category/subject/section from lesson for student chapter listings."""
@@ -324,6 +328,10 @@ class File(models.Model):
     
     class Meta:
         ordering = ['order', '-created_at']
+        indexes = [
+            models.Index(fields=['chapter', 'order'], name='api_file_chapter_order_idx'),
+            models.Index(fields=['lesson'], name='api_file_lesson_idx'),
+        ]
     
     def __str__(self):
         return self.title
@@ -378,6 +386,10 @@ class LessonProgress(models.Model):
     class Meta:
         unique_together = [['user', 'lesson']]
         ordering = ['-last_activity']
+        indexes = [
+            models.Index(fields=['user', 'lesson'], name='api_lp_user_lesson_idx'),
+            models.Index(fields=['lesson'], name='api_lp_lesson_idx'),
+        ]
     
     def __str__(self):
         return f"{self.user.username} - {self.lesson.name} ({self.completion_percentage}%)"
@@ -425,6 +437,10 @@ class QuizAttempt(models.Model):
     
     class Meta:
         ordering = ['-completed_at']
+        indexes = [
+            models.Index(fields=['user', 'lesson'], name='api_qa_user_lesson_idx'),
+            models.Index(fields=['lesson'], name='api_qa_lesson_idx'),
+        ]
     
     def __str__(self):
         return f"{self.user.username} - {self.lesson.name} ({self.score}%)"

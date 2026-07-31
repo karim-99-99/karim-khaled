@@ -1326,6 +1326,67 @@ export const getLessonProgressList = async (filters = {}) => {
   return Array.isArray(list) ? list : list?.results || [];
 };
 
+/**
+ * One request for Levels page: chapter + lite videos/files + lessonStatus.
+ * Falls back to parallel fetches if the backend has no /dashboard/ yet.
+ */
+export const getChapterDashboard = async (chapterId) => {
+  if (!chapterId) return null;
+  try {
+    const data = await request(
+      `/chapters/${encodeURIComponent(chapterId)}/dashboard/`
+    );
+    if (!data || !data.chapter) return null;
+    const chapter = {
+      ...data.chapter,
+      items: data.chapter.items || [],
+      hasTest: true,
+    };
+    const videos = (Array.isArray(data.videos) ? data.videos : []).map(
+      mapVideoFromBackend
+    );
+    const files = (Array.isArray(data.files) ? data.files : []).map(
+      mapFileFromBackend
+    );
+    return {
+      chapter,
+      videos,
+      files,
+      lessonStatus: data.lessonStatus || data.lesson_status || {},
+    };
+  } catch {
+    try {
+      const [chapter, videos, files, attempts, progressList] = await Promise.all([
+        getChapterById(chapterId),
+        getVideos({ chapter_id: chapterId }).catch(() => []),
+        getFiles({ chapter_id: chapterId }).catch(() => []),
+        getQuizAttempts({ chapter_id: chapterId }).catch(() => []),
+        getLessonProgressList({ chapter_id: chapterId }).catch(() => []),
+      ]);
+      if (!chapter) return null;
+      const lessonId = (x) => (x && typeof x === "object" ? x.id : x);
+      const completedIds = new Set(
+        (attempts || []).map((a) => lessonId(a.lesson)).filter((id) => id != null)
+      );
+      const startedIds = new Set(
+        (progressList || [])
+          .map((p) => lessonId(p.lesson))
+          .filter((id) => id != null)
+      );
+      const lessonStatus = {};
+      completedIds.forEach((id) => {
+        lessonStatus[id] = "completed";
+      });
+      startedIds.forEach((id) => {
+        if (!completedIds.has(id)) lessonStatus[id] = "started";
+      });
+      return { chapter, videos, files, lessonStatus };
+    } catch {
+      return null;
+    }
+  }
+};
+
 // ——— Student Groups (admin) ———
 export const getStudentGroups = async () => {
   const list = await request("/student-groups/");

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   useNavigate,
   useParams,
@@ -25,24 +25,65 @@ import { resolveCourseBackgroundVariant } from "../data/courseBackgroundWords";
 import { isArabicBrowser } from "../utils/language";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
 import {
-  getChapterById as getChapterByIdApi,
+  getChapterDashboard,
   updateLesson,
   addLesson,
   deleteLesson,
-  getVideos,
-  getFiles,
-  getQuizAttempts,
-  getLessonProgressList,
   reorderLessonsForChapter,
   pingHealth,
 } from "../services/backendApi";
 import { prefetchLessonMediaRoutes } from "../utils/routePrefetch";
 import { isContentStaff } from "../utils/roles";
 
+const DASH_CACHE_PREFIX = "levels_dash_cache_v2_";
 const CHAPTER_CACHE_PREFIX = "levels_chapter_cache_v1_";
 const CHAPTER_CACHE_TTL_MS = 8 * 60 * 1000;
 
+function readDashCache(chapterId) {
+  if (typeof window === "undefined" || !chapterId) return null;
+  try {
+    const raw = sessionStorage.getItem(`${DASH_CACHE_PREFIX}${chapterId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed?.t || !parsed?.chapter) return null;
+    if (Date.now() - parsed.t > CHAPTER_CACHE_TTL_MS) return null;
+    return {
+      chapter: parsed.chapter,
+      videos: Array.isArray(parsed.videos) ? parsed.videos : [],
+      files: Array.isArray(parsed.files) ? parsed.files : [],
+      lessonStatus: parsed.lessonStatus || {},
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeDashCache(chapterId, dash) {
+  if (typeof window === "undefined" || !chapterId || !dash?.chapter) return;
+  try {
+    sessionStorage.setItem(
+      `${DASH_CACHE_PREFIX}${chapterId}`,
+      JSON.stringify({
+        t: Date.now(),
+        chapter: dash.chapter,
+        videos: dash.videos || [],
+        files: dash.files || [],
+        lessonStatus: dash.lessonStatus || {},
+      })
+    );
+    // Keep legacy chapter-only cache for navigation seeds
+    sessionStorage.setItem(
+      `${CHAPTER_CACHE_PREFIX}${chapterId}`,
+      JSON.stringify({ t: Date.now(), chapter: dash.chapter })
+    );
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 function readChapterCache(chapterId) {
+  const dash = readDashCache(chapterId);
+  if (dash?.chapter) return dash.chapter;
   if (typeof window === "undefined" || !chapterId) return null;
   try {
     const raw = sessionStorage.getItem(`${CHAPTER_CACHE_PREFIX}${chapterId}`);
@@ -78,13 +119,16 @@ const Levels = () => {
   const navChapter = location.state?.chapter;
   const navMatches =
     navChapter && String(navChapter.id) === String(chapterId) ? navChapter : null;
-  const cachedChapter = navMatches ? null : readChapterCache(chapterId);
+  const cachedDash = readDashCache(chapterId);
+  const cachedChapter = navMatches ? null : cachedDash?.chapter || readChapterCache(chapterId);
   const initialChapter = navMatches || cachedChapter;
   const [chapter, setChapter] = useState(initialChapter);
   const [loading, setLoading] = useState(!initialChapter);
   const [busy, setBusy] = useState(false);
-  const [videos, setVideos] = useState([]);
-  const [files, setFiles] = useState([]);
+  const [videos, setVideos] = useState(() => cachedDash?.videos || []);
+  const [files, setFiles] = useState(() => cachedDash?.files || []);
+  /** False until dashboard (or cache) has media presence — drives skeleton buttons. */
+  const [mediaReady, setMediaReady] = useState(() => !!cachedDash);
   const currentUser = getCurrentUser();
   const isAdmin = isContentStaff(currentUser);
   const [editingItem, setEditingItem] = useState(null);
@@ -93,7 +137,9 @@ const Levels = () => {
   const [pressedCardId, setPressedCardId] = useState(null);
   const [newLessonName, setNewLessonName] = useState("");
   /** For students: lessonId -> 'completed' | 'started' | 'not_started' (backend only) */
-  const [lessonStatusMap, setLessonStatusMap] = useState({});
+  const [lessonStatusMap, setLessonStatusMap] = useState(
+    () => cachedDash?.lessonStatus || {}
+  );
   /** للزائر: عرض نافذة "يرجى تسجيل الدخول أو إنشاء حساب" عند الضغط على أي خيار */
   const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
   /** للحساب غير المفعل: عرض نافذة التواصل مع الإدارة + واتساب */
@@ -104,14 +150,42 @@ const Levels = () => {
     currentUser?.role === "student" &&
     (currentUser?.isActive === false || currentUser?.is_active_account === false);
 
-  const items = (chapter?.items || []).map((i) => ({
-    ...i,
-    hasTest: i.has_test ?? i.hasTest,
-    questionCount: Number(i.question_count ?? i.questionCount ?? 0) || 0,
-  }));
-  const sortedItems = [...items].sort(
-    (a, b) => (a?.order ?? 0) - (b?.order ?? 0)
-  );
+  const sortedItems = useMemo(() => {
+    const items = (chapter?.items || []).map((i) => ({
+      ...i,
+      hasTest: i.has_test ?? i.hasTest,
+      questionCount: Number(i.question_count ?? i.questionCount ?? 0) || 0,
+      hasVideo: i.has_video ?? i.hasVideo,
+      hasFile: i.has_file ?? i.hasFile,
+    }));
+    return [...items].sort((a, b) => (a?.order ?? 0) - (b?.order ?? 0));
+  }, [chapter?.items]);
+
+  const videoByLessonId = useMemo(() => {
+    const map = new Map();
+    for (const v of videos || []) {
+      const lesson =
+        v?.lesson != null && typeof v.lesson === "object"
+          ? v.lesson.id ?? v.lesson.pk
+          : v?.lesson ?? v?.itemId ?? v?.levelId;
+      const key = lesson == null ? "" : String(lesson);
+      if (key && !map.has(key)) map.set(key, v);
+    }
+    return map;
+  }, [videos]);
+
+  const fileByLessonId = useMemo(() => {
+    const map = new Map();
+    for (const f of files || []) {
+      const lesson =
+        f?.lesson != null && typeof f.lesson === "object"
+          ? f.lesson.id ?? f.lesson.pk
+          : f?.lesson ?? f?.itemId ?? f?.levelId;
+      const key = lesson == null ? "" : String(lesson);
+      if (key && !map.has(key)) map.set(key, f);
+    }
+    return map;
+  }, [files]);
 
   const categoryName = (categoryId || "").includes("تأسيس")
     ? "التأسيس"
@@ -141,6 +215,28 @@ const Levels = () => {
           return { ...nav };
         });
         setLoading(false);
+        // Hydrate media from session cache even when chapter came from nav state
+        const dash = readDashCache(chapterId);
+        if (dash) {
+          setVideos(dash.videos);
+          setFiles(dash.files);
+          setMediaReady(true);
+          if (!isAdmin && currentUser) {
+            setLessonStatusMap(dash.lessonStatus || {});
+          }
+        }
+        return;
+      }
+      const dash = readDashCache(chapterId);
+      if (dash?.chapter) {
+        setChapter(dash.chapter);
+        setVideos(dash.videos);
+        setFiles(dash.files);
+        setMediaReady(true);
+        if (!isAdmin && currentUser) {
+          setLessonStatusMap(dash.lessonStatus || {});
+        }
+        setLoading(false);
         return;
       }
       const cached = readChapterCache(chapterId);
@@ -149,6 +245,7 @@ const Levels = () => {
         setLoading(false);
       } else {
         setLoading(true);
+        setMediaReady(false);
       }
     };
     applySeedFromNavigation();
@@ -162,65 +259,43 @@ const Levels = () => {
         return;
       }
       try {
-        // Critical path: chapter only — do not block UI on videos/files lists.
-        const ch = await getChapterByIdApi(chapterId);
-        if (!c && ch) {
-          setChapter(ch);
-          writeChapterCache(chapterId, ch);
-          setLoading(false);
-        } else if (!c && !ch) {
+        // One optimized request: chapter + videos + files + lessonStatus
+        const dash = await getChapterDashboard(chapterId);
+        if (c) return;
+        if (dash?.chapter) {
+          setChapter(dash.chapter);
+          setVideos(Array.isArray(dash.videos) ? dash.videos : []);
+          setFiles(Array.isArray(dash.files) ? dash.files : []);
+          setMediaReady(true);
+          if (!isAdmin && currentUser) {
+            setLessonStatusMap(dash.lessonStatus || {});
+          }
+          writeDashCache(chapterId, dash);
+        }
+        setLoading(false);
+      } catch {
+        if (!c) {
+          setMediaReady(true);
           setLoading(false);
         }
-        if (c) return;
-        Promise.all([
-          getVideos({ chapter_id: chapterId }),
-          getFiles({ chapter_id: chapterId }),
-        ])
-          .then(([v, f]) => {
-            if (c) return;
-            setVideos(Array.isArray(v) ? v : []);
-            setFiles(Array.isArray(f) ? f : []);
-          })
-          .catch(() => {});
-      } catch {
-        if (!c) setLoading(false);
       }
     }
     load();
     return () => {
       c = true;
     };
-  }, [chapterId, useBackend, location.key, location.state?.chapter]);
+  }, [chapterId, useBackend, location.key, location.state?.chapter, isAdmin, currentUser?.id]);
 
   useEffect(() => {
     if (chapterId) prefetchLessonMediaRoutes();
   }, [chapterId]);
 
-  const norm = (id) => (id == null ? "" : String(id));
-  const videoLessonId = (v) => {
-    if (!v) return "";
-    const lesson = v.lesson;
-    if (lesson != null && typeof lesson === "object") {
-      return norm(lesson.id ?? lesson.pk ?? "");
-    }
-    return norm(lesson ?? v.itemId ?? v.levelId ?? "");
-  };
   const getVideoForItem = (itemId) => {
-    if (useBackend)
-      return (
-        (videos || []).find(
-          (v) => videoLessonId(v) === norm(itemId)
-        ) || null
-      );
+    if (useBackend) return videoByLessonId.get(String(itemId)) || null;
     return getVideoByLevel(itemId);
   };
   const getFileForItem = (itemId) => {
-    if (useBackend)
-      return (
-        (files || []).find(
-          (f) => norm(f.lesson || f.itemId || f.levelId) === norm(itemId)
-        ) || null
-      );
+    if (useBackend) return fileByLessonId.get(String(itemId)) || null;
     return getFileByLevel(itemId);
   };
   const getQuestionsForItem = (itemId) => {
@@ -230,8 +305,11 @@ const Levels = () => {
 
   const getItemStatus = (itemId) => {
     if (!currentUser) return "not_started";
-    if (useBackend && !isAdmin && lessonStatusMap[itemId])
-      return lessonStatusMap[itemId];
+    if (useBackend && !isAdmin) {
+      const key = String(itemId);
+      if (lessonStatusMap[key]) return lessonStatusMap[key];
+      if (lessonStatusMap[itemId]) return lessonStatusMap[itemId];
+    }
     const progress = getLevelProgress(currentUser.id, itemId);
     if (progress) return "completed";
     if (!useBackend && currentUser) {
@@ -246,40 +324,23 @@ const Levels = () => {
     return "not_started";
   };
 
-  /** Load student lesson status (completed / started / not_started) when using backend */
-  useEffect(() => {
-    if (!useBackend || !currentUser || isAdmin) return;
-    let c = false;
-    (async () => {
-      try {
-        const [attempts, progressList] = await Promise.all([
-          getQuizAttempts({ chapter_id: chapterId }),
-          getLessonProgressList({ chapter_id: chapterId }),
-        ]);
-        if (c) return;
-        const lessonId = (x) => (x && typeof x === "object" ? x.id : x);
-        const completedIds = new Set(
-          (attempts || [])
-            .map((a) => lessonId(a.lesson))
-            .filter((id) => id != null)
-        );
-        const startedIds = new Set(
-          (progressList || [])
-            .map((p) => lessonId(p.lesson))
-            .filter((id) => id != null)
-        );
-        const map = {};
-        completedIds.forEach((id) => { map[id] = "completed"; });
-        startedIds.forEach((id) => {
-          if (!completedIds.has(id)) map[id] = "started";
-        });
-        setLessonStatusMap(map);
-      } catch {
-        if (!c) setLessonStatusMap({});
-      }
-    })();
-    return () => { c = true; };
-  }, [useBackend, currentUser?.id, isAdmin, chapterId]);
+  /** Re-fetch via dashboard after admin mutations (keeps videos/files/status in sync). */
+  const refreshDashboard = async () => {
+    if (!useBackend) {
+      setChapter(getChapterById(chapterId) || null);
+      return;
+    }
+    const dash = await getChapterDashboard(chapterId);
+    if (!dash?.chapter) return;
+    setChapter(dash.chapter);
+    setVideos(Array.isArray(dash.videos) ? dash.videos : []);
+    setFiles(Array.isArray(dash.files) ? dash.files : []);
+    setMediaReady(true);
+    if (!isAdmin && currentUser) {
+      setLessonStatusMap(dash.lessonStatus || {});
+    }
+    writeDashCache(chapterId, dash);
+  };
 
   const handleVideoClick = (itemId) => {
     if (!currentUser) {
@@ -385,8 +446,7 @@ const Levels = () => {
     try {
       if (useBackend) {
         await updateLesson(itemId, { name: editName.trim() });
-        const ch = await getChapterByIdApi(chapterId);
-        setChapter(ch || null);
+        await refreshDashboard();
       } else {
         updateItemName(itemId, editName.trim());
         setChapter(getChapterById(chapterId) || null);
@@ -411,8 +471,7 @@ const Levels = () => {
     try {
       if (useBackend) {
         await addLesson(chapterId, name, true);
-        const ch = await getChapterByIdApi(chapterId);
-        setChapter(ch || null);
+        await refreshDashboard();
       } else {
         addItemToChapter(chapterId, name, true);
         setChapter(getChapterById(chapterId) || null);
@@ -437,8 +496,7 @@ const Levels = () => {
     try {
       if (useBackend) {
         await deleteLesson(itemId);
-        const ch = await getChapterByIdApi(chapterId);
-        setChapter(ch || null);
+        await refreshDashboard();
       } else {
         deleteItemFromChapter(itemId);
         setChapter(getChapterById(chapterId) || null);
@@ -459,9 +517,7 @@ const Levels = () => {
           chapterId,
           withOrder.map((l) => l.id)
         );
-        getChapterByIdApi(chapterId)
-          .then((ch) => ch && setChapter(ch))
-          .catch(() => {});
+        refreshDashboard().catch(() => {});
       } else {
         setLessonOrderByIds(chapterId, withOrder.map((l) => l.id));
         setChapter(getChapterById(chapterId) || null);
@@ -503,8 +559,36 @@ const Levels = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-600">جاري التحميل...</p>
+      <div className="min-h-screen bg-secondary-50 relative overflow-hidden">
+        <CourseScatteredBackground
+          variant={resolveCourseBackgroundVariant({ subjectId, categoryName })}
+        />
+        <div className="relative z-10">
+          <Header />
+          <div className="py-12 px-4">
+            <div className="max-w-6xl mx-auto">
+              <div className="mb-8 space-y-3">
+                <div className="h-4 w-24 rounded bg-gray-200/80 animate-pulse" />
+                <div className="h-9 w-2/3 max-w-md rounded bg-gray-200/80 animate-pulse" />
+                <div className="h-5 w-40 rounded bg-gray-200/60 animate-pulse" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border-2 border-secondary-200 bg-secondary-100/80 p-6 space-y-4"
+                  >
+                    <div className="mx-auto h-10 w-10 rounded bg-gray-200/70 animate-pulse" />
+                    <div className="mx-auto h-5 w-3/4 rounded bg-gray-200/80 animate-pulse" />
+                    <div className="h-10 w-full rounded-lg bg-gray-200/60 animate-pulse" />
+                    <div className="h-10 w-full rounded-lg bg-gray-200/50 animate-pulse" />
+                    <div className="h-10 w-full rounded-lg bg-gray-200/40 animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -847,20 +931,66 @@ const Levels = () => {
                             ? item.questionCount > 0
                             : qs && qs.length > 0;
                           const isGuest = !currentUser;
+                          // Prefer API presence flags (instant with chapter) then video/file maps
+                          const hasVideoFlag =
+                            item.hasVideo === true ||
+                            item.hasVideo === false
+                              ? item.hasVideo
+                              : null;
+                          const hasFileFlag =
+                            item.hasFile === true || item.hasFile === false
+                              ? item.hasFile
+                              : null;
+                          const hasVideo =
+                            hasVideoFlag != null ? hasVideoFlag : !!video;
+                          const hasFile =
+                            hasFileFlag != null ? hasFileFlag : !!file;
                           const showVideo = isGuest
                             ? true
-                            : !!(video && canAccessMedia);
+                            : !!(hasVideo && canAccessMedia);
                           const showFile = isGuest
                             ? true
-                            : !!(file && canAccessMedia);
+                            : !!(hasFile && canAccessMedia);
                           const showQuiz = isGuest ? true : hasExam;
+                          const waitingMedia =
+                            useBackend &&
+                            !isGuest &&
+                            canAccessMedia &&
+                            !mediaReady &&
+                            hasVideoFlag == null &&
+                            hasFileFlag == null;
 
-                          if (!showVideo && !showFile && !showQuiz) {
+                          if (waitingMedia && !showQuiz) {
+                            return (
+                              <>
+                                <div
+                                  className="h-10 rounded-lg bg-primary-100 animate-pulse"
+                                  aria-hidden="true"
+                                />
+                                <div
+                                  className="h-10 rounded-lg bg-purple-100 animate-pulse"
+                                  aria-hidden="true"
+                                />
+                                <div
+                                  className="h-10 rounded-lg bg-green-100 animate-pulse"
+                                  aria-hidden="true"
+                                />
+                              </>
+                            );
+                          }
+
+                          if (!showVideo && !showFile && !showQuiz && !waitingMedia) {
                             return null;
                           }
 
                           return (
                             <>
+                              {waitingMedia && !showVideo && (
+                                <div
+                                  className="h-10 rounded-lg bg-primary-100 animate-pulse"
+                                  aria-hidden="true"
+                                />
+                              )}
                               {showVideo && (
                                 <button
                                   onClick={() => handleVideoClick(item.id)}
@@ -874,6 +1004,12 @@ const Levels = () => {
                                 </button>
                               )}
 
+                              {waitingMedia && !showFile && (
+                                <div
+                                  className="h-10 rounded-lg bg-purple-100 animate-pulse"
+                                  aria-hidden="true"
+                                />
+                              )}
                               {showFile && (
                                 <button
                                   onClick={() => handleFileClick(item.id)}
@@ -897,6 +1033,12 @@ const Levels = () => {
                                   📝{" "}
                                   {isArabicBrowser() ? solveLabel : "Take Quiz"}
                                 </button>
+                              )}
+                              {waitingMedia && !showQuiz && (
+                                <div
+                                  className="h-10 rounded-lg bg-green-100 animate-pulse"
+                                  aria-hidden="true"
+                                />
                               )}
                             </>
                           );

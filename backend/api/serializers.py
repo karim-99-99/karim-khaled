@@ -202,12 +202,17 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
 
 
 class LessonSerializer(serializers.ModelSerializer):
-    """Lesson serializer; question_count set via annotate on chapter retrieve (no N+1)."""
+    """Lesson serializer; question_count / has_video / has_file from annotate when present."""
     question_count = serializers.SerializerMethodField()
+    has_video = serializers.SerializerMethodField()
+    has_file = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
-        fields = ['id', 'chapter', 'name', 'name_en', 'has_test', 'order', 'question_count']
+        fields = [
+            'id', 'chapter', 'name', 'name_en', 'has_test', 'order',
+            'question_count', 'has_video', 'has_file',
+        ]
         read_only_fields = ['id']
 
     def get_question_count(self, obj):
@@ -217,6 +222,16 @@ class LessonSerializer(serializers.ModelSerializer):
             return obj.questions.count()
         except Exception:
             return 0
+
+    def get_has_video(self, obj):
+        if hasattr(obj, 'has_video'):
+            return bool(obj.has_video)
+        return None
+
+    def get_has_file(self, obj):
+        if hasattr(obj, 'has_file'):
+            return bool(obj.has_file)
+        return None
 
 
 class ChapterShallowSerializer(serializers.ModelSerializer):
@@ -314,6 +329,22 @@ class SectionListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Section
         fields = ['id', 'name', 'name_en', 'subjects']
+
+
+class VideoLiteSerializer(serializers.ModelSerializer):
+    """Presence + ids only — no Cloudinary/Bunny URL work (Levels dashboard)."""
+
+    class Meta:
+        model = Video
+        fields = ['id', 'lesson', 'title', 'video_url', 'bunny_library_id', 'order']
+
+
+class FileLiteSerializer(serializers.ModelSerializer):
+    """Presence + ids only — skips signed Cloudinary URLs (Levels dashboard)."""
+
+    class Meta:
+        model = File
+        fields = ['id', 'lesson', 'title', 'file_type', 'order']
 
 
 class VideoSerializer(serializers.ModelSerializer):
