@@ -70,9 +70,13 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
   const quillRef = useRef(null);
   const mathfieldRef = useRef(null);
   const [isRTL, setIsRTL] = useState(() => {
-    // Load RTL preference from localStorage
-    const saved = localStorage.getItem('mathEditorRTL');
-    return saved ? JSON.parse(saved) : true; // Default to RTL for Arabic
+    try {
+      const saved = localStorage.getItem('mathEditorRTL');
+      if (saved == null || saved === '') return true;
+      return !!JSON.parse(saved);
+    } catch {
+      return true;
+    }
   });
 
   // Ensure modules and MathBlot are registered

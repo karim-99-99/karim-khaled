@@ -397,8 +397,13 @@ const MathRenderer = memo(({ html }) => {
   const containerRef = useRef(null);
 
   useEffect(() => {
-    if (!html || !containerRef.current) return;
+    if (!containerRef.current) return;
+    if (!html) {
+      containerRef.current.innerHTML = "";
+      return;
+    }
 
+    try {
     containerRef.current.innerHTML = html;
 
     // Handle images - preserve their styles and attributes
@@ -607,44 +612,33 @@ const MathRenderer = memo(({ html }) => {
     const mathEls = containerRef.current.querySelectorAll(
       ".math-equation[data-latex]",
     );
-    const walker = document.createTreeWalker(
-      containerRef.current,
-      NodeFilter.SHOW_TEXT,
-    );
-    let n;
-    while ((n = walker.nextNode())) {
-      if (Array.from(mathEls).some((m) => m.contains(n))) continue;
-      if (!/[0-9]/.test(n.textContent)) continue;
-      n.textContent = n.textContent.replace(/[0-9]/g, (d) => arabic[d]);
+    if (typeof NodeFilter !== "undefined") {
+      const walker = document.createTreeWalker(
+        containerRef.current,
+        NodeFilter.SHOW_TEXT,
+      );
+      let n;
+      while ((n = walker.nextNode())) {
+        if (Array.from(mathEls).some((m) => m.contains(n))) continue;
+        if (!/[0-9]/.test(n.textContent || "")) continue;
+        n.textContent = n.textContent.replace(/[0-9]/g, (d) => arabic[d]);
+      }
+    }
+    } catch (err) {
+      console.error("MathRenderer failed:", err);
+      try {
+        // Fallback: plain text so one bad question cannot crash the page
+        containerRef.current.textContent =
+          typeof html === "string"
+            ? html.replace(/<[^>]+>/g, " ").slice(0, 2000)
+            : "";
+      } catch {
+        /* ignore */
+      }
     }
   }, [html]);
 
-  return (
-    <>
-      <div ref={containerRef} />
-      <style>{`
-        /* Ensure images display correctly with their alignment */
-        img[style*="float: left"],
-        img[style*="float:left"] {
-          float: left !important;
-          margin: 5px 10px 5px 0 !important;
-        }
-        
-        img[style*="float: right"],
-        img[style*="float:right"] {
-          float: right !important;
-          margin: 5px 0 5px 10px !important;
-        }
-        
-        img[style*="display: block"],
-        img[style*="display:block"] {
-          display: block !important;
-          margin-left: auto !important;
-          margin-right: auto !important;
-        }
-      `}</style>
-    </>
-  );
+  return <div ref={containerRef} className="math-renderer-root" />;
 });
 
 MathRenderer.displayName = "MathRenderer";

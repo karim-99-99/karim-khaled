@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import {
   initializeDefaultData,
   getCurrentUser,
@@ -34,7 +34,7 @@ const Foundation = lazy(() => import("./pages/Foundation.jsx"));
 // Lazy load admin pages
 const Dashboard = lazy(() => import("./pages/admin/Dashboard.jsx"));
 const AdminUsers = lazy(() => import("./pages/admin/AdminUsers.jsx"));
-const Questions = lazy(() => import("./pages/admin/Questions.jsx"));
+const Questions = lazyWithRetry(() => import("./pages/admin/Questions.jsx"));
 const Videos = lazy(() => import("./pages/admin/Videos.jsx"));
 const ChaptersManagement = lazy(() =>
   import("./pages/admin/ChaptersManagement.jsx")
@@ -68,6 +68,39 @@ const LoadingFallback = () => (
   </>
 );
 
+/** Retry failed lazy chunks once (common after double-refresh / stale deploy). */
+function lazyWithRetry(factory) {
+  const key = "chunk_reload_v1";
+  return lazy(async () => {
+    try {
+      const mod = await factory();
+      try {
+        sessionStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+      return mod;
+    } catch (err) {
+      try {
+        if (!sessionStorage.getItem(key)) {
+          sessionStorage.setItem(key, "1");
+          window.location.reload();
+          return await new Promise(() => {});
+        }
+        sessionStorage.removeItem(key);
+      } catch {
+        /* ignore */
+      }
+      throw err;
+    }
+  });
+}
+
+function ErrorBoundaryReset({ children }) {
+  const location = useLocation();
+  return <AppErrorBoundary key={location.pathname}>{children}</AppErrorBoundary>;
+}
+
 function App() {
   useEffect(() => {
     initializeDefaultData();
@@ -94,13 +127,13 @@ function App() {
   }, []);
 
   return (
-    <AppErrorBoundary>
-      <BrowserRouter
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true,
-        }}
-      >
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
+      <ErrorBoundaryReset>
         <div className="App" dir="rtl">
           <AvatarOnboarding />
           <main className="min-h-screen">
@@ -382,8 +415,8 @@ function App() {
           </main>
           <BottomNav />
         </div>
-      </BrowserRouter>
-    </AppErrorBoundary>
+      </ErrorBoundaryReset>
+    </BrowserRouter>
   );
 }
 

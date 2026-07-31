@@ -17,24 +17,22 @@ import {
 } from "../../services/storageService";
 import * as backendApi from "../../services/backendApi";
 const { sortQuestionsBySequence, updateQuestionOrder, reorderQuestionsForLesson } = backendApi;
-import * as ReactQuillNamespace from "react-quill";
-import "react-quill/dist/quill.snow.css";
-
-// Get ReactQuill from namespace (react-quill v2.0.0)
-const ReactQuill = ReactQuillNamespace.default || ReactQuillNamespace;
 import Header from "../../components/Header";
 import ErrorBoundary from "../../components/ErrorBoundary";
 import { isArabicBrowser } from "../../utils/language";
-import MathEditor from "../../components/MathEditor";
 import MathRenderer from "../../components/MathRenderer";
-import WordLikeEditor from "../../components/WordLikeEditor";
-import EquationEditor from "../../components/EquationEditor";
-import VisualEquationEditor from "../../components/VisualEquationEditor";
-import WYSIWYGEquationEditor from "../../components/WYSIWYGEquationEditor";
-import SimpleProfessionalMathEditor from "../../components/SimpleProfessionalMathEditor";
-import { InlineMath, BlockMath } from "react-katex";
-import "katex/dist/katex.min.css";
-import katex from "katex";
+
+// Heavy editors: load only when a form opens (prevents tab crash on reload)
+const SimpleProfessionalMathEditor = lazy(() =>
+  import("../../components/SimpleProfessionalMathEditor")
+);
+const MathEditor = lazy(() => import("../../components/MathEditor"));
+
+const EditorFallback = () => (
+  <div className="border rounded-lg p-6 min-h-[120px] flex items-center justify-center bg-gray-50 text-gray-500 text-sm">
+    {isArabicBrowser() ? "جاري تحميل المحرر..." : "Loading editor..."}
+  </div>
+);
 
 const Questions = () => {
   const navigate = useNavigate();
@@ -350,14 +348,15 @@ const Questions = () => {
     }));
   };
 
-  // Handle math equation insertion from MathEditor modal - insert as rendered HTML
-  const handleInsertMath = (latex) => {
+  // Legacy Quill insertion path (kept for MathEditor modal). Main editor embeds math itself.
+  const handleInsertMath = async (latex) => {
     if (quillRef.current) {
       const quill = quillRef.current.getEditor();
       const range = quill.getSelection(true);
       if (range) {
         try {
-          // Render LaTeX to HTML using KaTeX
+          const katexMod = await import("katex");
+          const katex = katexMod.default || katexMod;
           const html = katex.renderToString(latex, {
             throwOnError: false,
             displayMode: false,
@@ -1783,8 +1782,7 @@ const Questions = () => {
                       <label className="block text-sm font-medium text-dark-600 mb-2">
                         نص السؤال
                       </label>
-                      <ErrorBoundary isArabic={isArabicBrowser()}>
-                        <SimpleProfessionalMathEditor
+                      <ErrorBoundary isArabic={isArabicBrowser()}><Suspense fallback={<EditorFallback />}><SimpleProfessionalMathEditor
                           value={newPassageQuestionForm.question}
                           onChange={(c) =>
                             setNewPassageQuestionForm({
@@ -1793,8 +1791,7 @@ const Questions = () => {
                             })
                           }
                           placeholder="اكتب السؤال هنا..."
-                        />
-                      </ErrorBoundary>
+                        /></Suspense></ErrorBoundary>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-dark-600 mb-2">
@@ -1821,8 +1818,7 @@ const Questions = () => {
                               className="mt-3"
                             />
                             <div className="flex-1 min-w-0">
-                              <ErrorBoundary isArabic={isArabicBrowser()}>
-                                <SimpleProfessionalMathEditor
+                              <ErrorBoundary isArabic={isArabicBrowser()}><Suspense fallback={<EditorFallback />}><SimpleProfessionalMathEditor
                                   value={ans.text}
                                   onChange={(c) =>
                                     setNewPassageQuestionForm({
@@ -1837,8 +1833,7 @@ const Questions = () => {
                                   placeholder={`الاختيار ${String.fromCharCode(
                                     65 + idx
                                   )}`}
-                                />
-                              </ErrorBoundary>
+                                /></Suspense></ErrorBoundary>
                             </div>
                           </div>
                         ))}
@@ -1895,10 +1890,12 @@ const Questions = () => {
 
           {/* Math Editor Modal */}
           {showMathEditor && (
-            <MathEditor
-              onInsert={handleInsertMath}
-              onClose={() => setShowMathEditor(false)}
-            />
+            <Suspense fallback={<EditorFallback />}>
+              <MathEditor
+                onInsert={handleInsertMath}
+                onClose={() => setShowMathEditor(false)}
+              />
+            </Suspense>
           )}
 
           {/* Add/Edit Passage Form Modal */}
@@ -1923,8 +1920,7 @@ const Questions = () => {
                         💡 اكتب نص القطعة هنا. يمكنك استخدام شريط الأدوات لإضافة
                         تنسيقات ومعادلات رياضية
                       </p>
-                      <ErrorBoundary isArabic={isArabicBrowser()}>
-                        <SimpleProfessionalMathEditor
+                      <ErrorBoundary isArabic={isArabicBrowser()}><Suspense fallback={<EditorFallback />}><SimpleProfessionalMathEditor
                           value={passageFormData.passageText}
                           onChange={(content) =>
                             setPassageFormData({
@@ -1933,8 +1929,7 @@ const Questions = () => {
                             })
                           }
                           placeholder="اكتب نص القطعة هنا..."
-                        />
-                      </ErrorBoundary>
+                        /></Suspense></ErrorBoundary>
                     </div>
 
                     {/* Questions in Passage - فقط عند التعديل */}
@@ -1981,8 +1976,7 @@ const Questions = () => {
                                 <label className="block text-xs font-medium text-gray-700 mb-2">
                                   نص السؤال
                                 </label>
-                                <ErrorBoundary isArabic={isArabicBrowser()}>
-                                  <SimpleProfessionalMathEditor
+                                <ErrorBoundary isArabic={isArabicBrowser()}><Suspense fallback={<EditorFallback />}><SimpleProfessionalMathEditor
                                     value={q.question}
                                     onChange={(content) =>
                                       handlePassageQuestionChange(
@@ -1994,8 +1988,7 @@ const Questions = () => {
                                     placeholder={`اكتب نص السؤال ${
                                       qIndex + 1
                                     } هنا...`}
-                                  />
-                                </ErrorBoundary>
+                                  /></Suspense></ErrorBoundary>
                               </div>
 
                               {/* Answers */}
@@ -2036,20 +2029,22 @@ const Questions = () => {
                                         <ErrorBoundary
                                           isArabic={isArabicBrowser()}
                                         >
-                                          <SimpleProfessionalMathEditor
-                                            value={answer.text}
-                                            onChange={(content) =>
-                                              handlePassageAnswerChange(
-                                                q.id,
-                                                ansIndex,
-                                                "text",
-                                                content
-                                              )
-                                            }
-                                            placeholder={`اكتب الاختيار ${String.fromCharCode(
-                                              65 + ansIndex
-                                            )} هنا...`}
-                                          />
+                                          <Suspense fallback={<EditorFallback />}>
+                                            <SimpleProfessionalMathEditor
+                                              value={answer.text}
+                                              onChange={(content) =>
+                                                handlePassageAnswerChange(
+                                                  q.id,
+                                                  ansIndex,
+                                                  "text",
+                                                  content
+                                                )
+                                              }
+                                              placeholder={`اكتب الاختيار ${String.fromCharCode(
+                                                65 + ansIndex
+                                              )} هنا...`}
+                                            />
+                                          </Suspense>
                                         </ErrorBoundary>
                                       </div>
                                     </div>
@@ -2132,13 +2127,11 @@ const Questions = () => {
                         </p>
 
                         {/* Best Working Editor - No waiting, no loading! */}
-                        <ErrorBoundary isArabic={isArabicBrowser()}>
-                          <SimpleProfessionalMathEditor
+                        <ErrorBoundary isArabic={isArabicBrowser()}><Suspense fallback={<EditorFallback />}><SimpleProfessionalMathEditor
                             value={formData.question}
                             onChange={handleQuillChange}
                             placeholder="اكتب السؤال هنا..."
-                          />
-                        </ErrorBoundary>
+                          /></Suspense></ErrorBoundary>
                       </div>
 
                       {/* Image Upload Section */}
@@ -2284,15 +2277,13 @@ const Questions = () => {
                           💡 أضف شرحاً يساعد الطالب على فهم الإجابة الصحيحة عند
                           الخطأ
                         </p>
-                        <ErrorBoundary isArabic={isArabicBrowser()}>
-                          <SimpleProfessionalMathEditor
+                        <ErrorBoundary isArabic={isArabicBrowser()}><Suspense fallback={<EditorFallback />}><SimpleProfessionalMathEditor
                             value={formData.explanation}
                             onChange={(content) =>
                               setFormData({ ...formData, explanation: content })
                             }
                             placeholder="اكتب شرح الإجابة الصحيحة هنا..."
-                          />
-                        </ErrorBoundary>
+                          /></Suspense></ErrorBoundary>
                       </div>
 
                       <div className="mt-6">
@@ -2329,8 +2320,7 @@ const Questions = () => {
                                     </span>
                                   )}
                                 </label>
-                                <ErrorBoundary isArabic={isArabicBrowser()}>
-                                  <SimpleProfessionalMathEditor
+                                <ErrorBoundary isArabic={isArabicBrowser()}><Suspense fallback={<EditorFallback />}><SimpleProfessionalMathEditor
                                     value={answer.text}
                                     onChange={(content) =>
                                       handleAnswerChange(index, "text", content)
@@ -2338,8 +2328,7 @@ const Questions = () => {
                                     placeholder={`اكتب الإجابة ${String.fromCharCode(
                                       65 + index
                                     )} هنا...`}
-                                  />
-                                </ErrorBoundary>
+                                  /></Suspense></ErrorBoundary>
                               </div>
                             </div>
                           </div>
