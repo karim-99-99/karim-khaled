@@ -25,8 +25,22 @@ import {
 } from "../services/backendApi";
 
 /** sessionStorage: instant replay of last fetched questions (retake / navigate back) */
-const QUIZ_Q_SNAPSHOT_KEY = (lessonId) => `quiz_q_snapshot_v1_${lessonId}`;
+const QUIZ_Q_SNAPSHOT_KEY = (lessonId) => `quiz_q_snapshot_v2_${lessonId}`;
 const SNAPSHOT_TTL_MS = 15 * 60 * 1000;
+
+/** Old demo filler — never restore these from cache. */
+function looksLikeDemoQuestions(rawQuestions) {
+  if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) return false;
+  const sample = rawQuestions.slice(0, 5);
+  return sample.every((q) => {
+    const text = String(q?.question || q?.questionEn || "");
+    return (
+      text.includes("2 + 2") ||
+      text.includes("2+2") ||
+      /^q_.+_\d+$/.test(String(q?.id || ""))
+    );
+  });
+}
 
 /**
  * Flatten passage questions into single-question format for Quiz.
@@ -76,6 +90,8 @@ const Quiz = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [questions, setQuestions] = useState([]);
+  const [questionsLoading, setQuestionsLoading] = useState(true);
+  const [questionsLoadError, setQuestionsLoadError] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showResult, setShowResult] = useState(false);
@@ -163,12 +179,23 @@ const Quiz = () => {
   useLayoutEffect(() => {
     if (!actualItemId || !isBackendOn()) return;
     try {
+      // Drop legacy demo snapshots (v1 stored fake 2+2 questions)
+      try {
+        sessionStorage.removeItem(`quiz_q_snapshot_v1_${actualItemId}`);
+      } catch {
+        /* ignore */
+      }
       const raw = sessionStorage.getItem(QUIZ_Q_SNAPSHOT_KEY(actualItemId));
       if (!raw) return;
       const { t, rawQuestions } = JSON.parse(raw);
       if (Date.now() - t > SNAPSHOT_TTL_MS) return;
       if (!Array.isArray(rawQuestions) || rawQuestions.length === 0) return;
+      if (looksLikeDemoQuestions(rawQuestions)) {
+        sessionStorage.removeItem(QUIZ_Q_SNAPSHOT_KEY(actualItemId));
+        return;
+      }
       setQuestions(flattenQuestionsForQuiz(rawQuestions));
+      setQuestionsLoading(false);
       quizStartTimeRef.current = Date.now();
     } catch {
       /* ignore */
@@ -189,65 +216,48 @@ const Quiz = () => {
     let c = false;
     const load = async () => {
       if (!actualItemId) return;
+      setQuestionsLoading(true);
+      setQuestionsLoadError("");
       let quizQuestions = [];
       let levelVideo = null;
 
       if (isBackendOn()) {
         pingHealth();
         try {
-          const pq = await getQuestionsByLevelApi(actualItemId);
+          const pq = await getQuestionsByLevelApi(actualItemId, { force: true });
           if (c) return;
-          quizQuestions = pq || [];
-          try {
-            sessionStorage.setItem(
-              QUIZ_Q_SNAPSHOT_KEY(actualItemId),
-              JSON.stringify({ t: Date.now(), rawQuestions: quizQuestions })
-            );
-          } catch {
-            /* quota */
+          quizQuestions = Array.isArray(pq) ? pq : [];
+          if (quizQuestions.length > 0 && !looksLikeDemoQuestions(quizQuestions)) {
+            try {
+              sessionStorage.setItem(
+                QUIZ_Q_SNAPSHOT_KEY(actualItemId),
+                JSON.stringify({ t: Date.now(), rawQuestions: quizQuestions })
+              );
+            } catch {
+              /* quota */
+            }
+          } else {
+            try {
+              sessionStorage.removeItem(QUIZ_Q_SNAPSHOT_KEY(actualItemId));
+            } catch {
+              /* ignore */
+            }
           }
           quizStartTimeRef.current = Date.now();
-          if (quizQuestions.length === 0) {
-            const sampleQuestions = [];
-            for (let i = 1; i <= 50; i++) {
-              sampleQuestions.push({
-                id: `q_${actualItemId}_${i}`,
-                itemId: actualItemId,
-                levelId: actualItemId,
-                question: `سؤال ${i}: ما هو 2 + 2؟`,
-                questionEn: `Question ${i}: What is 2 + 2?`,
-                answers: [
-                  { id: "a", text: "3", textEn: "3", isCorrect: false },
-                  { id: "b", text: "4", textEn: "4", isCorrect: true },
-                  { id: "c", text: "5", textEn: "5", isCorrect: false },
-                  { id: "d", text: "6", textEn: "6", isCorrect: false },
-                ],
-              });
-            }
-            setQuestions(sampleQuestions);
-          } else {
-            setQuestions(flattenQuestionsForQuiz(quizQuestions));
-          }
+          setQuestions(flattenQuestionsForQuiz(quizQuestions));
+          setQuestionsLoadError("");
         } catch (e) {
           if (c) return;
           console.error("Quiz load questions:", e);
-          const sampleQuestions = [];
-          for (let i = 1; i <= 50; i++) {
-            sampleQuestions.push({
-              id: `q_${actualItemId}_${i}`,
-              itemId: actualItemId,
-              levelId: actualItemId,
-              question: `سؤال ${i}: ما هو 2 + 2؟`,
-              questionEn: `Question ${i}: What is 2 + 2?`,
-              answers: [
-                { id: "a", text: "3", textEn: "3", isCorrect: false },
-                { id: "b", text: "4", textEn: "4", isCorrect: true },
-                { id: "c", text: "5", textEn: "5", isCorrect: false },
-                { id: "d", text: "6", textEn: "6", isCorrect: false },
-              ],
-            });
-          }
-          setQuestions(sampleQuestions);
+          setQuestions([]);
+          setQuestionsLoadError(
+            e?.message ||
+              (isArabicBrowser()
+                ? "تعذر تحميل الأسئلة. حاول مرة أخرى."
+                : "Could not load questions. Please try again.")
+          );
+        } finally {
+          if (!c) setQuestionsLoading(false);
         }
 
         Promise.all([
@@ -259,32 +269,13 @@ const Quiz = () => {
           setVideo(lv || null);
         });
       } else {
-        quizQuestions = getQuestionsByLevel(actualItemId);
+        quizQuestions = getQuestionsByLevel(actualItemId) || [];
         levelVideo = getVideoByLevel(actualItemId);
         setLevel(getLevelById(actualItemId));
         if (c) return;
         quizStartTimeRef.current = Date.now();
-        if (quizQuestions.length === 0) {
-          const sampleQuestions = [];
-          for (let i = 1; i <= 50; i++) {
-            sampleQuestions.push({
-              id: `q_${actualItemId}_${i}`,
-              itemId: actualItemId,
-              levelId: actualItemId,
-              question: `سؤال ${i}: ما هو 2 + 2؟`,
-              questionEn: `Question ${i}: What is 2 + 2?`,
-              answers: [
-                { id: "a", text: "3", textEn: "3", isCorrect: false },
-                { id: "b", text: "4", textEn: "4", isCorrect: true },
-                { id: "c", text: "5", textEn: "5", isCorrect: false },
-                { id: "d", text: "6", textEn: "6", isCorrect: false },
-              ],
-            });
-          }
-          setQuestions(sampleQuestions);
-        } else {
-          setQuestions(flattenQuestionsForQuiz(quizQuestions));
-        }
+        setQuestions(flattenQuestionsForQuiz(quizQuestions));
+        setQuestionsLoading(false);
         if (
           levelVideo &&
           !isBackendOn() &&
@@ -556,12 +547,41 @@ const Quiz = () => {
     localFinishN
   );
 
-  if (questions.length === 0) {
+  if (questionsLoading && questions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-lg md:text-xl lg:text-2xl text-dark-600 font-medium">
-          جاري التحميل...
+          {isArabicBrowser() ? "جاري التحميل..." : "Loading..."}
         </p>
+      </div>
+    );
+  }
+
+  if (!questionsLoading && questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50" dir="rtl">
+        <Header />
+        <div className="min-h-[60vh] flex flex-col items-center justify-center px-4 text-center">
+          <p className="text-lg md:text-xl text-dark-700 font-medium mb-3">
+            {questionsLoadError
+              ? questionsLoadError
+              : isArabicBrowser()
+                ? "لا توجد أسئلة في هذا الدرس حالياً."
+                : "There are no questions in this lesson yet."}
+          </p>
+          <p className="text-sm text-dark-500 mb-6 max-w-md">
+            {isArabicBrowser()
+              ? "ستظهر فقط الأسئلة التي يضيفها المشرف. إن كان الدرس يحتوي أسئلة ولم تظهر، حدّث الصفحة أو تواصل مع الإدارة."
+              : "Only questions added by an admin will appear. If this lesson should have questions, refresh or contact support."}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="px-6 py-2.5 bg-primary-500 text-white rounded-lg hover:bg-primary-600 font-medium"
+          >
+            {isArabicBrowser() ? "رجوع" : "Go back"}
+          </button>
+        </div>
       </div>
     );
   }
