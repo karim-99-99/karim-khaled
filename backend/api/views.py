@@ -290,6 +290,65 @@ class PublicFoundationView(APIView):
         return Response({'videos': videos, 'files': files})
 
 
+def _change_password_for_user(request):
+    """Shared logic: authenticated user changes own password."""
+    serializer = ChangePasswordSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    user = request.user
+    if not user.check_password(serializer.validated_data['old_password']):
+        return Response(
+            {'old_password': ['كلمة المرور الحالية غير صحيحة.']},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    user.set_password(serializer.validated_data['new_password'])
+    user.save()
+    return Response({'detail': 'تم تغيير كلمة المرور بنجاح.'})
+
+
+def _admin_reset_password(request, user_id):
+    """Shared logic: admin resets a student's password."""
+    try:
+        user = User.objects.get(pk=user_id)
+    except (User.DoesNotExist, ValueError, TypeError):
+        return Response(
+            {'detail': 'المستخدم غير موجود.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    if user.role != 'student':
+        return Response(
+            {'error': 'يمكن إعادة تعيين كلمة المرور للطلاب فقط.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    serializer = AdminResetPasswordSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    user.set_password(serializer.validated_data['new_password'])
+    user.save()
+    Token.objects.filter(user=user).delete()
+    return Response({
+        'detail': 'تم إعادة تعيين كلمة المرور بنجاح.',
+        'user_id': user.id,
+        'username': user.username,
+    })
+
+
+class ChangePasswordView(APIView):
+    """POST /api/users/change-password/ — explicit path (avoids router 404s)."""
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def post(self, request):
+        return _change_password_for_user(request)
+
+
+class AdminResetPasswordView(APIView):
+    """POST /api/users/<id>/reset-password/ — explicit path (avoids router 404s)."""
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, user_id):
+        return _admin_reset_password(request, user_id)
+
+
 class UserViewSet(viewsets.ModelViewSet):
     """User management (admin only for list/update, users can view themselves)"""
     queryset = User.objects.all()
@@ -338,40 +397,12 @@ class UserViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='change-password')
     def change_password(self, request):
         """Logged-in user changes own password (must provide old password)."""
-        serializer = ChangePasswordSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        user = request.user
-        if not user.check_password(serializer.validated_data['old_password']):
-            return Response(
-                {'old_password': ['كلمة المرور الحالية غير صحيحة.']},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        user.set_password(serializer.validated_data['new_password'])
-        user.save(update_fields=['password'])
-        return Response({'detail': 'تم تغيير كلمة المرور بنجاح.'})
+        return _change_password_for_user(request)
 
     @action(detail=True, methods=['post'], url_path='reset-password', permission_classes=[IsAdminUser])
     def reset_password(self, request, pk=None):
         """Admin sets a new password for any student (no old password required)."""
-        user = self.get_object()
-        if user.role != 'student':
-            return Response(
-                {'error': 'يمكن إعادة تعيين كلمة المرور للطلاب فقط.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        serializer = AdminResetPasswordSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        user.set_password(serializer.validated_data['new_password'])
-        user.save(update_fields=['password'])
-        # Force re-login on other sessions
-        Token.objects.filter(user=user).delete()
-        return Response({
-            'detail': 'تم إعادة تعيين كلمة المرور بنجاح.',
-            'user_id': user.id,
-            'username': user.username,
-        })
+        return _admin_reset_password(request, pk)
     
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def update_permissions(self, request, pk=None):

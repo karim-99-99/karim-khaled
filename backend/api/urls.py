@@ -23,6 +23,9 @@ urlpatterns = [
     # Must be before router.urls: otherwise videos/<pk>/ catches "bunny-signed-url" → 404
     path('videos/bunny-signed-url/', views.BunnySignedUrlView.as_view(), name='bunny-signed-url'),
     path('videos/abuse-detector/', views.VideoAbuseDetectorView.as_view(), name='video-abuse-detector'),
+    # Password endpoints before router so they never 404 behind users/<pk>/
+    path('users/change-password/', views.ChangePasswordView.as_view(), name='user-change-password'),
+    path('users/<int:user_id>/reset-password/', views.AdminResetPasswordView.as_view(), name='user-reset-password'),
     path('', include(router.urls)),
     path('health/', views.HealthView.as_view(), name='health'),
     path('auth/register/', views.RegisterView.as_view(), name='register'),
