@@ -174,36 +174,9 @@ class LoginView(APIView):
                     user = None
             
             if user:
-                if not user.is_active_account and user.role == 'student':
-                    return Response(
-                        {
-                            'error': 'Account is not active. Please contact administrator.',
-                            'code': 'account_inactive',
-                        },
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-                if user.role == 'student' and not user.is_within_account_period():
-                    return Response(
-                        {
-                            'error': 'Account access period has expired or has not started yet. Please contact administrator.',
-                            'code': 'account_period',
-                            'account_active_from': user.account_active_from,
-                            'account_active_until': user.account_active_until,
-                        },
-                        status=status.HTTP_403_FORBIDDEN
-                    )
-                if user.role == 'student' and not getattr(user, 'allow_multi_device', False):
-                    reg = getattr(user, 'registered_ip', None) or ''
-                    if reg.strip():
-                        ip = get_client_ip(request) or ''
-                        if ip.strip() != reg.strip():
-                            return Response(
-                                {
-                                    'error': 'This account can only log in from one registered device. Contact the administrator to allow multi-device access.',
-                                    'code': 'device_restricted',
-                                },
-                                status=status.HTTP_403_FORBIDDEN
-                            )
+                denied = _student_access_denied_response(user, request)
+                if denied is not None:
+                    return denied
                 token, created = Token.objects.get_or_create(user=user)
                 login(request, user)
                 return Response({
@@ -228,6 +201,148 @@ class LogoutView(APIView):
             pass
         logout(request)
         return Response({'message': 'Logged out successfully'})
+
+
+def _student_access_denied_response(user, request):
+    """Shared gate for password login and Telegram login (inactive / period / device)."""
+    if not user.is_active_account and user.role == 'student':
+        return Response(
+            {
+                'error': 'Account is not active. Please contact administrator.',
+                'code': 'account_inactive',
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    if user.role == 'student' and not user.is_within_account_period():
+        return Response(
+            {
+                'error': 'Account access period has expired or has not started yet. Please contact administrator.',
+                'code': 'account_period',
+                'account_active_from': user.account_active_from,
+                'account_active_until': user.account_active_until,
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    if user.role == 'student' and not getattr(user, 'allow_multi_device', False):
+        reg = getattr(user, 'registered_ip', None) or ''
+        if reg.strip():
+            ip = get_client_ip(request) or ''
+            if ip.strip() != reg.strip():
+                return Response(
+                    {
+                        'error': 'This account can only log in from one registered device. Contact the administrator to allow multi-device access.',
+                        'code': 'device_restricted',
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+    return None
+
+
+class TelegramConfigView(APIView):
+    """Public: whether Telegram login is enabled + public client_id / bot username."""
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from .telegram_auth import telegram_client_id, telegram_enabled, telegram_bot_token
+        client_id = telegram_client_id()
+        bot_username = (os.environ.get('TELEGRAM_BOT_USERNAME') or '').strip().lstrip('@')
+        return Response({
+            'enabled': telegram_enabled(),
+            'client_id': client_id or None,
+            'bot_username': bot_username or None,
+            'phone_scope': bool(client_id),
+            'widget_available': bool(telegram_bot_token() and bot_username),
+        })
+
+
+class TelegramAuthView(APIView):
+    """
+    Sign in / sign up with Telegram.
+    Body (preferred): { "id_token": "<OIDC JWT>" } — can include phone with user consent.
+    Body (legacy widget): { id, first_name, last_name, username, photo_url, auth_date, hash }
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from .telegram_auth import parse_telegram_auth_body, telegram_enabled
+
+        if not telegram_enabled():
+            return Response(
+                {'error': 'Telegram login is not configured on the server.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        try:
+            profile, source = parse_telegram_auth_body(request.data if isinstance(request.data, dict) else {})
+        except Exception as exc:
+            return Response(
+                {'error': str(exc) or 'Invalid Telegram login data'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        tid = profile['telegram_id']
+        user = User.objects.filter(telegram_id=tid).first()
+        created = False
+
+        if not user:
+            # Create student account (inactive until admin activates — same as register)
+            base_username = profile.get('telegram_username') or f'tg_{tid}'
+            username = base_username[:140]
+            n = 0
+            while User.objects.filter(username=username).exists():
+                n += 1
+                username = f'{base_username[:120]}_{n}'
+
+            user = User(
+                username=username,
+                email='',
+                first_name=(profile.get('first_name') or '')[:150],
+                last_name=(profile.get('last_name') or '')[:150],
+                role='student',
+                is_active_account=False,
+                telegram_id=tid,
+                telegram_username=profile.get('telegram_username'),
+                phone=profile.get('phone') or '',
+            )
+            user.set_unusable_password()
+            ip = get_client_ip(request)
+            if ip:
+                user.registered_ip = ip
+            user.save()
+            created = True
+        else:
+            # Refresh profile fields from Telegram
+            updates = []
+            if profile.get('telegram_username') and user.telegram_username != profile['telegram_username']:
+                user.telegram_username = profile['telegram_username']
+                updates.append('telegram_username')
+            if profile.get('first_name') and not user.first_name:
+                user.first_name = profile['first_name'][:150]
+                updates.append('first_name')
+            if profile.get('phone') and user.phone != profile['phone']:
+                user.phone = profile['phone']
+                updates.append('phone')
+            if updates:
+                user.save(update_fields=updates)
+
+        # New Telegram accounts stay inactive until admin activates (same as register).
+        # Still issue a token so the client can show the activation message.
+        if not created:
+            denied = _student_access_denied_response(user, request)
+            if denied is not None:
+                return denied
+
+        token, _ = Token.objects.get_or_create(user=user)
+        login(request, user)
+        return Response({
+            'token': token.key,
+            'user': UserSerializer(user).data,
+            'created': created,
+            'auth_source': source,
+            'needs_activation': (
+                user.role == 'student' and not user.is_active_account
+            ),
+        }, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 class ExportDbView(APIView):

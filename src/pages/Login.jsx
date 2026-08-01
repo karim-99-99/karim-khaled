@@ -7,6 +7,7 @@ import {
   mapUserFromBackend,
 } from "../services/backendApi";
 import Header from "../components/Header";
+import TelegramLoginButton from "../components/TelegramLoginButton";
 import backgroundImage from "../assets/kareem.jpg";
 import { isArabicBrowser } from "../utils/language";
 import { isContentStaff } from "../utils/roles";
@@ -210,6 +211,77 @@ const Login = () => {
                   : "Login"}
             </button>
           </form>
+
+          {useBackend && (
+            <div className="mt-6 space-y-3">
+              <div className="relative flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-500">
+                  {isArabicBrowser() ? "أو" : "or"}
+                </span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+              <TelegramLoginButton
+                disabled={loading}
+                onSuccess={(data) => {
+                  const mapped = mapUserFromBackend(data.user);
+                  if (data.needs_activation || mapped.isActive !== true) {
+                    setIsAccountNotActive(true);
+                    setError(
+                      isArabicBrowser()
+                        ? data.created
+                          ? "تم إنشاء حسابك عبر تيليجرام. تواصل مع الإدارة لتفعيل الحساب."
+                          : "حسابك غير مفعّل. يرجى التواصل مع الإدارة لتفعيل الحساب."
+                        : data.created
+                          ? "Account created via Telegram. Contact admin to activate it."
+                          : "Your account is not active. Please contact administration."
+                    );
+                    return;
+                  }
+                  setCurrentUser({ ...mapped, token: data.token });
+                  const redirectPath = searchParams.get("redirect");
+                  if (redirectPath) navigate(redirectPath);
+                  else
+                    navigate(
+                      isContentStaff(mapped) ? "/admin/dashboard" : "/courses"
+                    );
+                }}
+                onError={(err) => {
+                  const msg = (err.message || "").toLowerCase();
+                  if (
+                    err.code === "device_restricted" ||
+                    msg.includes("registered device") ||
+                    msg.includes("multi-device")
+                  ) {
+                    setIsDeviceRestricted(true);
+                    setError(
+                      isArabicBrowser()
+                        ? "الحساب مسموح له بالدخول من جهاز واحد فقط. أنت تحاول الدخول من جهاز أو شبكة مختلفة. تواصل مع الإدارة لتفعيل الدخول من أكثر من جهاز."
+                        : "This account can only log in from one registered device. Contact the admin to allow multi-device access."
+                    );
+                  } else if (
+                    err.code === "account_inactive" ||
+                    msg.includes("not active") ||
+                    msg.includes("activate")
+                  ) {
+                    setIsAccountNotActive(true);
+                    setError(
+                      isArabicBrowser()
+                        ? "حسابك غير مفعّل. يرجى التواصل مع الإدارة لتفعيل الحساب."
+                        : "Your account is not active. Please contact administration to activate it."
+                    );
+                  } else {
+                    setError(
+                      err.message ||
+                        (isArabicBrowser()
+                          ? "فشل الدخول عبر تيليجرام"
+                          : "Telegram login failed")
+                    );
+                  }
+                }}
+              />
+            </div>
+          )}
 
           <div className="mt-6 text-center space-y-3">
             <p className="text-sm text-dark-600">

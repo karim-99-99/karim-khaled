@@ -12,3 +12,5 @@ psycopg2-binary>=2.9.9
 django-storages>=1.14.2
 django-cloudinary-storage>=0.3.0
 cloudinary>=1.36.0
+PyJWT>=2.8.0
+cryptography>=41.0.0

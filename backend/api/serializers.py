@@ -18,12 +18,13 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'username', 'email', 'first_name', 'last_name', 'role',
-                  'phone', 'is_active_account', 'account_active_from', 'account_active_until',
+                  'phone', 'telegram_id', 'telegram_username',
+                  'is_active_account', 'account_active_from', 'account_active_until',
                   'has_abilities_access', 'has_collection_access', 'abilities_subjects_verbal',
                   'abilities_subjects_quantitative', 'abilities_categories_foundation',
                   'abilities_categories_collections', 'avatar_choice',
                   'allow_multi_device', 'date_joined']
-        read_only_fields = ['id', 'date_joined']
+        read_only_fields = ['id', 'date_joined', 'telegram_id', 'telegram_username']
 
 
 class UserCreateSerializer(serializers.ModelSerializer):

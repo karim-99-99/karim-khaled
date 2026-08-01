@@ -14,6 +14,11 @@ class User(AbstractUser):
     
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     phone = models.CharField(max_length=20, blank=True, null=True)
+    telegram_id = models.CharField(
+        max_length=64, blank=True, null=True, unique=True, db_index=True,
+        help_text='Telegram user id from Login / OIDC',
+    )
+    telegram_username = models.CharField(max_length=150, blank=True, null=True)
     is_active_account = models.BooleanField(default=False)  # Admin controls this
     # Optional: limit student access to a date range (admin sets from/until)
     account_active_from = models.DateField(null=True, blank=True, help_text='Student account active from this date (inclusive)')

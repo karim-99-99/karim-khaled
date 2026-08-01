@@ -39,7 +39,9 @@ const request = async (path, options = {}) => {
 
   // Don't add token for auth endpoints (login/register)
   const isAuthEndpoint =
-    path.includes("/auth/login/") || path.includes("/auth/register/");
+    path.includes("/auth/login/") ||
+    path.includes("/auth/register/") ||
+    path.includes("/auth/telegram/");
   if (!isAuthEndpoint) {
     const token = getToken();
     if (token) headers["Authorization"] = `Token ${token}`;
@@ -201,6 +203,23 @@ export const logout = async () => {
   } catch (_) {}
 };
 
+/** Public Telegram login config (client_id / bot username). */
+export const getTelegramAuthConfig = async () => {
+  try {
+    return await request("/auth/telegram/config/");
+  } catch {
+    return { enabled: false };
+  }
+};
+
+/** Sign in / sign up with Telegram OIDC id_token or classic widget payload. */
+export const loginWithTelegram = async (payload) => {
+  return request("/auth/telegram/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+};
+
 // ——— Users ———
 export const mapUserFromBackend = (u) => ({
   id: u.id,
@@ -210,6 +229,8 @@ export const mapUserFromBackend = (u) => ({
   first_name: u.first_name,
   last_name: u.last_name,
   phone: u.phone,
+  telegramId: u.telegram_id || null,
+  telegramUsername: u.telegram_username || null,
   role: u.role,
   isActive: u.is_active_account,
   accountActiveFrom: u.account_active_from || null,

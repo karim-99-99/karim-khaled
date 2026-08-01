@@ -8,6 +8,7 @@ import {
 import { register as backendRegister } from "../services/backendApi";
 import Header from "../components/Header";
 import ProfileAvatar from "../components/ProfileAvatar";
+import TelegramLoginButton from "../components/TelegramLoginButton";
 import backgroundImage from "../assets/kareem.jpg";
 import { isArabicBrowser } from "../utils/language";
 
@@ -286,6 +287,39 @@ const Register = () => {
                     : "Create Account"}
               </button>
             </form>
+          )}
+
+          {useBackend() && !success && (
+            <div className="mt-6 space-y-3">
+              <div className="relative flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-500">
+                  {isArabicBrowser() ? "أو سجّل عبر" : "or sign up with"}
+                </span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+              <TelegramLoginButton
+                disabled={loading}
+                onSuccess={() => {
+                  setSuccess(true);
+                  setError("");
+                  setTimeout(() => navigate("/login"), 2000);
+                }}
+                onError={(err) => {
+                  setError(
+                    err.message ||
+                      (isArabicBrowser()
+                        ? "فشل التسجيل عبر تيليجرام"
+                        : "Telegram sign-up failed")
+                  );
+                }}
+              />
+              <p className="text-xs text-gray-500 text-center">
+                {isArabicBrowser()
+                  ? "سيُطلب إذن مشاركة رقم الجوال من تيليجرام. الحساب يحتاج تفعيل الإدارة."
+                  : "Telegram will ask to share your phone number. Admin must activate the account."}
+              </p>
+            </div>
           )}
 
           <div className="mt-6 text-center">
