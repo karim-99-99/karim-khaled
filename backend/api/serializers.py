@@ -89,6 +89,18 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         new_role = validated_data.get('role', instance.role)
         if new_role == 'content_admin' and instance.role != 'content_admin':
             validated_data['is_active_account'] = True
+
+        # Turning Active ON should not leave an expired period that still blocks login
+        becoming_active = validated_data.get('is_active_account', instance.is_active_account)
+        if becoming_active:
+            from django.utils import timezone
+            today = timezone.now().date()
+            until = validated_data.get(
+                'account_active_until', instance.account_active_until
+            )
+            if until is not None and until < today:
+                validated_data['account_active_until'] = None
+
         return super().update(instance, validated_data)
 
 

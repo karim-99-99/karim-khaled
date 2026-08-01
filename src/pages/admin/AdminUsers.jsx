@@ -101,15 +101,36 @@ const AdminUsers = () => {
     setFilteredUsers(filtered);
   };
 
+  const isPeriodExpired = (user) => {
+    if (!user?.accountActiveUntil) return false;
+    const until = String(user.accountActiveUntil).slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    return until < today;
+  };
+
+  const isPeriodNotStarted = (user) => {
+    if (!user?.accountActiveFrom) return false;
+    const from = String(user.accountActiveFrom).slice(0, 10);
+    const today = new Date().toISOString().slice(0, 10);
+    return from > today;
+  };
+
   const handleToggleActive = async (userId) => {
     try {
       const user = users.find((u) => u.id === userId);
       if (!user) return;
 
+      const nextActive = !user.isActive;
+      // Activating: clear expired end-date so login is not blocked by old period
+      const updates = { isActive: nextActive };
+      if (nextActive && isPeriodExpired(user)) {
+        updates.accountActiveUntil = null;
+      }
+
       if (useBackend) {
-        await backendApi.updateUser(userId, { isActive: !user.isActive });
+        await backendApi.updateUser(userId, updates);
       } else {
-        updateUserLocal(userId, { isActive: !user.isActive });
+        updateUserLocal(userId, updates);
       }
       await loadUsers();
     } catch (error) {
@@ -322,13 +343,19 @@ const AdminUsers = () => {
     try {
       if (useBackend) {
         await backendApi.updateUser(selectedUser.id, {
+          isActive: true,
           permissions: merged,
           allowMultiDevice,
           accountActiveFrom: accountActiveFrom.trim() || null,
           accountActiveUntil: accountActiveUntil.trim() || null,
         });
       } else {
-        updateUserLocal(selectedUser.id, { permissions: merged });
+        updateUserLocal(selectedUser.id, {
+          isActive: true,
+          permissions: merged,
+          accountActiveFrom: accountActiveFrom.trim() || null,
+          accountActiveUntil: accountActiveUntil.trim() || null,
+        });
       }
       await loadUsers();
       handleClosePermissions();
@@ -510,6 +537,24 @@ const AdminUsers = () => {
                                   ? "غير مفعّل"
                                   : "Inactive"}
                             </span>
+                            {user.isActive && isPeriodExpired(user) && (
+                              <div className="mt-1">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900">
+                                  {isArabicBrowser()
+                                    ? "الفترة منتهية — لن يدخل"
+                                    : "Period expired — cannot login"}
+                                </span>
+                              </div>
+                            )}
+                            {user.isActive && isPeriodNotStarted(user) && (
+                              <div className="mt-1">
+                                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900">
+                                  {isArabicBrowser()
+                                    ? "الفترة لم تبدأ بعد"
+                                    : "Period not started yet"}
+                                </span>
+                              </div>
+                            )}
                             {(user.accountActiveFrom || user.accountActiveUntil) && (
                               <div className="text-xs text-gray-500 mt-1">
                                 {isArabicBrowser() ? "فترة:" : "Period:"}{" "}
@@ -880,8 +925,8 @@ const AdminUsers = () => {
                   </h3>
                   <p className="text-sm text-dark-500 mb-3">
                     {isArabicBrowser()
-                      ? "اختياري: حدد من تاريخ إلى تاريخ يكون فيها الحساب مفعّلاً. اتركهما فارغين لعدم التحديد."
-                      : "Optional: set a date range when the account is active. Leave empty for no limit."}
+                      ? "مهم: حتى لو الحالة «مفعّل»، إذا تاريخ «إلى» منتهٍ لن يستطيع الطالب الدخول. امسح التاريخين أو مدّد الفترة ثم احفظ."
+                      : "Important: even if status is Active, an expired “To” date blocks login. Clear both dates or extend the period, then save."}
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>

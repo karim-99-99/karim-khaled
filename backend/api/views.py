@@ -176,12 +176,20 @@ class LoginView(APIView):
             if user:
                 if not user.is_active_account and user.role == 'student':
                     return Response(
-                        {'error': 'Account is not active. Please contact administrator.'},
+                        {
+                            'error': 'Account is not active. Please contact administrator.',
+                            'code': 'account_inactive',
+                        },
                         status=status.HTTP_403_FORBIDDEN
                     )
                 if user.role == 'student' and not user.is_within_account_period():
                     return Response(
-                        {'error': 'Account access is not valid for the current period. Please contact administrator.'},
+                        {
+                            'error': 'Account access period has expired or has not started yet. Please contact administrator.',
+                            'code': 'account_period',
+                            'account_active_from': user.account_active_from,
+                            'account_active_until': user.account_active_until,
+                        },
                         status=status.HTTP_403_FORBIDDEN
                     )
                 if user.role == 'student' and not getattr(user, 'allow_multi_device', False):
@@ -191,7 +199,7 @@ class LoginView(APIView):
                         if ip.strip() != reg.strip():
                             return Response(
                                 {
-                                    'error': 'Access allowed only from your registered device. Contact administrator for multi-device access.',
+                                    'error': 'This account can only log in from one registered device. Contact the administrator to allow multi-device access.',
                                     'code': 'device_restricted',
                                 },
                                 status=status.HTTP_403_FORBIDDEN
@@ -1804,13 +1812,16 @@ class TrackerAdminStudentDetailView(APIView):
                 perf_items.append({'name': ch_name, 'progress': pct, 'avg': avg})
             perf.append({'subject': subj_name, 'items': perf_items})
 
+        # Admin detail: only lessons the student has actually attempted
+        attempted_items = [it for it in items if (it.get('attempt_count') or 0) > 0]
+
         return Response({
             'student': {
                 'user_id': student.id,
                 'username': student.username,
                 'first_name': student.first_name or student.username,
             },
-            'items': items,
+            'items': attempted_items,
             'chart_data': {
                 'by_subject': chart_by_subject,
                 'by_category': chart_by_category,

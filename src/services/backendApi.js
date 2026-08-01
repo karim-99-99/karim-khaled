@@ -108,10 +108,11 @@ const request = async (path, options = {}) => {
       `خطأ ${res.status}`;
     const e = new Error(msg);
     e.data = err;
-    if (
+    if (err.code) e.code = err.code;
+    else if (
       res.status === 403 &&
-      (err.code === "device_restricted" ||
-        (typeof msg === "string" && msg.includes("registered device")))
+      typeof msg === "string" &&
+      (msg.includes("registered device") || msg.includes("multi-device"))
     )
       e.code = "device_restricted";
     throw e;

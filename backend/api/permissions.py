@@ -6,8 +6,8 @@ from rest_framework.exceptions import PermissionDenied
 from .utils import get_client_ip
 
 DEVICE_RESTRICTED_MESSAGE = (
-    'Access allowed only from your registered device. '
-    'Contact administrator for multi-device access.'
+    'This account can only log in from one registered device. '
+    'Contact the administrator to allow multi-device access.'
 )
 
 

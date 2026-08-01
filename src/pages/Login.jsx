@@ -17,6 +17,7 @@ const Login = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [isAccountNotActive, setIsAccountNotActive] = useState(false);
+  const [isDeviceRestricted, setIsDeviceRestricted] = useState(false);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const useBackend = isBackendOn() || !!import.meta.env.VITE_API_URL;
@@ -25,6 +26,7 @@ const Login = () => {
     e.preventDefault();
     setError("");
     setIsAccountNotActive(false);
+    setIsDeviceRestricted(false);
 
     if (useBackend) {
       setLoading(true);
@@ -37,20 +39,48 @@ const Login = () => {
         else navigate(isContentStaff(mapped) ? "/admin/dashboard" : "/courses");
       } catch (err) {
         const msg = (err.message || "").toLowerCase();
-        const isInactive =
-          msg.includes("not active") ||
-          msg.includes("contact administrator") ||
-          msg.includes("غير مفعّل");
-        if (isInactive) {
+        // Device lock must be checked before "contact administrator" / inactive wording
+        if (
+          err.code === "device_restricted" ||
+          msg.includes("registered device") ||
+          msg.includes("multi-device")
+        ) {
+          setIsDeviceRestricted(true);
+          setError(
+            isArabicBrowser()
+              ? "الحساب مسموح له بالدخول من جهاز واحد فقط. أنت تحاول الدخول من جهاز أو شبكة مختلفة. تواصل مع الإدارة لتفعيل الدخول من أكثر من جهاز."
+              : "This account can only log in from one registered device. You are using a different device or network. Contact the admin to allow multi-device access."
+          );
+        } else if (err.code === "account_inactive" || msg.includes("not active")) {
           setIsAccountNotActive(true);
           setError(
             isArabicBrowser()
               ? "حسابك غير مفعّل. يرجى التواصل مع الإدارة لتفعيل الحساب."
               : "Your account is not active. Please contact administration to activate it."
           );
-        } else if (err.code === "device_restricted") {
+        } else if (
+          err.code === "account_period" ||
+          msg.includes("current period") ||
+          msg.includes("period has expired")
+        ) {
+          const until = err.data?.account_active_until;
+          const from = err.data?.account_active_from;
           setError(
-            "الوصول مسموح فقط من الجهاز الذي سجّلت منه. للوصول من أجهزة متعددة، تواصل مع المدير لتفعيل الصلاحية."
+            isArabicBrowser()
+              ? `فترة تفعيل الحساب غير سارية الآن${
+                  from || until
+                    ? ` (${from ? String(from).slice(0, 10) : "—"} → ${
+                        until ? String(until).slice(0, 10) : "—"
+                      })`
+                    : ""
+                }. تواصل مع الإدارة لتحديث الفترة.`
+              : `Account access period is not valid now${
+                  from || until
+                    ? ` (${from ? String(from).slice(0, 10) : "—"} → ${
+                        until ? String(until).slice(0, 10) : "—"
+                      })`
+                    : ""
+                }. Contact the admin to update the period.`
           );
         } else if (msg.includes("فشل الاتصال بالخادم")) {
           setError(
@@ -149,8 +179,8 @@ const Login = () => {
 
             {error && (
               <div className="bg-yellow-50 border border-yellow-300 text-dark-600 px-4 py-3 rounded-lg font-medium space-y-3">
-                <p>{error}</p>
-                {isAccountNotActive && (
+                <p className="whitespace-pre-line">{error}</p>
+                {(isAccountNotActive || isDeviceRestricted) && (
                   <a
                     href="https://wa.me/966502403757"
                     target="_blank"

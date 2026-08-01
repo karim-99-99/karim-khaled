@@ -734,7 +734,7 @@ const AdminTracker = () => {
   );
 };
 
-/** Two lists: (1) Passed exams with attempts + video watches, (2) Not attempted. Click lesson → open read-only quiz review. */
+/** Only quizzes the student has attempted. Click lesson → open read-only quiz review. */
 function StudentDetailContent({
   items,
   formatDuration,
@@ -742,10 +742,9 @@ function StudentDetailContent({
   attemptCount,
   onOpenLessonReview,
 }) {
-  const passed = (items || []).filter((it) => (it.attempt_count || 0) > 0);
-  const notAttempted = (items || []).filter((it) => (it.attempt_count || 0) === 0);
+  const attempted = (items || []).filter((it) => (it.attempt_count || 0) > 0);
 
-  const renderLessonRow = (it, showAttemptsAndVideo = true) => (
+  const renderLessonRow = (it) => (
     <div
       key={it.lesson_id}
       onClick={() => onOpenLessonReview(it.lesson_id)}
@@ -758,40 +757,38 @@ function StudentDetailContent({
           ({it.is_bank ? "بنك" : "درس"}) — {it.subject_name} / {it.category_name} / {it.chapter_name}
         </span>
       </div>
-      {showAttemptsAndVideo && (
-        <div className="flex flex-wrap items-center gap-4 md:gap-6 text-sm">
+      <div className="flex flex-wrap items-center gap-4 md:gap-6 text-sm">
+        <span>
+          <span className="text-gray-500">عدد المحاولات:</span>{" "}
+          <span className="font-bold text-green-600">{it.attempt_count}</span>
+        </span>
+        {(it.attempt_count || 0) > 1 && (
           <span>
-            <span className="text-gray-500">عدد المحاولات:</span>{" "}
-            <span className="font-bold text-green-600">{it.attempt_count}</span>
+            <span className="text-gray-500">إعادة الاختبار:</span>{" "}
+            <span className="font-bold text-amber-600">{(it.attempt_count || 0) - 1} مرة</span>
           </span>
-          {(it.attempt_count || 0) > 1 && (
-            <span>
-              <span className="text-gray-500">إعادة الاختبار:</span>{" "}
-              <span className="font-bold text-amber-600">{(it.attempt_count || 0) - 1} مرة</span>
-            </span>
-          )}
+        )}
+        <span>
+          <span className="text-gray-500">مشاهدة الفيديو:</span>{" "}
+          <span className="font-bold text-purple-600">{it.video_watch_count ?? 0}</span>
+        </span>
+        {it.last_score != null && (
           <span>
-            <span className="text-gray-500">مشاهدة الفيديو:</span>{" "}
-            <span className="font-bold text-purple-600">{it.video_watch_count ?? 0}</span>
-          </span>
-          {it.last_score != null && (
-            <span>
-              <span className="text-gray-500">آخر درجة:</span>{" "}
-              <span
-                className={`font-bold ${
-                  (it.last_score || 0) >= 80
-                    ? "text-green-600"
-                    : (it.last_score || 0) >= 60
-                    ? "text-amber-600"
-                    : "text-red-600"
-                }`}
-              >
-                {it.last_score}%
-              </span>
+            <span className="text-gray-500">آخر درجة:</span>{" "}
+            <span
+              className={`font-bold ${
+                (it.last_score || 0) >= 80
+                  ? "text-green-600"
+                  : (it.last_score || 0) >= 60
+                  ? "text-amber-600"
+                  : "text-red-600"
+              }`}
+            >
+              {it.last_score}%
             </span>
-          )}
-        </div>
-      )}
+          </span>
+        )}
+      </div>
       <span className="text-primary-600 font-medium text-sm">عرض إجابات الطالب ←</span>
     </div>
   );
@@ -809,41 +806,20 @@ function StudentDetailContent({
         </div>
       </div>
 
-      {/* قائمة الواجبات التي اجتازها الطالب */}
       <div className="border border-gray-200 rounded-xl overflow-hidden">
         <div className="bg-green-100 px-4 py-3 font-bold text-dark-700">
-          الواجبات التي اجتازها (عدد المحاولات + مرات إعادة الاختبار + مشاهدة الفيديو)
+          الواجبات التي اختبرها الطالب
         </div>
         <div className="divide-y divide-gray-100">
-          {passed.length === 0 ? (
+          {attempted.length === 0 ? (
             <div className="px-4 py-6 text-center text-gray-500">
-              لم يجتز أي واجب بعد
+              لم يختبر أي واجب بعد
             </div>
           ) : (
-            passed.map((it) => renderLessonRow(it, true))
+            attempted.map((it) => renderLessonRow(it))
           )}
         </div>
       </div>
-
-      {/* قائمة الواجبات التي لم يختبرها من قبل */}
-      <div className="border border-gray-200 rounded-xl overflow-hidden">
-        <div className="bg-gray-200 px-4 py-3 font-bold text-dark-700">
-          الواجبات التي لم يختبرها من قبل
-        </div>
-        <div className="divide-y divide-gray-100">
-          {notAttempted.length === 0 ? (
-            <div className="px-4 py-6 text-center text-gray-500">
-              لا يوجد — الطالب بدأ كل الواجبات
-            </div>
-          ) : (
-            notAttempted.map((it) => renderLessonRow(it, false))
-          )}
-        </div>
-      </div>
-
-      {items.length === 0 && (
-        <p className="text-center text-gray-500 py-8">لا توجد بيانات لهذا الطالب</p>
-      )}
     </div>
   );
 }
