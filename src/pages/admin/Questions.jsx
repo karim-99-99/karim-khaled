@@ -67,6 +67,8 @@ const Questions = () => {
   const [addingQuestionToPassage, setAddingQuestionToPassage] = useState(null);
   const [newPassageQuestionForm, setNewPassageQuestionForm] = useState({
     question: "",
+    videoStartSeconds: "",
+    videoEndSeconds: "",
     answers: [
       { id: "a", text: "", isCorrect: false },
       { id: "b", text: "", isCorrect: false },
@@ -83,6 +85,8 @@ const Questions = () => {
     questionEn: "",
     image: null, // base64 encoded image
     explanation: "", // Explanation for the correct answer
+    videoStartSeconds: "",
+    videoEndSeconds: "",
     answers: [
       { id: "a", text: "", isCorrect: false },
       { id: "b", text: "", isCorrect: false },
@@ -98,6 +102,8 @@ const Questions = () => {
       {
         id: `q_${Date.now()}_1`,
         question: "",
+        videoStartSeconds: "",
+        videoEndSeconds: "",
         answers: [
           { id: "a", text: "", isCorrect: false },
           { id: "b", text: "", isCorrect: false },
@@ -794,6 +800,8 @@ const Questions = () => {
       questionEn: "",
       image: null,
       explanation: "",
+      videoStartSeconds: "",
+      videoEndSeconds: "",
       answers: [
         { id: "a", text: "", isCorrect: false },
         { id: "b", text: "", isCorrect: false },
@@ -827,6 +835,8 @@ const Questions = () => {
     const newQuestion = {
       id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       question: "",
+      videoStartSeconds: "",
+      videoEndSeconds: "",
       answers: [
         { id: "a", text: "", isCorrect: false },
         { id: "b", text: "", isCorrect: false },
@@ -1045,12 +1055,17 @@ const Questions = () => {
     const newQ = {
       id: `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       question: q.question,
+      videoStartSeconds: q.videoStartSeconds ?? "",
+      videoEndSeconds: q.videoEndSeconds ?? "",
       answers: q.answers,
     };
     const updatedQuestions = [...existingQuestions, newQ];
     const passageText = (addingQuestionToPassage.passageText || "").trim();
     const questionsAr = updatedQuestions.map((qq) => ({
+      id: qq.id,
       question: convertPlainTextNumbersToArabic(qq.question) ?? qq.question,
+      videoStartSeconds: qq.videoStartSeconds ?? "",
+      videoEndSeconds: qq.videoEndSeconds ?? "",
       answers: (qq.answers || []).map((a) => ({
         id: a.id,
         text: convertPlainTextNumbersToArabic(a.text) ?? a.text,
@@ -1092,18 +1107,30 @@ const Questions = () => {
     setEditingPassage(passage);
     setPassageFormData({
       passageText: passage.passageText || "",
-      questions: passage.questions || [
-        {
-          id: `q_${Date.now()}_1`,
-          question: "",
-          answers: [
-            { id: "a", text: "", isCorrect: false },
-            { id: "b", text: "", isCorrect: false },
-            { id: "c", text: "", isCorrect: false },
-            { id: "d", text: "", isCorrect: false },
-          ],
-        },
-      ],
+      questions: (passage.questions || []).map((q, idx) => ({
+        id: q.id || `q_${Date.now()}_${idx}`,
+        question: q.question || "",
+        videoStartSeconds:
+          q.videoStartSeconds != null && q.videoStartSeconds !== ""
+            ? String(q.videoStartSeconds)
+            : "",
+        videoEndSeconds:
+          q.videoEndSeconds != null && q.videoEndSeconds !== ""
+            ? String(q.videoEndSeconds)
+            : "",
+        answers: q.answers
+          ? q.answers.map((ans) => ({
+              id: ans.id,
+              text: ans.text || "",
+              isCorrect: !!ans.isCorrect,
+            }))
+          : [
+              { id: "a", text: "", isCorrect: false },
+              { id: "b", text: "", isCorrect: false },
+              { id: "c", text: "", isCorrect: false },
+              { id: "d", text: "", isCorrect: false },
+            ],
+      })),
     });
     setShowPassageForm(true);
   };
@@ -1138,6 +1165,14 @@ const Questions = () => {
         imageScale: question.imageScale || 100,
         imageAlign: question.imageAlign || "center",
         explanation: question.explanation || "",
+        videoStartSeconds:
+          question.videoStartSeconds != null && question.videoStartSeconds !== ""
+            ? String(question.videoStartSeconds)
+            : "",
+        videoEndSeconds:
+          question.videoEndSeconds != null && question.videoEndSeconds !== ""
+            ? String(question.videoEndSeconds)
+            : "",
         answers: question.answers
           ? question.answers.map((ans) => ({
               id: ans.id,
@@ -1281,6 +1316,8 @@ const Questions = () => {
               question: questionAr,
               questionEn: formData.questionEn,
               explanation: formData.explanation,
+              videoStartSeconds: formData.videoStartSeconds,
+              videoEndSeconds: formData.videoEndSeconds,
               answers: formData.answers,
             },
             questionImage || null
@@ -1292,6 +1329,8 @@ const Questions = () => {
               question: questionAr,
               questionEn: formData.questionEn,
               explanation: formData.explanation,
+              videoStartSeconds: formData.videoStartSeconds,
+              videoEndSeconds: formData.videoEndSeconds,
               answers: formData.answers,
             },
             questionImage || null
@@ -1316,6 +1355,8 @@ const Questions = () => {
         questionEn: "",
         image: null,
         explanation: "",
+        videoStartSeconds: "",
+        videoEndSeconds: "",
         answers: [
           { id: "a", text: "", isCorrect: false },
           { id: "b", text: "", isCorrect: false },
@@ -1793,6 +1834,48 @@ const Questions = () => {
                           placeholder="اكتب السؤال هنا..."
                         /></Suspense></ErrorBoundary>
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          بداية الشرح (ثواني)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={newPassageQuestionForm.videoStartSeconds ?? ""}
+                          onChange={(e) =>
+                            setNewPassageQuestionForm({
+                              ...newPassageQuestionForm,
+                              videoStartSeconds: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          placeholder="181"
+                          dir="ltr"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          نهاية الشرح (ثواني)
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={newPassageQuestionForm.videoEndSeconds ?? ""}
+                          onChange={(e) =>
+                            setNewPassageQuestionForm({
+                              ...newPassageQuestionForm,
+                              videoEndSeconds: e.target.value,
+                            })
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                          placeholder="260"
+                          dir="ltr"
+                        />
+                      </div>
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-dark-600 mb-2">
                         الاختيارات (اختر الإجابة الصحيحة)
@@ -1989,6 +2072,54 @@ const Questions = () => {
                                       qIndex + 1
                                     } هنا...`}
                                   /></Suspense></ErrorBoundary>
+                              </div>
+
+                              <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    بداية الشرح في الفيديو (ثواني)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={q.videoStartSeconds ?? ""}
+                                    onChange={(e) =>
+                                      handlePassageQuestionChange(
+                                        q.id,
+                                        "videoStartSeconds",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    placeholder="مثال: 181"
+                                    dir="ltr"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                                    نهاية الشرح (ثواني، اختياري)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    value={q.videoEndSeconds ?? ""}
+                                    onChange={(e) =>
+                                      handlePassageQuestionChange(
+                                        q.id,
+                                        "videoEndSeconds",
+                                        e.target.value
+                                      )
+                                    }
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                    placeholder="مثال: 260"
+                                    dir="ltr"
+                                  />
+                                </div>
+                                <p className="sm:col-span-2 text-xs text-gray-500">
+                                  الأوقات نسبة لفيديو الدرس على Bunny. اتركها فارغة إذا لا يوجد مقطع.
+                                </p>
                               </div>
 
                               {/* Answers */}
@@ -2284,6 +2415,52 @@ const Questions = () => {
                             }
                             placeholder="اكتب شرح الإجابة الصحيحة هنا..."
                           /></Suspense></ErrorBoundary>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-dark-600 mb-1">
+                            بداية الشرح في الفيديو (ثواني)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={formData.videoStartSeconds ?? ""}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                videoStartSeconds: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            placeholder="مثال: 181"
+                            dir="ltr"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-dark-600 mb-1">
+                            نهاية الشرح (ثواني، اختياري)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={formData.videoEndSeconds ?? ""}
+                            onChange={(e) =>
+                              setFormData({
+                                ...formData,
+                                videoEndSeconds: e.target.value,
+                              })
+                            }
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            placeholder="مثال: 260"
+                            dir="ltr"
+                          />
+                        </div>
+                        <p className="sm:col-span-2 text-xs text-gray-500">
+                          عند الضغط على «شاهد شرح هذا السؤال» يبدأ فيديو الدرس من البداية ويتوقف عند النهاية إن وُجدت.
+                        </p>
                       </div>
 
                       <div className="mt-6">

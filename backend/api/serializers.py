@@ -160,7 +160,8 @@ class QuestionSerializer(serializers.ModelSerializer):
         model = Question
         fields = ['id', 'lesson', 'chapter', 'category', 'subject', 'section',
                   'question_type', 'question', 'question_en', 'question_image', 'question_image_url',
-                  'explanation', 'answers', 'passage_text', 'passage_questions',
+                  'explanation', 'video_start_seconds', 'video_end_seconds',
+                  'answers', 'passage_text', 'passage_questions',
                   'order_index', 'created_at', 'updated_at', 'created_by']
         read_only_fields = ['created_at', 'updated_at', 'created_by']
 
@@ -182,7 +183,8 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = ['id', 'lesson', 'question_type', 'question', 'question_en', 'question_image',
-                  'explanation', 'answers', 'passage_text', 'passage_questions', 'order_index']
+                  'explanation', 'video_start_seconds', 'video_end_seconds',
+                  'answers', 'passage_text', 'passage_questions', 'order_index']
         read_only_fields = ['id']
         extra_kwargs = {'question': {'required': False}}
 
@@ -191,6 +193,14 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
         # (avoids "مطلوب للسؤال العادي" when request has extra keys or proxy adds fields)
         if self.partial and 'order_index' in attrs and 'question' not in attrs and 'answers' not in attrs:
             return attrs
+
+        start = attrs.get('video_start_seconds', getattr(self.instance, 'video_start_seconds', None) if self.instance else None)
+        end = attrs.get('video_end_seconds', getattr(self.instance, 'video_end_seconds', None) if self.instance else None)
+        if 'video_start_seconds' in attrs or 'video_end_seconds' in attrs:
+            if start is not None and end is not None and end <= start:
+                raise serializers.ValidationError({
+                    'video_end_seconds': 'يجب أن تكون نهاية الشرح بعد بداية الشرح.',
+                })
         
         # Get question_type from attrs or existing instance
         qtype = attrs.get('question_type')

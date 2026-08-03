@@ -182,6 +182,15 @@ class Question(models.Model):
     question_en = models.TextField(blank=True, null=True)
     question_image = models.ImageField(upload_to='questions/', blank=True, null=True)
     explanation = models.TextField(blank=True, null=True)  # Explanation for correct answer
+    # Optional: seek lesson Bunny/HTML5 video to this segment when student watches explanation
+    video_start_seconds = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Start of video explanation for this question (seconds)',
+    )
+    video_end_seconds = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Optional pause time for video explanation (seconds)',
+    )
 
     passage_text = models.TextField(blank=True, null=True)
     passage_questions = models.JSONField(default=list, blank=True)  # [{"question":"...","answers":[...]}]

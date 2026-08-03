@@ -71,6 +71,18 @@ function flattenQuestionsForQuiz(raw) {
           question: combined,
           questionEn: null,
           explanation: pq.explanation || null,
+          videoStartSeconds:
+            pq.videoStartSeconds != null
+              ? Number(pq.videoStartSeconds)
+              : pq.video_start_seconds != null
+                ? Number(pq.video_start_seconds)
+                : null,
+          videoEndSeconds:
+            pq.videoEndSeconds != null
+              ? Number(pq.videoEndSeconds)
+              : pq.video_end_seconds != null
+                ? Number(pq.video_end_seconds)
+                : null,
           image: null,
           answers,
           itemId: q.itemId,
@@ -98,6 +110,10 @@ const Quiz = () => {
   const [answers, setAnswers] = useState({});
   const [showVideo, setShowVideo] = useState(false);
   const [video, setVideo] = useState(null);
+  const [videoSegment, setVideoSegment] = useState({
+    startSeconds: null,
+    endSeconds: null,
+  });
   const [showSidebar, setShowSidebar] = useState(false);
 
   useEffect(() => {
@@ -774,10 +790,26 @@ const Quiz = () => {
               </div>
 
               <div className="bg-white rounded-xl shadow-lg p-6 mb-4 border-t-4 border-primary-500">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
                   <h1 className="text-lg md:text-xl lg:text-2xl font-bold text-dark-600">
                     {level?.name || "المستوى"}
                   </h1>
+                  {video && (video.url || video.id) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVideoSegment({
+                          startSeconds: null,
+                          endSeconds: null,
+                        });
+                        setShowVideo(true);
+                      }}
+                      className="bg-primary-500 text-white px-4 py-2 rounded-lg hover:bg-primary-600 transition flex items-center gap-2 font-medium"
+                    >
+                      🎥{" "}
+                      {isArabicBrowser() ? "مشاهدة الفيديو" : "Watch video"}
+                    </button>
+                  )}
                 </div>
                 <ProgressBar
                   current={currentIndex + 1}
@@ -894,6 +926,38 @@ const Quiz = () => {
                   </div>
                 </div>
               )}
+
+              {video &&
+                (video.url || video.id) &&
+                currentQuestion?.videoStartSeconds != null &&
+                !Number.isNaN(Number(currentQuestion.videoStartSeconds)) && (
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setVideoSegment({
+                          startSeconds: Number(
+                            currentQuestion.videoStartSeconds
+                          ),
+                          endSeconds:
+                            currentQuestion.videoEndSeconds != null &&
+                            !Number.isNaN(
+                              Number(currentQuestion.videoEndSeconds)
+                            )
+                              ? Number(currentQuestion.videoEndSeconds)
+                              : null,
+                        });
+                        setShowVideo(true);
+                      }}
+                      className="w-full sm:w-auto bg-[#229ED9] text-white px-5 py-3 rounded-lg hover:opacity-90 transition font-semibold flex items-center justify-center gap-2"
+                    >
+                      🎥{" "}
+                      {isArabicBrowser()
+                        ? "شاهد شرح هذا السؤال"
+                        : "Watch this question’s explanation"}
+                    </button>
+                  </div>
+                )}
             </div>
 
             {/* Navigation */}
@@ -937,12 +1001,23 @@ const Quiz = () => {
       {/* Video Modal */}
       <VideoModal
         isOpen={showVideo}
-        onClose={() => setShowVideo(false)}
+        onClose={() => {
+          setShowVideo(false);
+          setVideoSegment({ startSeconds: null, endSeconds: null });
+        }}
         videoUrl={video?.url || ""}
-        title={video?.title || "فيديو تعليمي"}
+        title={
+          videoSegment.startSeconds != null
+            ? isArabicBrowser()
+              ? "شرح السؤال"
+              : "Question explanation"
+            : video?.title || "فيديو تعليمي"
+        }
         lessonId={actualItemId}
         videoId={video?.id}
         bunnyLibraryId={video?.bunnyLibraryId || null}
+        startSeconds={videoSegment.startSeconds}
+        endSeconds={videoSegment.endSeconds}
       />
     </div>
   );

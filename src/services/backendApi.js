@@ -705,6 +705,18 @@ const mapQuestionFromBackend = (q) => {
             `passage_${q.id}_${idx}_${Math.random().toString(36).substr(2, 6)}`,
           question: pq.question || "",
           explanation: pq.explanation || null,
+          videoStartSeconds:
+            pq.video_start_seconds != null
+              ? Number(pq.video_start_seconds)
+              : pq.videoStartSeconds != null
+                ? Number(pq.videoStartSeconds)
+                : null,
+          videoEndSeconds:
+            pq.video_end_seconds != null
+              ? Number(pq.video_end_seconds)
+              : pq.videoEndSeconds != null
+                ? Number(pq.videoEndSeconds)
+                : null,
           answers: (Array.isArray(pq.answers) ? pq.answers : []).map(
             (a, ai) => {
               const aid = (a.answer_id ?? a.id ?? "abcd"[ai])
@@ -730,6 +742,10 @@ const mapQuestionFromBackend = (q) => {
       question: q.question || "",
       questionEn: q.question_en || "",
       explanation: q.explanation || "",
+      videoStartSeconds:
+        q.video_start_seconds != null ? Number(q.video_start_seconds) : null,
+      videoEndSeconds:
+        q.video_end_seconds != null ? Number(q.video_end_seconds) : null,
       image: q.question_image_url || q.question_image || null,
       imageScale: imageScale,
       imageAlign: imageAlign,
@@ -845,7 +861,7 @@ export const getQuestionById = async (questionId) => {
 
 export const addQuestion = async (
   lessonId,
-  { question, questionEn, explanation, answers },
+  { question, questionEn, explanation, answers, videoStartSeconds, videoEndSeconds },
   questionImageFile = null
 ) => {
   const body = {
@@ -853,6 +869,14 @@ export const addQuestion = async (
     question: question || "",
     question_en: questionEn || "",
     explanation: explanation?.trim() || null, // Optional field - send null if empty
+    video_start_seconds:
+      videoStartSeconds === "" || videoStartSeconds == null
+        ? null
+        : Number(videoStartSeconds),
+    video_end_seconds:
+      videoEndSeconds === "" || videoEndSeconds == null
+        ? null
+        : Number(videoEndSeconds),
     answers: (answers || []).map((a) => ({
       answer_id: (a.id || a.key || "a").toString().toLowerCase().slice(0, 1),
       text: a.text || "",
@@ -878,7 +902,7 @@ export const addQuestion = async (
 
 export const updateQuestion = async (
   questionId,
-  { question, questionEn, explanation, answers, orderIndex },
+  { question, questionEn, explanation, answers, orderIndex, videoStartSeconds, videoEndSeconds },
   questionImageFile = null
 ) => {
   const body = {
@@ -891,6 +915,18 @@ export const updateQuestion = async (
       is_correct: !!a.isCorrect,
     })),
   };
+  if (videoStartSeconds !== undefined) {
+    body.video_start_seconds =
+      videoStartSeconds === "" || videoStartSeconds == null
+        ? null
+        : Number(videoStartSeconds);
+  }
+  if (videoEndSeconds !== undefined) {
+    body.video_end_seconds =
+      videoEndSeconds === "" || videoEndSeconds == null
+        ? null
+        : Number(videoEndSeconds);
+  }
   if (orderIndex != null) {
     body.order_index = orderIndex;
   }
@@ -963,7 +999,17 @@ export const addPassage = async (lessonId, { passageText, questions }) => {
     answers: [],
     passage_text: passageText || "",
     passage_questions: (questions || []).map((q) => ({
+      id: q.id || undefined,
       question: q.question || "",
+      explanation: q.explanation || null,
+      video_start_seconds:
+        q.videoStartSeconds === "" || q.videoStartSeconds == null
+          ? null
+          : Number(q.videoStartSeconds),
+      video_end_seconds:
+        q.videoEndSeconds === "" || q.videoEndSeconds == null
+          ? null
+          : Number(q.videoEndSeconds),
       answers: (q.answers || []).map((a) => ({
         answer_id: (a.id || "a").toString().toLowerCase().slice(0, 1),
         text: a.text || "",
@@ -987,7 +1033,17 @@ export const updatePassage = async (passageId, { passageText, questions }) => {
     answers: [],
     passage_text: passageText || "",
     passage_questions: (questions || []).map((q) => ({
+      id: q.id || undefined,
       question: q.question || "",
+      explanation: q.explanation || null,
+      video_start_seconds:
+        q.videoStartSeconds === "" || q.videoStartSeconds == null
+          ? null
+          : Number(q.videoStartSeconds),
+      video_end_seconds:
+        q.videoEndSeconds === "" || q.videoEndSeconds == null
+          ? null
+          : Number(q.videoEndSeconds),
       answers: (q.answers || []).map((a) => ({
         answer_id: (a.id || "a").toString().toLowerCase().slice(0, 1),
         text: a.text || "",
