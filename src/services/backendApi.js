@@ -4,6 +4,8 @@
  * to sync chapters, lessons, questions, videos, and files with the backend.
  */
 
+import { parseVideoTimestamp } from "../utils/videoTimestamp";
+
 const getBase = () => {
   const url = import.meta.env.VITE_API_URL;
   if (!url || typeof url !== "string") return "";
@@ -869,14 +871,14 @@ export const addQuestion = async (
     question: question || "",
     question_en: questionEn || "",
     explanation: explanation?.trim() || null, // Optional field - send null if empty
-    video_start_seconds:
-      videoStartSeconds === "" || videoStartSeconds == null
-        ? null
-        : Number(videoStartSeconds),
-    video_end_seconds:
-      videoEndSeconds === "" || videoEndSeconds == null
-        ? null
-        : Number(videoEndSeconds),
+    video_start_seconds: (() => {
+      const n = parseVideoTimestamp(videoStartSeconds);
+      return n;
+    })(),
+    video_end_seconds: (() => {
+      const n = parseVideoTimestamp(videoEndSeconds);
+      return n;
+    })(),
     answers: (answers || []).map((a) => ({
       answer_id: (a.id || a.key || "a").toString().toLowerCase().slice(0, 1),
       text: a.text || "",
@@ -916,16 +918,10 @@ export const updateQuestion = async (
     })),
   };
   if (videoStartSeconds !== undefined) {
-    body.video_start_seconds =
-      videoStartSeconds === "" || videoStartSeconds == null
-        ? null
-        : Number(videoStartSeconds);
+    body.video_start_seconds = parseVideoTimestamp(videoStartSeconds);
   }
   if (videoEndSeconds !== undefined) {
-    body.video_end_seconds =
-      videoEndSeconds === "" || videoEndSeconds == null
-        ? null
-        : Number(videoEndSeconds);
+    body.video_end_seconds = parseVideoTimestamp(videoEndSeconds);
   }
   if (orderIndex != null) {
     body.order_index = orderIndex;
@@ -1002,14 +998,8 @@ export const addPassage = async (lessonId, { passageText, questions }) => {
       id: q.id || undefined,
       question: q.question || "",
       explanation: q.explanation || null,
-      video_start_seconds:
-        q.videoStartSeconds === "" || q.videoStartSeconds == null
-          ? null
-          : Number(q.videoStartSeconds),
-      video_end_seconds:
-        q.videoEndSeconds === "" || q.videoEndSeconds == null
-          ? null
-          : Number(q.videoEndSeconds),
+      video_start_seconds: parseVideoTimestamp(q.videoStartSeconds),
+      video_end_seconds: parseVideoTimestamp(q.videoEndSeconds),
       answers: (q.answers || []).map((a) => ({
         answer_id: (a.id || "a").toString().toLowerCase().slice(0, 1),
         text: a.text || "",
@@ -1036,14 +1026,8 @@ export const updatePassage = async (passageId, { passageText, questions }) => {
       id: q.id || undefined,
       question: q.question || "",
       explanation: q.explanation || null,
-      video_start_seconds:
-        q.videoStartSeconds === "" || q.videoStartSeconds == null
-          ? null
-          : Number(q.videoStartSeconds),
-      video_end_seconds:
-        q.videoEndSeconds === "" || q.videoEndSeconds == null
-          ? null
-          : Number(q.videoEndSeconds),
+      video_start_seconds: parseVideoTimestamp(q.videoStartSeconds),
+      video_end_seconds: parseVideoTimestamp(q.videoEndSeconds),
       answers: (q.answers || []).map((a) => ({
         answer_id: (a.id || "a").toString().toLowerCase().slice(0, 1),
         text: a.text || "",

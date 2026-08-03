@@ -19,6 +19,7 @@ import {
 import { getCurrentUser } from "../services/storageService";
 import { isContentStaff } from "../utils/roles";
 import VideoWatermark from "./VideoWatermark";
+import { formatVideoTimestamp } from "../utils/videoTimestamp";
 
 const PLAYERJS_SRC =
   "https://assets.mediadelivery.net/playerjs/player-0.1.0.min.js";
@@ -299,11 +300,11 @@ const VideoModal = ({
           {start != null && (
             <p className="text-sm text-gray-600 mb-2 text-center">
               {isArabicBrowser()
-                ? `شرح السؤال من الثانية ${start}${
-                    end != null ? ` إلى ${end}` : ""
+                ? `شرح السؤال من ${formatVideoTimestamp(start)}${
+                    end != null ? ` إلى ${formatVideoTimestamp(end)}` : ""
                   }`
-                : `Explanation from ${start}s${
-                    end != null ? ` to ${end}s` : ""
+                : `Explanation from ${formatVideoTimestamp(start)}${
+                    end != null ? ` to ${formatVideoTimestamp(end)}` : ""
                   }`}
             </p>
           )}
