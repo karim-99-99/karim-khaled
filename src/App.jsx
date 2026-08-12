@@ -29,6 +29,7 @@ const Result = lazy(() => import("./pages/Result.jsx"));
 const Video = lazy(() => import("./pages/Video.jsx"));
 const FileViewer = lazy(() => import("./pages/FileViewer.jsx"));
 const TestMathType = lazy(() => import("./pages/TestMathType.jsx"));
+const TigerTest = lazy(() => import("./pages/TigerTest.jsx"));
 const Foundation = lazy(() => import("./pages/Foundation.jsx"));
 
 // Lazy load admin pages
@@ -209,6 +210,16 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Quiz />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Tiger Test — محاكي اختبار النمر */}
+                <Route
+                  path="/tiger-test"
+                  element={
+                    <ProtectedRoute>
+                      <TigerTest />
                     </ProtectedRoute>
                   }
                 />

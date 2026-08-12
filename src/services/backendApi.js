@@ -1558,3 +1558,65 @@ export const removeIncorrectAnswer = async (questionId) => {
     { method: "DELETE" }
   );
 };
+
+/** Tiger Test (محاكي اختبار النمر) */
+export const getTigerTestActive = async () => {
+  const data = await request("/tiger-test/active/");
+  return data?.session ?? null;
+};
+
+export const startTigerTest = async (options = {}) => {
+  const data = await request("/tiger-test/start/", {
+    method: "POST",
+    body: JSON.stringify({
+      force: !!options.force,
+      restart: !!options.restart,
+    }),
+  });
+  return data?.session ?? null;
+};
+
+export const abandonTigerTest = async () => {
+  return request("/tiger-test/abandon/", { method: "POST" });
+};
+
+export const getTigerTestSession = async (sessionId) => {
+  const data = await request(`/tiger-test/${encodeURIComponent(sessionId)}/`);
+  return data?.session ?? null;
+};
+
+export const syncTigerTestSession = async (sessionId, payload) => {
+  const data = await request(`/tiger-test/${encodeURIComponent(sessionId)}/`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  return data?.session ?? null;
+};
+
+export const saveTigerTestAnswer = async (sessionId, body) => {
+  const data = await request(
+    `/tiger-test/${encodeURIComponent(sessionId)}/answer/`,
+    { method: "POST", body: JSON.stringify(body) }
+  );
+  return data?.session ?? null;
+};
+
+export const endTigerTestSection = async (sessionId) => {
+  const data = await request(
+    `/tiger-test/${encodeURIComponent(sessionId)}/end-section/`,
+    { method: "POST" }
+  );
+  return data?.session ?? null;
+};
+
+export const nextTigerTestSection = async (sessionId) => {
+  const data = await request(
+    `/tiger-test/${encodeURIComponent(sessionId)}/next-section/`,
+    { method: "POST" }
+  );
+  return data?.session ?? null;
+};
+
+export const getTigerTestResults = async (sessionId) => {
+  return request(`/tiger-test/${encodeURIComponent(sessionId)}/results/`);
+};

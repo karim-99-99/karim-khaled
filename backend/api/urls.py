@@ -1,6 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
+from . import tiger_test_views
 
 router = DefaultRouter()
 router.register(r'users', views.UserViewSet, basename='user')
@@ -44,4 +45,12 @@ urlpatterns = [
     path('tracker/incorrect-answers/<str:question_id>/', views.IncorrectAnswerDetailView.as_view(), name='incorrect-answers-detail'),
     path('tracker/admin-incorrect-answers/', views.AdminIncorrectAnswersView.as_view(), name='tracker-admin-incorrect-answers'),
     path('tracker/by-lesson/', views.TrackerByLessonView.as_view(), name='tracker-by-lesson'),
+    path('tiger-test/active/', tiger_test_views.TigerTestActiveView.as_view(), name='tiger-test-active'),
+    path('tiger-test/start/', tiger_test_views.TigerTestStartView.as_view(), name='tiger-test-start'),
+    path('tiger-test/abandon/', tiger_test_views.TigerTestAbandonView.as_view(), name='tiger-test-abandon'),
+    path('tiger-test/<uuid:session_id>/', tiger_test_views.TigerTestSessionView.as_view(), name='tiger-test-session'),
+    path('tiger-test/<uuid:session_id>/answer/', tiger_test_views.TigerTestAnswerView.as_view(), name='tiger-test-answer'),
+    path('tiger-test/<uuid:session_id>/end-section/', tiger_test_views.TigerTestEndSectionView.as_view(), name='tiger-test-end-section'),
+    path('tiger-test/<uuid:session_id>/next-section/', tiger_test_views.TigerTestNextSectionView.as_view(), name='tiger-test-next-section'),
+    path('tiger-test/<uuid:session_id>/results/', tiger_test_views.TigerTestResultsView.as_view(), name='tiger-test-results'),
 ]

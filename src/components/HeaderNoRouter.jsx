@@ -85,6 +85,15 @@ const HeaderNoRouter = ({
             >
               الدورات
             </button>
+            {currentUser && (
+              <Link
+                to="/tiger-test"
+                className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                اختبار النمر
+              </Link>
+            )}
             {/* <Link
               to="/foundation"
               className="px-4 py-2 rounded-full transition-colors font-medium bg-transparent text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
@@ -137,6 +146,16 @@ const HeaderNoRouter = ({
 
                 {isUserMenuOpen && (
                   <div className="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
+                    <Link
+                      to="/profile"
+                      className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors font-medium"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      الملف الشخصي
+                    </Link>
                     <button
                       onClick={() => {
                         handleNavClick("landing");
@@ -157,6 +176,16 @@ const HeaderNoRouter = ({
                       الدورات
                     </Link>
                     <Link
+                      to="/tiger-test"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      اختبار النمر
+                    </Link>
+                    <Link
                       to="/foundation"
                       className="hidden block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                       onClick={() => {
@@ -165,16 +194,6 @@ const HeaderNoRouter = ({
                       }}
                     >
                       الدورات المجانية
-                    </Link>
-                    <Link
-                      to="/profile"
-                      className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors font-medium"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsMenuOpen(false);
-                      }}
-                    >
-                      الملف الشخصي
                     </Link>
                     {currentUser?.role === "student" && (
                       <>
@@ -251,6 +270,16 @@ const HeaderNoRouter = ({
                           }}
                         >
                           إدارة الواجب
+                        </Link>
+                        <Link
+                          to="/admin/videos"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          إدارة الفيديوهات
                         </Link>
                         {isFullAdmin(currentUser) && (
                           <>
@@ -371,6 +400,16 @@ const HeaderNoRouter = ({
                         الدورات
                       </Link>
                       <Link
+                        to="/tiger-test"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        اختبار النمر
+                      </Link>
+                      <Link
                         to="/foundation"
                         className="hidden block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                         onClick={() => {
@@ -380,6 +419,26 @@ const HeaderNoRouter = ({
                       >
                         الدورات المجانية
                       </Link>
+                      <button
+                        onClick={() => {
+                          handleNavClick("about");
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      >
+                        من نحن
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleNavClick("contact");
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
+                      >
+                        تواصل معنا
+                      </button>
                       <Link
                         to="/profile"
                         className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right font-medium"
@@ -425,26 +484,6 @@ const HeaderNoRouter = ({
                           </button>
                         </>
                       )}
-                      <button
-                        onClick={() => {
-                          handleNavClick("about");
-                          setIsUserMenuOpen(false);
-                          setIsMenuOpen(false);
-                        }}
-                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
-                      >
-                        من نحن
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleNavClick("contact");
-                          setIsUserMenuOpen(false);
-                          setIsMenuOpen(false);
-                        }}
-                        className="block w-full text-right px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors"
-                      >
-                        تواصل معنا
-                      </button>
                       {isContentStaff(currentUser) && (
                         <>
                           <div className="border-t border-gray-200" />
@@ -467,6 +506,16 @@ const HeaderNoRouter = ({
                             }}
                           >
                             إدارة الواجب
+                          </Link>
+                          <Link
+                            to="/admin/videos"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            إدارة الفيديوهات
                           </Link>
                           {isFullAdmin(currentUser) && (
                             <>

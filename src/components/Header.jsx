@@ -84,6 +84,19 @@ const Header = () => {
             >
               الدورات
             </Link>
+            {currentUser && (
+              <Link
+                to="/tiger-test"
+                className={`px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
+                  location.pathname === "/tiger-test"
+                    ? "text-primary-500 border-2 border-primary-500"
+                    : "text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
+                }`}
+                onClick={() => setIsMenuOpen(false)}
+              >
+                اختبار النمر
+              </Link>
+            )}
             <Link
               to="/foundation"
               className={`hidden px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
@@ -180,6 +193,16 @@ const Header = () => {
                       }}
                     >
                       الدورات
+                    </Link>
+                    <Link
+                      to="/tiger-test"
+                      className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      اختبار النمر
                     </Link>
                     <Link
                       to="/foundation"
@@ -397,6 +420,16 @@ const Header = () => {
                         }}
                       >
                         الدورات
+                      </Link>
+                      <Link
+                        to="/tiger-test"
+                        className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsMenuOpen(false);
+                        }}
+                      >
+                        اختبار النمر
                       </Link>
                       <Link
                         to="/foundation"

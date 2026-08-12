@@ -1,0 +1,544 @@
+/* Tiger Test — محاكي اختبار النمر (matches reference UI) */
+
+.tiger-test-root {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: #eef1f4;
+  font-family: inherit;
+  overflow: hidden;
+}
+
+.tiger-test-header {
+  background: #008080;
+  color: #fff;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tiger-test-header span {
+  white-space: nowrap;
+}
+
+.tiger-test-footer-bar {
+  background: #008080;
+  color: #fff;
+  text-align: center;
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.tiger-test-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tiger-test-sidebar {
+  width: 280px;
+  min-width: 280px;
+  background: #e8ebef;
+  border-left: 1px solid #d0d5dc;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 12px;
+  gap: 12px;
+}
+
+.tiger-test-timer-box {
+  background: #fff;
+  border: 1px solid #d0d5dc;
+  border-radius: 4px;
+  padding: 12px;
+  text-align: center;
+}
+
+.tiger-test-timer-label {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.tiger-test-timer-digits {
+  font-size: 32px;
+  font-weight: 700;
+  color: #222;
+  letter-spacing: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tiger-test-user-box {
+  background: #fff;
+  border: 1px solid #d0d5dc;
+  border-radius: 4px;
+  padding: 12px;
+  text-align: center;
+}
+
+.tiger-test-user-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #ddd;
+  margin: 0 auto 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: #888;
+}
+
+.tiger-test-user-box p {
+  margin: 2px 0;
+  font-size: 13px;
+  color: #333;
+}
+
+.tiger-test-stats-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.tiger-test-stat-badge {
+  padding: 4px 10px;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: 600;
+}
+
+.tiger-test-stat-blue {
+  background: #007bff;
+}
+
+.tiger-test-stat-green {
+  background: #28a745;
+}
+
+.tiger-test-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+
+.tiger-test-grid-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tiger-test-grid-cell.current {
+  background: #ff8c00;
+  border-color: #e67e00;
+  color: #fff;
+}
+
+.tiger-test-grid-cell.answered {
+  background: #d4edda;
+  border-color: #28a745;
+  color: #155724;
+}
+
+.tiger-test-grid-cell.seen {
+  background: #fff3cd;
+  border-color: #ffc107;
+}
+
+.tiger-test-sidebar-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.tiger-test-sidebar-btn {
+  padding: 10px 6px;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+}
+
+.tiger-test-sidebar-btn.blue {
+  background: #007bff;
+}
+
+.tiger-test-sidebar-btn.orange {
+  background: #ffc107;
+  color: #333;
+}
+
+.tiger-test-sidebar-btn.grey {
+  background: #6c757d;
+}
+
+.tiger-test-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #fff;
+  position: relative;
+  overflow: hidden;
+}
+
+.tiger-test-watermark {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0.06;
+  z-index: 0;
+}
+
+.tiger-test-watermark img {
+  max-width: 320px;
+  max-height: 320px;
+  object-fit: contain;
+}
+
+.tiger-test-main-inner {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 16px 24px;
+}
+
+.tiger-test-top-bar {
+  background: #f0f0f0;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #444;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.tiger-test-font-controls {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.tiger-test-font-btn {
+  background: #008080;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.tiger-test-question-badge {
+  display: inline-block;
+  background: #008080;
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.tiger-test-instruction-box {
+  background: #e7f3ff;
+  border: 1px solid #b8daff;
+  border-radius: 4px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #004085;
+}
+
+.tiger-test-question-text {
+  font-size: 16px;
+  line-height: 1.8;
+  color: #222;
+  margin-bottom: 24px;
+}
+
+.tiger-test-question-text.font-sm {
+  font-size: 14px;
+}
+
+.tiger-test-question-text.font-lg {
+  font-size: 20px;
+}
+
+.tiger-test-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+
+.tiger-test-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.tiger-test-option:hover {
+  border-color: #008080;
+}
+
+.tiger-test-option.selected {
+  border-color: #008080;
+  background: #f0fafafa;
+}
+
+.tiger-test-option-text {
+  flex: 1;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.tiger-test-option-radio {
+  width: 20px;
+  height: 20px;
+  accent-color: #008080;
+  flex-shrink: 0;
+  margin-right: 12px;
+}
+
+.tiger-test-nav-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-top: 1px solid #ddd;
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+.tiger-test-bookmark {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #444;
+  cursor: pointer;
+}
+
+.tiger-test-nav-btns {
+  display: flex;
+  gap: 12px;
+}
+
+.tiger-test-nav-btn {
+  padding: 10px 28px;
+  border: none;
+  border-radius: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tiger-test-nav-btn.prev {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.tiger-test-nav-btn.prev:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tiger-test-nav-btn.next {
+  background: #495057;
+  color: #fff;
+}
+
+.tiger-test-nav-btn.next.primary {
+  background: #28a745;
+}
+
+/* Modals */
+.tiger-test-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 16px;
+}
+
+.tiger-test-modal {
+  background: #fff;
+  border-radius: 8px;
+  padding: 32px 40px;
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.tiger-test-modal h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 12px;
+}
+
+.tiger-test-modal p {
+  font-size: 15px;
+  color: #555;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.tiger-test-modal-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.tiger-test-modal-btn {
+  padding: 12px 32px;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.tiger-test-modal-btn.primary {
+  background: #008080;
+  color: #fff;
+}
+
+.tiger-test-modal-btn.secondary {
+  background: #e9ecef;
+  color: #333;
+}
+
+/* Results */
+.tiger-test-results {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: #fff;
+}
+
+.tiger-test-results h2 {
+  font-size: 28px;
+  font-weight: 800;
+  color: #008080;
+  margin-bottom: 32px;
+}
+
+.tiger-test-result-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.tiger-test-result-card {
+  background: #f8f9fa;
+  border: 2px solid #008080;
+  border-radius: 8px;
+  padding: 20px 24px;
+  text-align: center;
+}
+
+.tiger-test-result-card h3 {
+  font-size: 16px;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.tiger-test-result-card .pct {
+  font-size: 36px;
+  font-weight: 800;
+  color: #008080;
+}
+
+.tiger-test-result-final {
+  background: #008080;
+  color: #fff;
+  border-color: #008080;
+}
+
+.tiger-test-result-final h3 {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.tiger-test-result-final .pct {
+  color: #fff;
+}
+
+.tiger-test-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: #555;
+}
+
+@media (max-width: 900px) {
+  .tiger-test-body {
+    flex-direction: column;
+  }
+
+  .tiger-test-sidebar {
+    width: 100%;
+    min-width: 0;
+    max-height: 220px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    overflow-x: auto;
+  }
+
+  .tiger-test-grid {
+    grid-template-columns: repeat(6, 36px);
+  }
+
+  .tiger-test-grid-cell {
+    aspect-ratio: auto;
+    width: 36px;
+    height: 36px;
+  }
+}

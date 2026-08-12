@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -571,3 +573,57 @@ class StudentGroupMembership(models.Model):
 
     def __str__(self):
         return f"{self.group.name} - {self.user.username}"
+
+
+class TigerTestSession(models.Model):
+    """Full Tiger Test (محاكي اختبار النمر) attempt — 5 sections × 25 minutes."""
+    STATUS_IN_SECTION = 'in_section'
+    STATUS_BETWEEN_SECTIONS = 'between_sections'
+    STATUS_COMPLETED = 'completed'
+    STATUS_CHOICES = [
+        (STATUS_IN_SECTION, 'In section'),
+        (STATUS_BETWEEN_SECTIONS, 'Between sections'),
+        (STATUS_COMPLETED, 'Completed'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tiger_test_sessions')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_IN_SECTION)
+    current_section = models.PositiveSmallIntegerField(default=1)
+    current_question_index = models.PositiveSmallIntegerField(default=0)
+    section_time_remaining = models.PositiveIntegerField(default=25 * 60)
+    section_started_at = models.DateTimeField(null=True, blank=True)
+    section_slots = models.JSONField(default=list)
+    answers = models.JSONField(default=dict)
+    bookmarked = models.JSONField(default=list)
+    deferred = models.JSONField(default=list)
+    seen = models.JSONField(default=list)
+    pool_warnings = models.JSONField(default=list)
+    results = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'status'], name='api_tiger_user_status_idx'),
+        ]
+
+    def __str__(self):
+        return f"TigerTest {self.id} — {self.user.username}"
+
+
+class TigerTestUsedQuestion(models.Model):
+    """Track question slots already served to a student (no repeats across tests)."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='tiger_used_questions')
+    question_key = models.CharField(max_length=150)
+    used_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [['user', 'question_key']]
+        indexes = [
+            models.Index(fields=['user'], name='api_tiger_used_user_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.username} — {self.question_key}"
