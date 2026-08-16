@@ -125,11 +125,21 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {'default': {}}
 _db_url = _normalize_database_url((os.environ.get('DATABASE_URL') or '').strip())
 if _db_url:
-    DATABASES['default'] = dj_database_url.parse(_db_url, conn_max_age=600)
+    # Neon PgBouncer (host contains "pooler") cannot keep Django persistent connections.
+    _is_pooler = "pooler" in _db_url.lower()
+    DATABASES["default"] = dj_database_url.parse(
+        _db_url,
+        conn_max_age=0 if _is_pooler else 120,
+        ssl_require="sslmode" in _db_url.lower() or "neon.tech" in _db_url.lower(),
+    )
+    if _is_pooler:
+        DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+    DATABASES["default"].setdefault("OPTIONS", {})
+    DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 else:
-    DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 
 # Custom User Model

@@ -17,13 +17,20 @@ from .serializers import (
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
 CONTENT_CACHE_TTL = 60 * 15  # 15 minutes
 CONTENT_CACHE_PREFIX = 'chapter_dash_v2:'
+SECTIONS_TREE_CACHE_KEY = 'sections_tree_v1'
+SECTIONS_TREE_CACHE_TTL = 60
 
 
 def content_cache_key(chapter_id: str) -> str:
     return f'{CONTENT_CACHE_PREFIX}{chapter_id}'
 
 
+def invalidate_sections_tree_cache() -> None:
+    cache.delete(SECTIONS_TREE_CACHE_KEY)
+
+
 def invalidate_chapter_dashboard_cache(chapter_id) -> None:
+    invalidate_sections_tree_cache()
     if not chapter_id:
         return
     cache.delete(content_cache_key(str(chapter_id)))

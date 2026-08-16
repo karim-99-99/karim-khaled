@@ -7,4 +7,4 @@ services:
     name: backend
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
     # seed: skips if DB already has sections (see seed_initial_data; DEBUG=False also skips by default)
-    startCommand: python manage.py migrate && python manage.py seed_initial_data --only-if-empty && gunicorn config.wsgi:application
+    startCommand: python manage.py migrate && python manage.py seed_initial_data --only-if-empty && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 90 --keep-alive 5

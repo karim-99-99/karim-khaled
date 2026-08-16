@@ -159,12 +159,15 @@ const fetchAllPaginated = async (path) => {
 
 export const isBackendOn = () => isApiBaseConfigured() && !!getToken();
 
-/** Ping backend health endpoint to wake Render from cold start (fire-and-forget). */
+/** Ping backend health and wake Neon (db=1). Fire-and-forget. */
+let lastHealthPingAt = 0;
 export const pingHealth = () => {
   const base = getBase();
   if (!base) return;
-  const url = `${base}/health/`;
-  fetch(url, { method: "GET", keepalive: true }).catch(() => {});
+  const now = Date.now();
+  if (now - lastHealthPingAt < 8000) return;
+  lastHealthPingAt = now;
+  fetch(`${base}/health/?db=1`, { method: "GET", keepalive: true }).catch(() => {});
 };
 
 /** Build URL for GET /api/files/<id>/content/ (auth-only, no X-Frame-Options issues). */

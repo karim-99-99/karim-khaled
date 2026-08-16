@@ -2,7 +2,10 @@
  * Preload route chunks before navigation so lazy routes feel instant.
  * Safe to call multiple times; dynamic import() dedupes in flight.
  */
+import { pingHealth } from "../services/backendApi";
+
 export function prefetchCoursesFlow() {
+  pingHealth();
   return Promise.all([
     import("../pages/Subjects.jsx"),
     import("../pages/Categories.jsx"),
@@ -12,6 +15,7 @@ export function prefetchCoursesFlow() {
 }
 
 export function prefetchLessonMediaRoutes() {
+  pingHealth();
   return Promise.all([
     import("../pages/Video.jsx"),
     import("../pages/FileViewer.jsx"),
@@ -25,6 +29,7 @@ export function prefetchFoundation() {
 }
 
 export function prefetchTigerTest() {
+  pingHealth();
   return import("../pages/TigerTest.jsx").catch(() => {});
 }
 

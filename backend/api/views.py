@@ -45,10 +45,13 @@ from .serializers import (
     StudentGroupSerializer, StudentGroupMembershipSerializer,
     BunnyStreamLibrarySerializer,
 )
+from django.core.cache import cache
 from .chapter_dashboard import (
     build_chapter_dashboard,
     invalidate_chapter_dashboard_cache,
     invalidate_chapter_dashboard_for_lesson,
+    SECTIONS_TREE_CACHE_KEY,
+    SECTIONS_TREE_CACHE_TTL,
 )
 
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
@@ -93,11 +96,22 @@ class IsStaffUser(permissions.BasePermission):
 
 
 class HealthView(APIView):
-    """Lightweight health check for keep-alive pings (no DB, no auth)."""
+    """Health check. Use ?db=1 to also ping Postgres/Neon (wakes suspended compute)."""
     permission_classes = [permissions.AllowAny]
 
     def get(self, request):
         payload = {"status": "ok"}
+        want_db = request.query_params.get("db") in ("1", "true", "yes")
+        if want_db:
+            try:
+                from django.db import connection
+
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
+                    cursor.fetchone()
+                payload["db"] = "ok"
+            except Exception:
+                payload["db"] = "error"
         # Safe flags for debugging Bunny (never expose secret values)
         if request.query_params.get("bunny") in ("1", "true", "yes"):
             cfg = get_bunny_library_configs()
@@ -561,6 +575,17 @@ class SectionViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         qs = super().get_queryset()
         return qs.exclude(id__in=DISABLED_SECTION_IDS)
+
+    def list(self, request, *args, **kwargs):
+        cached = cache.get(SECTIONS_TREE_CACHE_KEY)
+        if cached is not None:
+            return Response(cached)
+        response = super().list(request, *args, **kwargs)
+        try:
+            cache.set(SECTIONS_TREE_CACHE_KEY, response.data, SECTIONS_TREE_CACHE_TTL)
+        except Exception:
+            pass
+        return response
 
 
 class SubjectViewSet(viewsets.ModelViewSet):
