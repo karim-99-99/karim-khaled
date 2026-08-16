@@ -24,11 +24,22 @@ export function prefetchFoundation() {
   return import("../pages/Foundation.jsx").catch(() => {});
 }
 
+export function prefetchTigerTest() {
+  return import("../pages/TigerTest.jsx").catch(() => {});
+}
+
+export const prefetchTigerTestProps = {
+  onMouseEnter: prefetchTigerTest,
+  onFocus: prefetchTigerTest,
+  onTouchStart: prefetchTigerTest,
+};
+
 /** Run after first paint / when browser is idle */
 export function scheduleIdlePrefetch() {
   const run = () => {
     prefetchCoursesFlow();
     prefetchLessonMediaRoutes();
+    prefetchTigerTest();
   };
   if (typeof requestIdleCallback !== "undefined") {
     requestIdleCallback(() => run(), { timeout: 2500 });

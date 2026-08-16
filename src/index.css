@@ -698,6 +698,13 @@ p, span, div, h1, h2, h3, h4, h5, h6, li {
   letter-spacing: 0.04em;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .course-scatter-word,
+  .course-card-word {
+    animation: none;
+  }
+}
+
 .course-nav-group--has-selection .course-card-btn:not(.course-card-btn--selected) {
   opacity: 0.52;
   filter: saturate(0.65);

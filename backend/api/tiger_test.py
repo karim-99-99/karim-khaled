@@ -1,19 +1,22 @@
 """Tiger Test (محاكي اختبار النمر) — question pool, session building, scoring."""
+from __future__ import annotations
+
 import random
 from typing import Any
 
-from django.db.models import Prefetch, Q
-from django.utils import timezone
+from django.db.models import Exists, OuterRef, Prefetch, Q
 
 from .models import Question, Answer, TigerTestSession, TigerTestUsedQuestion
+from .tiger_test_demo import make_demo_slots
 
 VERBAL_SUBJECT_ID = "مادة_اللفظي"
 QUANT_SUBJECT_ID = "مادة_الكمي"
 VERBAL_TOTAL = 65
-QUANT_TOTAL = 55
+QUANT_TOTAL = 60
 SECTION_COUNT = 5
 SECTION_SECONDS = 25 * 60
-QUESTIONS_PER_SECTION_TARGET = 24
+QUESTIONS_PER_SECTION = 25
+TOTAL_QUESTIONS = SECTION_COUNT * QUESTIONS_PER_SECTION  # 125
 
 SECTION_TITLES = [
     "1 - القسم الأول",
@@ -58,17 +61,19 @@ def _passage_answers_ok(pq: dict) -> bool:
     return isinstance(answers, list) and len(answers) > 0
 
 
-def flatten_subject_slots(subject_kind: str) -> list[dict[str, Any]]:
-    """
-    Build selectable question slots for verbal or quant.
-    Includes questions whose subject is set directly OR via chapter/lesson.
-    """
-    subject_id = VERBAL_SUBJECT_ID if subject_kind == "verbal" else QUANT_SUBJECT_ID
+def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Build verbal and quant pools in a single query (no N+1 exists())."""
+    has_answers = Exists(Answer.objects.filter(question_id=OuterRef("pk")))
     qs = (
         Question.objects.filter(
-            Q(subject_id=subject_id)
-            | Q(chapter__category__subject_id=subject_id)
-            | Q(lesson__chapter__category__subject_id=subject_id)
+            Q(subject_id__in=[VERBAL_SUBJECT_ID, QUANT_SUBJECT_ID])
+            | Q(chapter__category__subject_id__in=[VERBAL_SUBJECT_ID, QUANT_SUBJECT_ID])
+            | Q(
+                lesson__chapter__category__subject_id__in=[
+                    VERBAL_SUBJECT_ID,
+                    QUANT_SUBJECT_ID,
+                ]
+            )
         )
         .exclude(section_id__in=["قسم_تحصيلي"])
         .select_related(
@@ -77,18 +82,26 @@ def flatten_subject_slots(subject_kind: str) -> list[dict[str, Any]]:
             "lesson__chapter__category__subject",
         )
         .prefetch_related(
-            Prefetch("answers", queryset=Answer.objects.order_by("answer_id"))
+            Prefetch(
+                "answers",
+                queryset=Answer.objects.only(
+                    "id", "answer_id", "question_id", "text", "is_correct"
+                ).order_by("answer_id"),
+            )
         )
+        .annotate(has_answers=has_answers)
         .distinct()
     )
 
-    slots: list[dict[str, Any]] = []
+    verbal: list[dict[str, Any]] = []
+    quant: list[dict[str, Any]] = []
     seen_ids: set[str] = set()
 
     for q in qs:
         kind = _resolve_subject_kind(q)
-        if kind != subject_kind:
+        if kind not in ("verbal", "quant"):
             continue
+        target = verbal if kind == "verbal" else quant
         if q.question_type == Question.QUESTION_TYPE_PASSAGE:
             pq_list = q.passage_questions or []
             if not isinstance(pq_list, list) or len(pq_list) == 0:
@@ -100,29 +113,34 @@ def flatten_subject_slots(subject_kind: str) -> list[dict[str, Any]]:
                 if slot_id in seen_ids:
                     continue
                 seen_ids.add(slot_id)
-                slots.append(
+                target.append(
                     {
                         "slot_id": slot_id,
                         "parent_id": q.id,
                         "passage_index": idx,
-                        "subject": subject_kind,
+                        "subject": kind,
                     }
                 )
         else:
-            if not q.answers.exists():
+            if not getattr(q, "has_answers", False):
                 continue
             if q.id in seen_ids:
                 continue
             seen_ids.add(q.id)
-            slots.append(
+            target.append(
                 {
                     "slot_id": q.id,
                     "parent_id": q.id,
                     "passage_index": None,
-                    "subject": subject_kind,
+                    "subject": kind,
                 }
             )
-    return slots
+    return verbal, quant
+
+
+def flatten_subject_slots(subject_kind: str) -> list[dict[str, Any]]:
+    verbal, quant = flatten_all_slots()
+    return verbal if subject_kind == "verbal" else quant
 
 
 def _used_keys_for_user(user) -> set[str]:
@@ -213,46 +231,65 @@ def _pick_with_fallback(
 
 
 def _distribute_into_sections(all_slots: list[dict]) -> list[list[dict]]:
-    """
-    Split slots into up to 5 non-empty sections.
-    Never returns an empty section. If fewer than 5 questions, fewer sections.
-    """
+    """Always 5 sections of exactly 25 questions each."""
     slots = list(all_slots)
     random.shuffle(slots)
-    total = len(slots)
-    if total == 0:
+    if len(slots) < TOTAL_QUESTIONS:
         return []
+    slots = slots[:TOTAL_QUESTIONS]
+    return [
+        slots[i * QUESTIONS_PER_SECTION : (i + 1) * QUESTIONS_PER_SECTION]
+        for i in range(SECTION_COUNT)
+    ]
 
-    n_sections = min(SECTION_COUNT, total)
-    # Aim for ~equal size (ideally ~24 when full bank)
-    base = total // n_sections
-    rem = total % n_sections
 
-    sections: list[list[dict]] = []
-    idx = 0
-    for i in range(n_sections):
-        count = base + (1 if i < rem else 0)
-        if count <= 0:
-            continue
-        chunk = slots[idx : idx + count]
-        idx += count
-        if chunk:
-            sections.append(chunk)
-    return sections
+def _fill_to_full_test(merged: list[dict], warnings: list[dict]) -> list[dict]:
+    """Pad with demo questions so the test is always 5 × 25."""
+    verbal_have = sum(1 for s in merged if s.get("subject") == "verbal")
+    quant_have = len(merged) - verbal_have
+    v_need = max(0, VERBAL_TOTAL - verbal_have)
+    q_need = max(0, QUANT_TOTAL - quant_have)
+    leftover = TOTAL_QUESTIONS - (len(merged) + v_need + q_need)
+    if leftover > 0:
+        q_need += leftover
+
+    demo_verbal = 0
+    demo_quant = 0
+    if v_need:
+        extra = make_demo_slots("verbal", v_need, start_index=verbal_have)
+        merged.extend(extra)
+        demo_verbal = len(extra)
+    if q_need:
+        extra = make_demo_slots("quant", q_need, start_index=quant_have)
+        merged.extend(extra)
+        demo_quant = len(extra)
+
+    if demo_verbal or demo_quant:
+        warnings.append(
+            {
+                "subject": "demo",
+                "subject_label": "أسئلة تجريبية",
+                "required": TOTAL_QUESTIONS,
+                "found_in_subject": verbal_have + quant_have,
+                "borrowed_from_other": 0,
+                "actual": len(merged),
+                "shortfall": 0,
+                "demo_added": demo_verbal + demo_quant,
+                "demo_verbal": demo_verbal,
+                "demo_quant": demo_quant,
+            }
+        )
+    return merged[:TOTAL_QUESTIONS]
 
 
 def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
     """
-    Build test sections from available verbal/quant questions.
-    Fills shortfalls from the other subject and never creates empty sections.
+    Build exactly 5 sections of 25 questions (125 total).
+    Uses the live bank first, then demo questions to fill any shortfall.
     """
     warnings: list[dict] = []
     used = _used_keys_for_user(user)
-    verbal_pool = flatten_subject_slots("verbal")
-    quant_pool = flatten_subject_slots("quant")
-
-    if not verbal_pool and not quant_pool:
-        raise ValueError("لا توجد أسئلة متاحة لبدء اختبار النمر حالياً.")
+    verbal_pool, quant_pool = flatten_all_slots()
 
     already: set[str] = set()
     verbal_picked = _pick_with_fallback(
@@ -278,7 +315,6 @@ def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
         already,
     )
 
-    # Deduplicate by slot_id (keep first occurrence)
     merged: list[dict] = []
     seen: set[str] = set()
     for s in verbal_picked + quant_picked:
@@ -287,12 +323,10 @@ def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
         seen.add(s["slot_id"])
         merged.append(s)
 
-    if not merged:
-        raise ValueError("لا توجد أسئلة كافية لبدء اختبار النمر.")
-
+    merged = _fill_to_full_test(merged, warnings)
     sections = _distribute_into_sections(merged)
-    if not sections:
-        raise ValueError("لا توجد أسئلة كافية لبدء اختبار النمر.")
+    if len(sections) != SECTION_COUNT:
+        raise ValueError("تعذر تجهيز أقسام اختبار النمر.")
 
     return sections, warnings
 
@@ -370,29 +404,57 @@ def _correct_answer_id(question: Question, slot: dict) -> str | None:
     return correct.answer_id if correct else None
 
 
-def serialize_slot_for_client(question: Question, slot: dict) -> dict:
+def serialize_slot_for_client(question: Question | None, slot: dict) -> dict:
+    if slot.get("is_demo"):
+        demo = slot.get("demo") or {}
+        return {
+            "id": slot["slot_id"],
+            "subject": slot.get("subject") or "quant",
+            "question": demo.get("question") or "",
+            "answers": demo.get("answers") or [],
+            "image": None,
+            "is_demo": True,
+        }
+    if not question:
+        return {
+            "id": slot["slot_id"],
+            "subject": slot.get("subject") or "quant",
+            "question": "",
+            "answers": [],
+            "image": None,
+        }
+    image_url = None
+    img = getattr(question, "question_image", None)
+    if img:
+        try:
+            image_url = img.url
+        except Exception:
+            image_url = None
     return {
         "id": slot["slot_id"],
         "subject": slot["subject"],
         "question": _question_html_for_slot(question, slot),
         "answers": _answers_for_slot(question, slot),
-        "image": (
-            question.question_image.url
-            if getattr(question, "question_image", None)
-            and question.question_image
-            else None
-        ),
+        "image": image_url,
     }
 
 
-def load_questions_map(section_slots: list[list[dict]]) -> dict[str, Question]:
+def load_questions_map(section_slots: list[list[dict]] | list[dict]) -> dict[str, Question]:
     parent_ids = set()
-    for section in section_slots:
+    if section_slots and isinstance(section_slots[0], dict):
+        iterable = [section_slots]
+    else:
+        iterable = section_slots or []
+    for section in iterable:
         for slot in section:
+            if slot.get("is_demo") or not slot.get("parent_id"):
+                continue
             parent_ids.add(slot["parent_id"])
     if not parent_ids:
         return {}
-    qs = Question.objects.filter(id__in=parent_ids).prefetch_related("answers")
+    qs = Question.objects.filter(id__in=parent_ids).prefetch_related(
+        Prefetch("answers", queryset=Answer.objects.order_by("answer_id"))
+    )
     return {q.id: q for q in qs}
 
 
@@ -401,10 +463,10 @@ def serialize_section_questions(
 ) -> list[dict]:
     out = []
     for slot in section_slots:
-        q = questions_map.get(slot["parent_id"])
-        if not q:
-            continue
-        out.append(serialize_slot_for_client(q, slot))
+        q = questions_map.get(slot.get("parent_id")) if slot.get("parent_id") else None
+        item = serialize_slot_for_client(q, slot)
+        if item.get("answers") or item.get("is_demo") or item.get("question"):
+            out.append(item)
     return out
 
 
@@ -420,10 +482,13 @@ def score_session(session: TigerTestSession) -> dict:
 
     for section in sections:
         for slot in section:
-            q = questions_map.get(slot["parent_id"])
-            if not q:
-                continue
-            correct_id = _correct_answer_id(q, slot)
+            if slot.get("is_demo"):
+                correct_id = (slot.get("demo") or {}).get("correct")
+            else:
+                q = questions_map.get(slot.get("parent_id"))
+                if not q:
+                    continue
+                correct_id = _correct_answer_id(q, slot)
             user_ans = answers.get(slot["slot_id"])
             subject = slot.get("subject") or "quant"
             if subject == "verbal":
@@ -460,6 +525,8 @@ def mark_questions_used(user, section_slots: list[list[dict]]):
     keys = []
     for section in section_slots:
         for slot in section:
+            if slot.get("is_demo"):
+                continue
             keys.append(slot["slot_id"])
     if not keys:
         return
@@ -490,29 +557,60 @@ def _count_subjects_in_sections(sections: list[list[dict]]) -> tuple[int, int]:
 
 def session_section_count(session: TigerTestSession) -> int:
     sections = session.section_slots or []
-    return max(1, len(sections))
+    return SECTION_COUNT if not sections else max(1, len(sections))
 
 
-def session_to_payload(session: TigerTestSession, include_questions: bool = True) -> dict:
+def session_light_state(session: TigerTestSession) -> dict:
+    """Tiny payload for answer/timer sync — no question HTML."""
     sections = session.section_slots or []
-    questions_map = load_questions_map(sections) if include_questions else {}
-
-    section_questions = []
-    if include_questions:
-        for section in sections:
-            section_questions.append(
-                serialize_section_questions(section, questions_map)
-            )
-
     n_sections = len(sections) if sections else 0
-    current_section_idx = max(0, min(session.current_section - 1, max(0, n_sections - 1)))
-    current_section_questions = (
-        section_questions[current_section_idx] if section_questions else []
+    return {
+        "ok": True,
+        "id": str(session.id),
+        "status": session.status,
+        "current_section": session.current_section,
+        "current_question_index": session.current_question_index,
+        "section_time_remaining": session.section_time_remaining,
+        "answers": session.answers or {},
+        "bookmarked": session.bookmarked or [],
+        "deferred": session.deferred or [],
+        "seen": session.seen or [],
+        "section_count": n_sections,
+        "questions_per_section": QUESTIONS_PER_SECTION,
+        "section_seconds": SECTION_SECONDS,
+    }
+
+
+def session_to_payload(
+    session: TigerTestSession,
+    include_questions: bool = True,
+    current_section_only: bool = True,
+) -> dict:
+    sections = session.section_slots or []
+    n_sections = len(sections) if sections else 0
+    current_section_idx = max(
+        0, min(session.current_section - 1, max(0, n_sections - 1))
     )
+
+    current_section_questions = []
+    if (
+        include_questions
+        and sections
+        and session.status == TigerTestSession.STATUS_IN_SECTION
+    ):
+        current_slots = (
+            sections[current_section_idx] if current_section_idx < len(sections) else []
+        )
+        questions_map = load_questions_map(
+            current_slots if current_section_only else sections
+        )
+        current_section_questions = serialize_section_questions(
+            current_slots, questions_map
+        )
 
     verbal_count, quant_count = _count_subjects_in_sections(sections)
     total_questions = verbal_count + quant_count
-    section_counts = [len(s) for s in (section_questions or sections)]
+    section_counts = [len(s) for s in sections] if sections else []
 
     titles = SECTION_TITLES[:n_sections] if n_sections else SECTION_TITLES
 
@@ -533,16 +631,17 @@ def session_to_payload(session: TigerTestSession, include_questions: bool = True
         "seen": session.seen or [],
         "pool_warnings": session.pool_warnings or [],
         "section_titles": titles,
-        "section_count": n_sections,
+        "section_count": n_sections or SECTION_COUNT,
         "total_questions": total_questions,
         "verbal_count": verbal_count,
         "quant_count": quant_count,
-        "questions_per_section": section_counts[current_section_idx]
-        if section_counts
-        else 0,
+        "questions_per_section": (
+            section_counts[current_section_idx]
+            if section_counts
+            else QUESTIONS_PER_SECTION
+        ),
         "section_question_counts": section_counts,
         "section_seconds": SECTION_SECONDS,
-        "sections": section_questions,
         "current_section_questions": current_section_questions,
         "results": session.results
         if session.status == TigerTestSession.STATUS_COMPLETED

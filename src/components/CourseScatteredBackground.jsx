@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import {
   ARABIC_CLASSIC_FONT,
   WORD_SETS,
@@ -45,4 +46,4 @@ const CourseScatteredBackground = ({ variant = 'quantitative' }) => {
   );
 };
 
-export default CourseScatteredBackground;
+export default memo(CourseScatteredBackground);

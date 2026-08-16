@@ -4,7 +4,7 @@ import { getCurrentUser, logout } from "../services/storageService";
 import headerimage from "../assets/kareem.jpg";
 import logoimage from "../assets/karim.png";
 import { isArabicBrowser } from "../utils/language";
-import { prefetchOnIntentProps } from "../utils/routePrefetch";
+import { prefetchOnIntentProps, prefetchTigerTestProps } from "../utils/routePrefetch";
 import ProfileAvatar from "./ProfileAvatar";
 import StudentResultsModal from "./StudentResultsModal";
 import { isContentStaff, isFullAdmin } from "../utils/roles";
@@ -87,6 +87,7 @@ const Header = () => {
             {currentUser && (
               <Link
                 to="/tiger-test"
+                {...prefetchTigerTestProps}
                 className={`px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
                   location.pathname === "/tiger-test"
                     ? "text-primary-500 border-2 border-primary-500"
@@ -196,6 +197,7 @@ const Header = () => {
                     </Link>
                     <Link
                       to="/tiger-test"
+                      {...prefetchTigerTestProps}
                       className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                       onClick={() => {
                         setIsUserMenuOpen(false);
@@ -423,6 +425,7 @@ const Header = () => {
                       </Link>
                       <Link
                         to="/tiger-test"
+                        {...prefetchTigerTestProps}
                         className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                         onClick={() => {
                           setIsUserMenuOpen(false);

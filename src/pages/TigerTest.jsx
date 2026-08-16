@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../services/storageService";
 import * as backendApi from "../services/backendApi";
+import MathRenderer from "../components/MathRenderer";
 import logoimage from "../assets/karim.png";
 import "./TigerTest.css";
 
@@ -20,9 +21,115 @@ function nextSectionPrompt(currentSection, sectionCount) {
   return `هل مستعد للدخول في القسم ${name}؟`;
 }
 
-function answerLabel(aid) {
-  const map = { a: "أ", b: "ب", c: "ج", d: "د" };
-  return map[aid] || String(aid || "").toUpperCase();
+/** Strip leading أ/ب/ج/د or 1. 2. from answer HTML — keep the answer text only. */
+function stripAnswerChoicePrefix(html) {
+  if (!html || typeof html !== "string") return "";
+  return html.replace(
+    /^((?:\s|<[^>]+>|&nbsp;)*)[(]?[أاببججددA-Da-d1-4١٢٣٤][)\]]?(?:[\s]*[.)\-–:：،,])+[\s]*/,
+    "$1"
+  );
+}
+
+/** Merge a light API patch without dropping loaded questions. */
+function applySessionPatch(prev, patch) {
+  if (!patch) return prev;
+  if (!prev) return patch;
+  const next = { ...prev, ...patch };
+  if (!patch.current_section_questions) {
+    next.current_section_questions = prev.current_section_questions;
+  }
+  if (!patch.sections) {
+    next.sections = prev.sections;
+  }
+  if (!patch.pool_warnings) {
+    next.pool_warnings = prev.pool_warnings;
+  }
+  if (!patch.results && prev.results) {
+    next.results = prev.results;
+  }
+  if (prev.status === "in_section" && (patch.status || prev.status) === "in_section") {
+    next.section_time_remaining = prev.section_time_remaining;
+  }
+  return next;
+}
+
+function sectionQuestionsOf(session) {
+  if (!session) return [];
+  if (Array.isArray(session.current_section_questions)) {
+    return session.current_section_questions;
+  }
+  const idx = Math.max(0, (session.current_section || 1) - 1);
+  return session.sections?.[idx] || [];
+}
+
+const QuestionGrid = memo(function QuestionGrid({
+  questions,
+  currentQIndex,
+  answers,
+  seen,
+  onSelect,
+}) {
+  return (
+    <div className="tiger-test-grid" aria-label="أرقام الأسئلة">
+      {questions.map((q, i) => {
+        let cls = "tiger-test-grid-cell";
+        if (i === currentQIndex) cls += " current";
+        else if (answers[q.id]) cls += " answered";
+        else if (seen.includes(q.id)) cls += " seen";
+        return (
+          <button
+            key={q.id}
+            type="button"
+            className={cls}
+            onClick={() => onSelect(i)}
+            title={`السؤال ${i + 1}`}
+          >
+            {i + 1}
+          </button>
+        );
+      })}
+    </div>
+  );
+});
+
+function SectionTimer({ sessionId, initialSeconds, onExpire }) {
+  const [remaining, setRemaining] = useState(initialSeconds);
+  const remainingRef = useRef(initialSeconds);
+  const expireRef = useRef(false);
+  const onExpireRef = useRef(onExpire);
+  onExpireRef.current = onExpire;
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next = Math.max(0, remainingRef.current - 1);
+      remainingRef.current = next;
+      setRemaining(next);
+      if (next === 0 && !expireRef.current) {
+        expireRef.current = true;
+        onExpireRef.current();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const id = setInterval(() => {
+      backendApi
+        .syncTigerTestSession(sessionId, {
+          section_time_remaining: remainingRef.current,
+        })
+        .catch(() => {});
+    }, 20000);
+    return () => clearInterval(id);
+  }, [sessionId]);
+
+  return (
+    <div className="tiger-test-timer-box">
+      <div className="tiger-test-timer-label">الوقت المتبقي</div>
+      <div className="tiger-test-timer-digits">{formatTime(remaining)}</div>
+    </div>
+  );
 }
 
 const TigerTest = () => {
@@ -39,20 +146,20 @@ const TigerTest = () => {
   const [showInstructions, setShowInstructions] = useState(false);
   const [showDeferred, setShowDeferred] = useState(false);
   const [showPoolWarnings, setShowPoolWarnings] = useState(false);
-  const timerRef = useRef(null);
-  const syncRef = useRef(null);
   const endingRef = useRef(false);
+  const seenRef = useRef([]);
+  const seenFlushRef = useRef(null);
 
-  const sectionCount = session?.section_count || session?.sections?.length || 5;
+  const sectionCount = session?.section_count || 5;
   const sectionIndex = Math.max(
     0,
     Math.min((session?.current_section || 1) - 1, Math.max(0, sectionCount - 1))
   );
 
-  const sectionQuestions = useMemo(() => {
-    if (!session?.sections?.[sectionIndex]) return [];
-    return session.sections[sectionIndex];
-  }, [session, sectionIndex]);
+  const sectionQuestions = useMemo(
+    () => sectionQuestionsOf(session),
+    [session]
+  );
 
   const currentQIndex = Math.min(
     session?.current_question_index ?? 0,
@@ -65,7 +172,17 @@ const TigerTest = () => {
   const deferred = session?.deferred || [];
   const seen = session?.seen || [];
 
-  const answeredInSection = sectionQuestions.filter((q) => answers[q.id]).length;
+  const answeredInSection = useMemo(
+    () => sectionQuestions.filter((q) => answers[q.id]).length,
+    [sectionQuestions, answers]
+  );
+
+  const flushSeen = useCallback((sessionId, seenList) => {
+    if (!sessionId || !seenList?.length) return;
+    backendApi
+      .syncTigerTestSession(sessionId, { seen: seenList })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!user?.token) {
@@ -83,17 +200,12 @@ const TigerTest = () => {
         if (active) {
           setHasActive(true);
           setSession(active);
-          // Keep ready modal so user can resume OR restart
+          seenRef.current = Array.isArray(active.seen) ? active.seen : [];
           setShowReadyModal(true);
+          const qs = sectionQuestionsOf(active);
           const idx = active.current_question_index ?? 0;
-          const secQs =
-            active.sections?.[Math.max(0, (active.current_section || 1) - 1)] ||
-            [];
-          const q = secQs[idx];
+          const q = qs[idx];
           setSelectedAnswer(q ? active.answers?.[q.id] || null : null);
-          if (Array.isArray(active.pool_warnings) && active.pool_warnings.length) {
-            // warnings already shown at first start; don't force again on resume
-          }
         }
       })
       .catch((err) => setError(err.message || "فشل تحميل الاختبار"))
@@ -101,92 +213,44 @@ const TigerTest = () => {
   }, [user?.token, navigate]);
 
   useEffect(() => {
-    if (!currentQuestion || !session?.id || session.status !== "in_section") return;
+    if (!currentQuestion || !session?.id || session.status !== "in_section") {
+      return;
+    }
     setSelectedAnswer(answers[currentQuestion.id] || null);
-    if (!seen.includes(currentQuestion.id)) {
-      const newSeen = [...seen, currentQuestion.id];
-      backendApi
-        .syncTigerTestSession(session.id, { seen: newSeen })
-        .then((s) => s && setSession(s))
-        .catch(() => {});
+    if (!seenRef.current.includes(currentQuestion.id)) {
+      seenRef.current = [...seenRef.current, currentQuestion.id];
+      setSession((prev) =>
+        prev ? { ...prev, seen: seenRef.current } : prev
+      );
+      if (seenFlushRef.current) clearTimeout(seenFlushRef.current);
+      seenFlushRef.current = setTimeout(() => {
+        flushSeen(session.id, seenRef.current);
+      }, 2500);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentQuestion?.id, session?.id, session?.status]);
 
-  // Auto-skip empty sections (safety net)
   useEffect(() => {
-    if (!session || session.status !== "in_section") return;
-    if (sectionQuestions.length > 0) return;
-    if (endingRef.current) return;
-    endingRef.current = true;
-    backendApi
-      .endTigerTestSection(session.id)
-      .then((s) => {
-        if (s) setSession(s);
-      })
-      .finally(() => {
-        endingRef.current = false;
-      });
-  }, [session, sectionQuestions.length]);
-
-  useEffect(() => {
-    if (
-      !session ||
-      session.status !== "in_section" ||
-      session.section_time_remaining == null ||
-      sectionQuestions.length === 0
-    ) {
-      if (timerRef.current) clearInterval(timerRef.current);
-      return;
-    }
-
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setSession((prev) => {
-        if (!prev || prev.status !== "in_section") return prev;
-        const next = Math.max(0, (prev.section_time_remaining || 0) - 1);
-        if (next === 0 && !endingRef.current) {
-          endingRef.current = true;
-          clearInterval(timerRef.current);
-          backendApi
-            .endTigerTestSection(prev.id)
-            .then((s) => {
-              if (s) setSession(s);
-            })
-            .finally(() => {
-              endingRef.current = false;
-            });
-        }
-        return { ...prev, section_time_remaining: next };
-      });
-    }, 1000);
-
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (seenFlushRef.current) clearTimeout(seenFlushRef.current);
+      if (session?.id) flushSeen(session.id, seenRef.current);
     };
-  }, [session?.id, session?.status, session?.current_section, sectionQuestions.length]);
+  }, [session?.id, flushSeen]);
 
-  useEffect(() => {
-    if (!session?.id || session.status !== "in_section") return;
-    if (syncRef.current) clearTimeout(syncRef.current);
-    syncRef.current = setTimeout(() => {
-      backendApi
-        .syncTigerTestSession(session.id, {
-          section_time_remaining: session.section_time_remaining,
-          current_question_index: session.current_question_index,
-        })
-        .catch(() => {});
-    }, 5000);
-    return () => clearTimeout(syncRef.current);
-  }, [
-    session?.section_time_remaining,
-    session?.current_question_index,
-    session?.id,
-    session?.status,
-  ]);
+  const handleExpireSection = useCallback(async () => {
+    if (!session?.id || endingRef.current) return;
+    endingRef.current = true;
+    try {
+      const s = await backendApi.endTigerTestSection(session.id);
+      if (s) setSession((prev) => applySessionPatch(prev, s));
+    } finally {
+      endingRef.current = false;
+    }
+  }, [session?.id]);
 
   const applyStartedSession = (s) => {
     setSession(s);
+    seenRef.current = Array.isArray(s.seen) ? s.seen : [];
     setHasActive(true);
     setShowReadyModal(false);
     setSelectedAnswer(null);
@@ -198,13 +262,6 @@ const TigerTest = () => {
   const handleResume = () => {
     if (!session) return;
     setShowReadyModal(false);
-    if (
-      Array.isArray(session.pool_warnings) &&
-      session.pool_warnings.length > 0 &&
-      (session.total_questions || 0) < 120
-    ) {
-      // optional: don't re-show
-    }
   };
 
   const handleStart = async (force = false) => {
@@ -221,6 +278,9 @@ const TigerTest = () => {
   };
 
   const formatPoolWarning = (w) => {
+    if (w.demo_added > 0 || w.subject === "demo") {
+      return `تم إكمال الاختبار بأسئلة تجريبية (${w.demo_added || 0} سؤالاً) ليصبح 5 أقسام × 25 سؤالاً.`;
+    }
     const label =
       w.subject_label || (w.subject === "verbal" ? "اللفظي" : "الكمي");
     const required = w.required ?? 0;
@@ -234,12 +294,20 @@ const TigerTest = () => {
   const handleSelectAnswer = async (answerId) => {
     if (!session || !currentQuestion) return;
     setSelectedAnswer(answerId);
+    setSession((prev) =>
+      prev
+        ? {
+            ...prev,
+            answers: { ...prev.answers, [currentQuestion.id]: answerId },
+          }
+        : prev
+    );
     try {
       const s = await backendApi.saveTigerTestAnswer(session.id, {
         slot_id: currentQuestion.id,
         answer_id: answerId,
       });
-      if (s) setSession(s);
+      if (s) setSession((prev) => applySessionPatch(prev, s));
     } catch {
       /* keep local selection */
     }
@@ -247,33 +315,48 @@ const TigerTest = () => {
 
   const handleBookmark = async (checked) => {
     if (!session || !currentQuestion) return;
+    const id = currentQuestion.id;
+    setSession((prev) => {
+      if (!prev) return prev;
+      const bm = new Set(prev.bookmarked || []);
+      const df = new Set(prev.deferred || []);
+      if (checked) {
+        bm.add(id);
+        df.add(id);
+      } else {
+        bm.delete(id);
+        df.delete(id);
+      }
+      return { ...prev, bookmarked: [...bm], deferred: [...df] };
+    });
     try {
       const s = await backendApi.saveTigerTestAnswer(session.id, {
-        slot_id: currentQuestion.id,
-        answer_id: selectedAnswer || answers[currentQuestion.id] || undefined,
+        slot_id: id,
+        answer_id: selectedAnswer || answers[id] || undefined,
         bookmarked: checked,
         deferred: checked,
       });
-      if (s) setSession(s);
+      if (s) setSession((prev) => applySessionPatch(prev, s));
     } catch {
       /* ignore */
     }
   };
 
-  const goToQuestion = async (index) => {
-    if (!session) return;
-    const safe = Math.max(0, Math.min(index, sectionQuestions.length - 1));
-    setSession((prev) => ({ ...prev, current_question_index: safe }));
-    const q = sectionQuestions[safe];
-    setSelectedAnswer(q ? answers[q.id] || null : null);
-    try {
-      await backendApi.syncTigerTestSession(session.id, {
-        current_question_index: safe,
-      });
-    } catch {
-      /* ignore */
-    }
-  };
+  const goToQuestion = useCallback(
+    (index) => {
+      if (!session) return;
+      const safe = Math.max(0, Math.min(index, sectionQuestions.length - 1));
+      setSession((prev) =>
+        prev ? { ...prev, current_question_index: safe } : prev
+      );
+      const q = sectionQuestions[safe];
+      setSelectedAnswer(q ? answers[q.id] || null : null);
+      backendApi
+        .syncTigerTestSession(session.id, { current_question_index: safe })
+        .catch(() => {});
+    },
+    [session, sectionQuestions, answers]
+  );
 
   const handlePrev = () => {
     if (currentQIndex > 0) goToQuestion(currentQIndex - 1);
@@ -281,29 +364,18 @@ const TigerTest = () => {
 
   const handleSaveNext = async () => {
     if (!session || !currentQuestion) return;
-    if (selectedAnswer) {
-      try {
-        const s = await backendApi.saveTigerTestAnswer(session.id, {
-          slot_id: currentQuestion.id,
-          answer_id: selectedAnswer,
-        });
-        if (s) setSession(s);
-      } catch {
-        /* continue */
-      }
-    }
     if (currentQIndex < sectionQuestions.length - 1) {
       goToQuestion(currentQIndex + 1);
-    } else {
-      try {
-        endingRef.current = true;
-        const s = await backendApi.endTigerTestSection(session.id);
-        if (s) setSession(s);
-      } catch {
-        /* ignore */
-      } finally {
-        endingRef.current = false;
-      }
+      return;
+    }
+    try {
+      endingRef.current = true;
+      const s = await backendApi.endTigerTestSection(session.id);
+      if (s) setSession((prev) => applySessionPatch(prev, s));
+    } catch {
+      /* ignore */
+    } finally {
+      endingRef.current = false;
     }
   };
 
@@ -317,7 +389,7 @@ const TigerTest = () => {
     try {
       endingRef.current = true;
       const s = await backendApi.endTigerTestSection(session.id);
-      if (s) setSession(s);
+      if (s) setSession((prev) => applySessionPatch(prev, s));
     } catch (err) {
       setError(err.message || "فشل إنهاء القسم");
     } finally {
@@ -331,6 +403,7 @@ const TigerTest = () => {
       const s = await backendApi.nextTigerTestSection(session.id);
       if (s) {
         setSession(s);
+        seenRef.current = Array.isArray(s.seen) ? s.seen : seenRef.current;
         setSelectedAnswer(null);
       }
     } catch (err) {
@@ -429,8 +502,9 @@ const TigerTest = () => {
               <>
                 <p>هل أنت مستعد لبدء اختبار النمر؟</p>
                 <p style={{ fontSize: 13, color: "#888" }}>
-                  يتكون الاختبار من حتى 5 أقسام، مدة كل قسم 25 دقيقة. الهدف: 65
-                  سؤال لفظي و 55 سؤال كمي (تُؤخذ عشوائياً من بنك الأسئلة).
+                  يتكون الاختبار من 5 أقسام، في كل قسم 25 سؤالاً، ومدة كل قسم 25
+                  دقيقة (المجموع 125 سؤالاً). إذا نقص بنك الأسئلة تُضاف أسئلة
+                  تجريبية لإكمال الأقسام.
                 </p>
               </>
             )}
@@ -483,9 +557,8 @@ const TigerTest = () => {
           <div className="tiger-test-modal">
             <h2>تنبيه قبل البدء</h2>
             <p style={{ textAlign: "right", marginBottom: 16 }}>
-              بعض الأقسام لا تحتوي على العدد الكامل من الأسئلة المطلوبة. سيتم
-              بدء الاختبار بالأسئلة المتاحة مع إضافة أسئلة عشوائية من أقسام
-              أخرى عند الحاجة:
+              بعض الأقسام لا تحتوي على العدد الكامل من الأسئلة في البنك. سيتم
+              بدء الاختبار بـ 5 أقسام × 25 سؤالاً، مع أسئلة تجريبية عند الحاجة:
             </p>
             <ul
               style={{
@@ -559,7 +632,7 @@ const TigerTest = () => {
           >
             <h2>شرح الاختبار</h2>
             <p style={{ textAlign: "right" }}>
-              محاكي اختبار النمر يحاكي الاختبار الحقيقي. مدة كل قسم 25 دقيقة.
+              محاكي اختبار النمر من 5 أقسام. كل قسم 25 سؤالاً ومدة 25 دقيقة.
               اختر الإجابة الصحيحة ثم اضغط «حفظ و التالي». يمكنك وضع علامة
               مرجعية على أي سؤال للمراجعة.
             </p>
@@ -589,10 +662,7 @@ const TigerTest = () => {
             ) : (
               <div style={{ textAlign: "right", maxHeight: 240, overflowY: "auto" }}>
                 {(deferred.length ? deferred : bookmarked).map((id) => {
-                  let foundIndex = -1;
-                  sectionQuestions.forEach((q, i) => {
-                    if (q.id === id) foundIndex = i;
-                  });
+                  const foundIndex = sectionQuestions.findIndex((q) => q.id === id);
                   return (
                     <button
                       key={id}
@@ -644,12 +714,12 @@ const TigerTest = () => {
 
             <div className="tiger-test-body">
               <aside className="tiger-test-sidebar">
-                <div className="tiger-test-timer-box">
-                  <div className="tiger-test-timer-label">الوقت المتبقي</div>
-                  <div className="tiger-test-timer-digits">
-                    {formatTime(session.section_time_remaining ?? 0)}
-                  </div>
-                </div>
+                <SectionTimer
+                  key={`${session.id}-${session.current_section}`}
+                  sessionId={session.id}
+                  initialSeconds={session.section_time_remaining ?? 25 * 60}
+                  onExpire={handleExpireSection}
+                />
 
                 <div className="tiger-test-user-box">
                   <div className="tiger-test-user-icon">👤</div>
@@ -673,24 +743,13 @@ const TigerTest = () => {
                   </div>
                 </div>
 
-                <div className="tiger-test-grid">
-                  {sectionQuestions.map((q, i) => {
-                    let cls = "tiger-test-grid-cell";
-                    if (i === currentQIndex) cls += " current";
-                    else if (answers[q.id]) cls += " answered";
-                    else if (seen.includes(q.id)) cls += " seen";
-                    return (
-                      <button
-                        key={q.id}
-                        type="button"
-                        className={cls}
-                        onClick={() => goToQuestion(i)}
-                      >
-                        {i + 1}
-                      </button>
-                    );
-                  })}
-                </div>
+                <QuestionGrid
+                  questions={sectionQuestions}
+                  currentQIndex={currentQIndex}
+                  answers={answers}
+                  seen={seen}
+                  onSelect={goToQuestion}
+                />
 
                 <div className="tiger-test-sidebar-btns">
                   <button
@@ -731,7 +790,8 @@ const TigerTest = () => {
               <div className="tiger-test-main">
                 <div className="tiger-test-top-bar">
                   مجموع الأسئلة في الإختبار {session.total_questions || 0} —
-                  القسم {session.current_section} من {sectionCount}
+                  القسم {session.current_section} من {sectionCount} — كل قسم 25
+                  سؤالاً / 25 دقيقة
                 </div>
 
                 <div className="tiger-test-watermark">
@@ -767,6 +827,7 @@ const TigerTest = () => {
                     <>
                       <div className="tiger-test-question-badge">
                         السؤال {currentQIndex + 1}
+                        {currentQuestion.is_demo ? " · تجريبي" : ""}
                       </div>
 
                       <div className="tiger-test-instruction-box">
@@ -774,12 +835,9 @@ const TigerTest = () => {
                         الإجابة الصحيحة
                       </div>
 
-                      <div
-                        className={`tiger-test-question-text ${fontClass}`}
-                        dangerouslySetInnerHTML={{
-                          __html: currentQuestion.question || "",
-                        }}
-                      />
+                      <div className={`tiger-test-question-text ${fontClass}`}>
+                        <MathRenderer html={currentQuestion.question || ""} />
+                      </div>
 
                       {currentQuestion.image && (
                         <img
@@ -807,12 +865,11 @@ const TigerTest = () => {
                                 selectedAnswer === aid ? "selected" : ""
                               }`}
                             >
-                              <span
-                                className="tiger-test-option-text"
-                                dangerouslySetInnerHTML={{
-                                  __html: a.text || "",
-                                }}
-                              />
+                              <span className="tiger-test-option-text">
+                                <MathRenderer
+                                  html={stripAnswerChoicePrefix(a.text || "")}
+                                />
+                              </span>
                               <input
                                 type="radio"
                                 name={`q-${currentQuestion.id}`}
@@ -820,11 +877,6 @@ const TigerTest = () => {
                                 checked={selectedAnswer === aid}
                                 onChange={() => handleSelectAnswer(aid)}
                               />
-                              <span
-                                style={{ marginRight: 8, fontWeight: 700 }}
-                              >
-                                {answerLabel(aid)}
-                              </span>
                             </label>
                           );
                         })}
@@ -832,7 +884,7 @@ const TigerTest = () => {
                     </>
                   ) : (
                     <p style={{ textAlign: "center", color: "#888", marginTop: 40 }}>
-                      لا توجد أسئلة في هذا القسم… جاري الانتقال…
+                      لا توجد أسئلة في هذا القسم…
                     </p>
                   )}
                 </div>

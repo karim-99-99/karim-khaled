@@ -161,8 +161,14 @@ class TigerTestSessionView(APIView):
                 pass
         if "seen" in data and isinstance(data["seen"], list):
             session.seen = data["seen"]
-        session.save()
-        return Response({"session": tt.session_to_payload(session)})
+        session.save(
+            update_fields=[
+                "current_question_index",
+                "section_time_remaining",
+                "seen",
+            ]
+        )
+        return Response({"session": tt.session_light_state(session)})
 
 
 class TigerTestAnswerView(APIView):
@@ -215,7 +221,7 @@ class TigerTestAnswerView(APIView):
             session.deferred = deferred
 
         session.save(update_fields=["answers", "bookmarked", "deferred"])
-        return Response({"session": tt.session_to_payload(session)})
+        return Response({"session": tt.session_light_state(session)})
 
 
 class TigerTestEndSectionView(APIView):

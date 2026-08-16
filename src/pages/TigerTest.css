@@ -45,8 +45,8 @@
 }
 
 .tiger-test-sidebar {
-  width: 280px;
-  min-width: 280px;
+  width: 240px;
+  min-width: 240px;
   background: #e8ebef;
   border-left: 1px solid #d0d5dc;
   display: flex;
@@ -129,23 +129,27 @@
 
 .tiger-test-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
+  grid-template-columns: repeat(5, 28px);
+  gap: 4px;
+  justify-content: center;
+  padding: 4px 0;
 }
 
 .tiger-test-grid-cell {
-  aspect-ratio: 1;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #fff;
   border: 1px solid #ccc;
   border-radius: 3px;
-  font-size: 14px;
-  font-weight: 600;
-  color: #666;
+  font-size: 11px;
+  font-weight: 700;
+  color: #555;
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  line-height: 1;
 }
 
 .tiger-test-grid-cell.current {
@@ -304,7 +308,8 @@
 .tiger-test-option {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 12px;
   background: #fff;
   border: 1px solid #ccc;
   border-radius: 6px;
@@ -333,7 +338,7 @@
   height: 20px;
   accent-color: #008080;
   flex-shrink: 0;
-  margin-right: 12px;
+  margin: 0;
 }
 
 .tiger-test-nav-footer {
@@ -533,12 +538,12 @@
   }
 
   .tiger-test-grid {
-    grid-template-columns: repeat(6, 36px);
+    grid-template-columns: repeat(5, 24px);
   }
 
   .tiger-test-grid-cell {
-    aspect-ratio: auto;
-    width: 36px;
-    height: 36px;
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
   }
 }
