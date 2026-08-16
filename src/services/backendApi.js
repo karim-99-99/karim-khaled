@@ -37,7 +37,8 @@ const request = async (path, options = {}) => {
   const url = path.startsWith("http")
     ? path
     : `${base}${path.startsWith("/") ? path : "/" + path}`;
-  const headers = { ...(options.headers || {}) };
+  const { timeoutMs, headers: optHeaders, ...fetchOptions } = options;
+  const headers = { ...(optHeaders || {}) };
 
   // Don't add token for auth endpoints (login/register)
   const isAuthEndpoint =
@@ -49,19 +50,32 @@ const request = async (path, options = {}) => {
     if (token) headers["Authorization"] = `Token ${token}`;
   }
 
-  if (options.body instanceof FormData) {
+  if (fetchOptions.body instanceof FormData) {
     delete headers["Content-Type"];
   } else if (
-    options.body != null &&
-    options.body !== "" &&
+    fetchOptions.body != null &&
+    fetchOptions.body !== "" &&
     !headers["Content-Type"]
   ) {
     headers["Content-Type"] = "application/json";
   }
   let res;
+  const ctrl = timeoutMs ? new AbortController() : null;
+  const timer = timeoutMs
+    ? setTimeout(() => ctrl.abort(), timeoutMs)
+    : null;
   try {
-    res = await fetch(url, { ...options, headers });
+    res = await fetch(url, {
+      ...fetchOptions,
+      headers,
+      signal: ctrl?.signal || fetchOptions.signal,
+    });
   } catch (fetchError) {
+    if (fetchError?.name === "AbortError") {
+      throw new Error(
+        "الخادم استغرق وقتاً طويلاً. انتظر قليلاً ثم حاول مرة أخرى."
+      );
+    }
     // Network error (CORS, connection failed, etc.)
     if (
       fetchError.name === "TypeError" &&
@@ -77,6 +91,8 @@ const request = async (path, options = {}) => {
       throw new Error(errorMsg);
     }
     throw fetchError;
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 
   if (res.status === 401) {
@@ -1561,13 +1577,14 @@ export const removeIncorrectAnswer = async (questionId) => {
 
 /** Tiger Test (محاكي اختبار النمر) */
 export const getTigerTestActive = async () => {
-  const data = await request("/tiger-test/active/");
+  const data = await request("/tiger-test/active/", { timeoutMs: 25000 });
   return data?.session ?? null;
 };
 
 export const startTigerTest = async (options = {}) => {
   const data = await request("/tiger-test/start/", {
     method: "POST",
+    timeoutMs: 90000,
     body: JSON.stringify({
       force: !!options.force,
       restart: !!options.restart,
@@ -1577,17 +1594,20 @@ export const startTigerTest = async (options = {}) => {
 };
 
 export const abandonTigerTest = async () => {
-  return request("/tiger-test/abandon/", { method: "POST" });
+  return request("/tiger-test/abandon/", { method: "POST", timeoutMs: 20000 });
 };
 
 export const getTigerTestSession = async (sessionId) => {
-  const data = await request(`/tiger-test/${encodeURIComponent(sessionId)}/`);
+  const data = await request(`/tiger-test/${encodeURIComponent(sessionId)}/`, {
+    timeoutMs: 25000,
+  });
   return data?.session ?? null;
 };
 
 export const syncTigerTestSession = async (sessionId, payload) => {
   const data = await request(`/tiger-test/${encodeURIComponent(sessionId)}/`, {
     method: "PATCH",
+    timeoutMs: 15000,
     body: JSON.stringify(payload),
   });
   return data?.session ?? null;
@@ -1596,7 +1616,7 @@ export const syncTigerTestSession = async (sessionId, payload) => {
 export const saveTigerTestAnswer = async (sessionId, body) => {
   const data = await request(
     `/tiger-test/${encodeURIComponent(sessionId)}/answer/`,
-    { method: "POST", body: JSON.stringify(body) }
+    { method: "POST", timeoutMs: 15000, body: JSON.stringify(body) }
   );
   return data?.session ?? null;
 };
@@ -1604,7 +1624,7 @@ export const saveTigerTestAnswer = async (sessionId, body) => {
 export const endTigerTestSection = async (sessionId) => {
   const data = await request(
     `/tiger-test/${encodeURIComponent(sessionId)}/end-section/`,
-    { method: "POST" }
+    { method: "POST", timeoutMs: 25000 }
   );
   return data?.session ?? null;
 };
@@ -1612,7 +1632,7 @@ export const endTigerTestSection = async (sessionId) => {
 export const nextTigerTestSection = async (sessionId) => {
   const data = await request(
     `/tiger-test/${encodeURIComponent(sessionId)}/next-section/`,
-    { method: "POST" }
+    { method: "POST", timeoutMs: 40000 }
   );
   return data?.session ?? null;
 };

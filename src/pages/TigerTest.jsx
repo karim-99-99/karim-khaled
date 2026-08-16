@@ -146,6 +146,8 @@ const TigerTest = () => {
   const [showInstructions, setShowInstructions] = useState(false);
   const [showDeferred, setShowDeferred] = useState(false);
   const [showPoolWarnings, setShowPoolWarnings] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [ending, setEnding] = useState(false);
   const endingRef = useRef(false);
   const seenRef = useRef([]);
   const seenFlushRef = useRef(null);
@@ -194,6 +196,7 @@ const TigerTest = () => {
       setLoading(false);
       return;
     }
+    backendApi.pingHealth();
     backendApi
       .getTigerTestActive()
       .then((active) => {
@@ -237,16 +240,45 @@ const TigerTest = () => {
     };
   }, [session?.id, flushSeen]);
 
-  const handleExpireSection = useCallback(async () => {
+  const applyEndedSession = (s) => {
+    if (!s) return;
+    setSession(s);
+    if (s.status === "between_sections" || s.status === "completed") {
+      setShowPoolWarnings(false);
+    }
+  };
+
+  const finishCurrentSection = async () => {
     if (!session?.id || endingRef.current) return;
     endingRef.current = true;
+    setEnding(true);
+    setError("");
+    const prev = session;
+    const isLast = (session.current_section || 1) >= sectionCount;
+    if (!isLast) {
+      setSession({
+        ...session,
+        status: "between_sections",
+        current_section_questions: [],
+      });
+    }
     try {
       const s = await backendApi.endTigerTestSection(session.id);
-      if (s) setSession((prev) => applySessionPatch(prev, s));
+      if (s) applyEndedSession(s);
+      else if (isLast) setError("لم يتم إنهاء القسم. حاول مرة أخرى.");
+    } catch (err) {
+      setSession(prev);
+      setError(err.message || "فشل إنهاء القسم");
     } finally {
       endingRef.current = false;
+      setEnding(false);
     }
-  }, [session?.id]);
+  };
+
+  const handleExpireSection = useCallback(async () => {
+    await finishCurrentSection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id, sectionCount]);
 
   const applyStartedSession = (s) => {
     setSession(s);
@@ -267,6 +299,7 @@ const TigerTest = () => {
   const handleStart = async (force = false) => {
     setStarting(true);
     setError("");
+    backendApi.pingHealth();
     try {
       const s = await backendApi.startTigerTest({ force });
       if (s) applyStartedSession(s);
@@ -363,42 +396,23 @@ const TigerTest = () => {
   };
 
   const handleSaveNext = async () => {
-    if (!session || !currentQuestion) return;
+    if (!session || !currentQuestion || ending) return;
     if (currentQIndex < sectionQuestions.length - 1) {
       goToQuestion(currentQIndex + 1);
       return;
     }
-    try {
-      endingRef.current = true;
-      const s = await backendApi.endTigerTestSection(session.id);
-      if (s) setSession((prev) => applySessionPatch(prev, s));
-    } catch {
-      /* ignore */
-    } finally {
-      endingRef.current = false;
-    }
+    await finishCurrentSection();
   };
 
-  const handleEndSection = async () => {
-    if (!session) return;
-    const isLast = session.current_section >= sectionCount;
-    const msg = isLast
-      ? "هل أنت متأكد من إنهاء الاختبار؟ ستظهر النتيجة النهائية."
-      : "هل أنت متأكد من إنهاء القسم الحالي؟ سيتوقف الوقت ولن تتمكن من العودة لهذا القسم.";
-    if (!window.confirm(msg)) return;
-    try {
-      endingRef.current = true;
-      const s = await backendApi.endTigerTestSection(session.id);
-      if (s) setSession((prev) => applySessionPatch(prev, s));
-    } catch (err) {
-      setError(err.message || "فشل إنهاء القسم");
-    } finally {
-      endingRef.current = false;
-    }
+  const handleEndSection = () => {
+    if (!session || ending) return;
+    setShowEndConfirm(true);
   };
 
   const handleNextSection = async () => {
-    if (!session) return;
+    if (!session || ending) return;
+    setEnding(true);
+    setError("");
     try {
       const s = await backendApi.nextTigerTestSection(session.id);
       if (s) {
@@ -408,6 +422,8 @@ const TigerTest = () => {
       }
     } catch (err) {
       setError(err.message || "فشل بدء القسم التالي");
+    } finally {
+      setEnding(false);
     }
   };
 
@@ -485,6 +501,11 @@ const TigerTest = () => {
 
   return (
     <div className="tiger-test-root" dir="rtl">
+      {error && !showReadyModal && (
+        <div className="tiger-test-error-banner" role="alert">
+          {error}
+        </div>
+      )}
       {showReadyModal && (
         <div className="tiger-test-overlay">
           <div className="tiger-test-modal">
@@ -590,6 +611,43 @@ const TigerTest = () => {
         </div>
       )}
 
+      {showEndConfirm && session && (
+        <div className="tiger-test-overlay">
+          <div className="tiger-test-modal">
+            <h2>
+              {session.current_section >= sectionCount
+                ? "إنهاء الاختبار"
+                : "إنهاء القسم"}
+            </h2>
+            <p>
+              {session.current_section >= sectionCount
+                ? "هل أنت متأكد من إنهاء الاختبار؟ ستظهر النتيجة النهائية."
+                : "هل أنت متأكد من إنهاء القسم الحالي؟ سيتوقف الوقت ولن تتمكن من العودة لهذا القسم."}
+            </p>
+            <div className="tiger-test-modal-btns">
+              <button
+                type="button"
+                className="tiger-test-modal-btn secondary"
+                onClick={() => setShowEndConfirm(false)}
+                disabled={ending}
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                className="tiger-test-modal-btn primary"
+                disabled={ending}
+                onClick={async () => {
+                  setShowEndConfirm(false);
+                  await finishCurrentSection();
+                }}
+              >
+                {ending ? "جاري الإنهاء…" : "تأكيد"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {betweenSections && session && !showReadyModal && (
         <div className="tiger-test-overlay">
           <div className="tiger-test-modal">
@@ -603,17 +661,19 @@ const TigerTest = () => {
                 <button
                   type="button"
                   className="tiger-test-modal-btn primary"
+                  disabled={ending}
                   onClick={handleNextSection}
                 >
-                  نعم، مستعد
+                  {ending ? "جاري التحميل…" : "نعم، مستعد"}
                 </button>
               ) : (
                 <button
                   type="button"
                   className="tiger-test-modal-btn primary"
+                  disabled={ending}
                   onClick={handleNextSection}
                 >
-                  عرض النتيجة
+                  {ending ? "جاري التحميل…" : "عرض النتيجة"}
                 </button>
               )}
             </div>
@@ -770,8 +830,11 @@ const TigerTest = () => {
                     type="button"
                     className="tiger-test-sidebar-btn grey"
                     onClick={handleEndSection}
+                    disabled={ending}
                   >
-                    {session.current_section >= sectionCount
+                    {ending
+                      ? "جاري الإنهاء…"
+                      : session.current_section >= sectionCount
                       ? "إنهاء الاختبار"
                       : "إنهاء القسم"}
                   </button>
@@ -916,10 +979,12 @@ const TigerTest = () => {
                     <button
                       type="button"
                       className="tiger-test-nav-btn next primary"
-                      disabled={!currentQuestion}
+                      disabled={!currentQuestion || ending}
                       onClick={handleSaveNext}
                     >
-                      {currentQIndex >= sectionQuestions.length - 1
+                      {ending
+                        ? "جاري الإنهاء…"
+                        : currentQIndex >= sectionQuestions.length - 1
                         ? session.current_section >= sectionCount
                           ? "إنهاء الاختبار"
                           : "إنهاء القسم"

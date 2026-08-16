@@ -1,14 +1,18 @@
 /* Tiger Test — محاكي اختبار النمر (matches reference UI) */
 
-.tiger-test-root {
-  position: fixed;
-  inset: 0;
-  z-index: 200;
-  display: flex;
-  flex-direction: column;
-  background: #eef1f4;
-  font-family: inherit;
-  overflow: hidden;
+.tiger-test-error-banner {
+  position: absolute;
+  top: 48px;
+  left: 12px;
+  right: 12px;
+  z-index: 350;
+  background: #b91c1c;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
 }
 
 .tiger-test-header {

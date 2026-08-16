@@ -10,33 +10,28 @@ from . import tiger_test as tt
 
 
 def _abandon_active_sessions(user):
-    """Mark any in-progress sessions as completed (abandoned) so a new one can start."""
-    active = TigerTestSession.objects.filter(
+    """Mark any in-progress sessions as completed so a new one can start quickly."""
+    now = timezone.now()
+    TigerTestSession.objects.filter(
         user=user,
         status__in=[
             TigerTestSession.STATUS_IN_SECTION,
             TigerTestSession.STATUS_BETWEEN_SECTIONS,
         ],
+    ).update(
+        status=TigerTestSession.STATUS_COMPLETED,
+        completed_at=now,
+        results={
+            "verbal_correct": 0,
+            "verbal_total": 0,
+            "verbal_percentage": 0,
+            "quant_correct": 0,
+            "quant_total": 0,
+            "quant_percentage": 0,
+            "final_percentage": 0,
+            "abandoned": True,
+        },
     )
-    now = timezone.now()
-    for session in active:
-        try:
-            session.results = tt.score_session(session)
-        except Exception:
-            session.results = {
-                "verbal_correct": 0,
-                "verbal_total": 0,
-                "verbal_percentage": 0,
-                "quant_correct": 0,
-                "quant_total": 0,
-                "quant_percentage": 0,
-                "final_percentage": 0,
-            }
-        session.status = TigerTestSession.STATUS_COMPLETED
-        session.completed_at = now
-        session.save(
-            update_fields=["status", "results", "completed_at"]
-        )
 
 
 class TigerTestActiveView(APIView):
@@ -246,9 +241,17 @@ class TigerTestEndSectionView(APIView):
             session.results = results
             session.status = TigerTestSession.STATUS_COMPLETED
             session.completed_at = timezone.now()
+            session.save(
+                update_fields=[
+                    "section_time_remaining",
+                    "results",
+                    "status",
+                    "completed_at",
+                ]
+            )
         else:
             session.status = TigerTestSession.STATUS_BETWEEN_SECTIONS
-        session.save()
+            session.save(update_fields=["section_time_remaining", "status"])
         return Response({"session": tt.session_to_payload(session)})
 
 
@@ -280,7 +283,7 @@ class TigerTestNextSectionView(APIView):
             session.results = results
             session.status = TigerTestSession.STATUS_COMPLETED
             session.completed_at = timezone.now()
-            session.save()
+            session.save(update_fields=["results", "status", "completed_at"])
             return Response({"session": tt.session_to_payload(session)})
 
         # Skip any accidental empty sections
@@ -296,7 +299,7 @@ class TigerTestNextSectionView(APIView):
             session.results = results
             session.status = TigerTestSession.STATUS_COMPLETED
             session.completed_at = timezone.now()
-            session.save()
+            session.save(update_fields=["results", "status", "completed_at"])
             return Response({"session": tt.session_to_payload(session)})
 
         session.current_section = next_section
@@ -304,7 +307,15 @@ class TigerTestNextSectionView(APIView):
         session.section_time_remaining = tt.SECTION_SECONDS
         session.section_started_at = timezone.now()
         session.status = TigerTestSession.STATUS_IN_SECTION
-        session.save()
+        session.save(
+            update_fields=[
+                "current_section",
+                "current_question_index",
+                "section_time_remaining",
+                "section_started_at",
+                "status",
+            ]
+        )
         return Response({"session": tt.session_to_payload(session)})
 
 

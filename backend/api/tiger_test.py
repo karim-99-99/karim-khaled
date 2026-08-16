@@ -62,12 +62,75 @@ def _passage_answers_ok(pq: dict) -> bool:
 
 
 def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """Build verbal and quant pools in a single query (no N+1 exists())."""
+    """Build verbal/quant pools without heavy joins, DISTINCT, or prefetching answers."""
     has_answers = Exists(Answer.objects.filter(question_id=OuterRef("pk")))
-    qs = (
-        Question.objects.filter(
-            Q(subject_id__in=[VERBAL_SUBJECT_ID, QUANT_SUBJECT_ID])
-            | Q(chapter__category__subject_id__in=[VERBAL_SUBJECT_ID, QUANT_SUBJECT_ID])
+    field_names = (
+        "id",
+        "question_type",
+        "subject_id",
+        "chapter_id",
+        "lesson_id",
+        "passage_questions",
+    )
+
+    primary = (
+        Question.objects.filter(subject_id__in=[VERBAL_SUBJECT_ID, QUANT_SUBJECT_ID])
+        .exclude(section_id__in=["قسم_تحصيلي"])
+        .only(*field_names)
+        .annotate(has_answers=has_answers)
+    )
+
+    verbal: list[dict[str, Any]] = []
+    quant: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+
+    def _consume(qs, kind_hint: str | None = None):
+        for q in qs:
+            kind = kind_hint or _resolve_subject_kind(q)
+            if kind not in ("verbal", "quant"):
+                continue
+            target = verbal if kind == "verbal" else quant
+            if q.question_type == Question.QUESTION_TYPE_PASSAGE:
+                pq_list = q.passage_questions or []
+                if not isinstance(pq_list, list) or len(pq_list) == 0:
+                    continue
+                for idx, pq in enumerate(pq_list):
+                    if not isinstance(pq, dict) or not _passage_answers_ok(pq):
+                        continue
+                    slot_id = _slot_id_for_passage(q.id, idx)
+                    if slot_id in seen_ids:
+                        continue
+                    seen_ids.add(slot_id)
+                    target.append(
+                        {
+                            "slot_id": slot_id,
+                            "parent_id": q.id,
+                            "passage_index": idx,
+                            "subject": kind,
+                        }
+                    )
+            else:
+                if not getattr(q, "has_answers", False):
+                    continue
+                if q.id in seen_ids:
+                    continue
+                seen_ids.add(q.id)
+                target.append(
+                    {
+                        "slot_id": q.id,
+                        "parent_id": q.id,
+                        "passage_index": None,
+                        "subject": kind,
+                    }
+                )
+
+    _consume(primary)
+
+    # Fallback only for rows missing subject_id (rare) — avoid joining the whole table.
+    extra = (
+        Question.objects.filter(subject_id__isnull=True)
+        .filter(
+            Q(chapter__category__subject_id__in=[VERBAL_SUBJECT_ID, QUANT_SUBJECT_ID])
             | Q(
                 lesson__chapter__category__subject_id__in=[
                     VERBAL_SUBJECT_ID,
@@ -77,64 +140,14 @@ def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         )
         .exclude(section_id__in=["قسم_تحصيلي"])
         .select_related(
-            "subject",
-            "chapter__category__subject",
-            "lesson__chapter__category__subject",
-        )
-        .prefetch_related(
-            Prefetch(
-                "answers",
-                queryset=Answer.objects.only(
-                    "id", "answer_id", "question_id", "text", "is_correct"
-                ).order_by("answer_id"),
-            )
+            "chapter__category",
+            "lesson__chapter__category",
         )
         .annotate(has_answers=has_answers)
-        .distinct()
     )
+    if Question.objects.filter(subject_id__isnull=True).exists():
+        _consume(extra)
 
-    verbal: list[dict[str, Any]] = []
-    quant: list[dict[str, Any]] = []
-    seen_ids: set[str] = set()
-
-    for q in qs:
-        kind = _resolve_subject_kind(q)
-        if kind not in ("verbal", "quant"):
-            continue
-        target = verbal if kind == "verbal" else quant
-        if q.question_type == Question.QUESTION_TYPE_PASSAGE:
-            pq_list = q.passage_questions or []
-            if not isinstance(pq_list, list) or len(pq_list) == 0:
-                continue
-            for idx, pq in enumerate(pq_list):
-                if not isinstance(pq, dict) or not _passage_answers_ok(pq):
-                    continue
-                slot_id = _slot_id_for_passage(q.id, idx)
-                if slot_id in seen_ids:
-                    continue
-                seen_ids.add(slot_id)
-                target.append(
-                    {
-                        "slot_id": slot_id,
-                        "parent_id": q.id,
-                        "passage_index": idx,
-                        "subject": kind,
-                    }
-                )
-        else:
-            if not getattr(q, "has_answers", False):
-                continue
-            if q.id in seen_ids:
-                continue
-            seen_ids.add(q.id)
-            target.append(
-                {
-                    "slot_id": q.id,
-                    "parent_id": q.id,
-                    "passage_index": None,
-                    "subject": kind,
-                }
-            )
     return verbal, quant
 
 
