@@ -23,6 +23,7 @@ import {
   addIncorrectAnswers,
   pingHealth,
 } from "../services/backendApi";
+import "./QuizFeedback.css";
 
 /** sessionStorage: instant replay of last fetched questions (retake / navigate back) */
 const QUIZ_Q_SNAPSHOT_KEY = (lessonId) => `quiz_q_snapshot_v2_${lessonId}`;
@@ -115,6 +116,9 @@ const Quiz = () => {
     endSeconds: null,
   });
   const [showSidebar, setShowSidebar] = useState(false);
+  const [answerFeedback, setAnswerFeedback] = useState(null);
+  const [feedbackLeaving, setFeedbackLeaving] = useState(false);
+  const feedbackTimersRef = useRef([]);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -321,22 +325,44 @@ const Quiz = () => {
 
   const currentQuestion = questions[currentIndex];
 
+  const clearFeedbackTimers = () => {
+    feedbackTimersRef.current.forEach(clearTimeout);
+    feedbackTimersRef.current = [];
+  };
+
+  useEffect(() => () => clearFeedbackTimers(), []);
+
   const handleAnswerSelect = (answerId) => {
-    if (showResult) return;
+    if (showResult || answerFeedback) return;
     if (currentQuestion?.id && answers[currentQuestion.id]) return;
 
-    setSelectedAnswer(answerId);
-    setShowResult(true);
+    const chosen = (currentQuestion.answers || []).find(
+      (a) => a.id === answerId
+    );
+    const isCorrect = !!(chosen?.isCorrect || chosen?.is_correct);
 
-    // Save answer
+    setSelectedAnswer(answerId);
+
     const newAnswers = {
       ...answers,
       [currentQuestion.id]: answerId,
     };
     setAnswers(newAnswers);
-
-    // Auto-save progress
     saveProgress(newAnswers, currentIndex);
+
+    setFeedbackLeaving(false);
+    setAnswerFeedback(isCorrect ? "correct" : "wrong");
+    clearFeedbackTimers();
+    feedbackTimersRef.current.push(
+      setTimeout(() => setFeedbackLeaving(true), 780)
+    );
+    feedbackTimersRef.current.push(
+      setTimeout(() => {
+        setAnswerFeedback(null);
+        setFeedbackLeaving(false);
+        setShowResult(true);
+      }, 1000)
+    );
   };
 
   // Save progress to localStorage
@@ -370,6 +396,9 @@ const Quiz = () => {
   // Navigate to specific question
   const goToQuestion = (index) => {
     if (index >= 0 && index < questions.length) {
+      clearFeedbackTimers();
+      setAnswerFeedback(null);
+      setFeedbackLeaving(false);
       setCurrentIndex(index);
       setSelectedAnswer(answers[questions[index].id] || null);
       setShowResult(!!answers[questions[index].id]);
@@ -385,6 +414,9 @@ const Quiz = () => {
   const handleNext = () => {
     if (currentIndex < questions.length - 1) {
       const nextIndex = currentIndex + 1;
+      clearFeedbackTimers();
+      setAnswerFeedback(null);
+      setFeedbackLeaving(false);
       setCurrentIndex(nextIndex);
       setSelectedAnswer(answers[questions[nextIndex].id] || null);
       setShowResult(!!answers[questions[nextIndex].id]);
@@ -981,6 +1013,9 @@ const Quiz = () => {
               <button
                 onClick={() => {
                   if (currentIndex > 0) {
+                    clearFeedbackTimers();
+                    setAnswerFeedback(null);
+                    setFeedbackLeaving(false);
                     setCurrentIndex(currentIndex - 1);
                     setSelectedAnswer(
                       answers[questions[currentIndex - 1].id] || null
@@ -997,6 +1032,66 @@ const Quiz = () => {
           </div>
         </div>
       </div>
+
+      {answerFeedback && (
+        <div
+          className={`quiz-feedback-overlay ${
+            answerFeedback === "correct" ? "is-correct" : "is-wrong"
+          } ${feedbackLeaving ? "is-leaving" : ""}`}
+          role="status"
+          aria-live="polite"
+        >
+          <div
+            className={`quiz-feedback-mark ${
+              answerFeedback === "correct" ? "is-correct" : "is-wrong"
+            }`}
+          >
+            {answerFeedback === "correct" ? (
+              <>
+                <svg viewBox="0 0 80 80" aria-hidden="true">
+                  <path
+                    className="stroke"
+                    d="M16 42 L32 58 L64 22"
+                  />
+                </svg>
+                {[
+                  [18, -70],
+                  [-40, -55],
+                  [55, -30],
+                  [-60, 10],
+                  [70, 20],
+                  [-20, 65],
+                  [35, 70],
+                ].map(([x, y], i) => (
+                  <span
+                    key={i}
+                    className="quiz-feedback-spark"
+                    style={{
+                      "--sx": `${x}px`,
+                      "--sy": `${y}px`,
+                      animationDelay: `${80 + i * 40}ms`,
+                    }}
+                  />
+                ))}
+              </>
+            ) : (
+              <svg viewBox="0 0 80 80" aria-hidden="true">
+                <path className="stroke" d="M22 22 L58 58" />
+                <path className="stroke" d="M58 22 L22 58" />
+              </svg>
+            )}
+            <div className="quiz-feedback-caption">
+              {answerFeedback === "correct"
+                ? isArabicBrowser()
+                  ? "إجابة صحيحة"
+                  : "Correct"
+                : isArabicBrowser()
+                  ? "إجابة خاطئة"
+                  : "Incorrect"}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Video Modal */}
       <VideoModal
