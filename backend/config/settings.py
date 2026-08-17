@@ -125,16 +125,18 @@ WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {'default': {}}
 _db_url = _normalize_database_url((os.environ.get('DATABASE_URL') or '').strip())
 if _db_url:
-    # Neon PgBouncer (host contains "pooler") cannot keep Django persistent connections.
-    _is_pooler = "pooler" in _db_url.lower()
+    # Always-on Gunicorn (Render Starter) should reuse connections. Opening a new
+    # SSL session to Neon in us-west-2 from Frankfurt costs ~1s on every request.
+    _is_neon = "neon.tech" in _db_url.lower() or "pooler" in _db_url.lower()
     DATABASES["default"] = dj_database_url.parse(
         _db_url,
-        conn_max_age=0 if _is_pooler else 120,
-        ssl_require="sslmode" in _db_url.lower() or "neon.tech" in _db_url.lower(),
+        conn_max_age=60,
+        ssl_require=_is_neon or "sslmode" in _db_url.lower(),
     )
-    if _is_pooler:
-        DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
     DATABASES["default"].setdefault("OPTIONS", {})
+    DATABASES["default"]["OPTIONS"].setdefault("connect_timeout", 15)
+    if _is_neon:
+        DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
     DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
 else:
     DATABASES["default"] = {

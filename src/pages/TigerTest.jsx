@@ -196,9 +196,9 @@ const TigerTest = () => {
       setLoading(false);
       return;
     }
-    backendApi.pingHealth();
     backendApi
-      .getTigerTestActive()
+      .ensureDbAwake()
+      .then(() => backendApi.getTigerTestActive())
       .then((active) => {
         if (active) {
           setHasActive(true);
@@ -299,8 +299,8 @@ const TigerTest = () => {
   const handleStart = async (force = false) => {
     setStarting(true);
     setError("");
-    backendApi.pingHealth();
     try {
+      await backendApi.ensureDbAwake();
       const s = await backendApi.startTigerTest({ force });
       if (s) applyStartedSession(s);
     } catch (err) {

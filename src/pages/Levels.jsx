@@ -31,6 +31,7 @@ import {
   deleteLesson,
   reorderLessonsForChapter,
   pingHealth,
+  ensureDbAwake,
 } from "../services/backendApi";
 import { prefetchLessonMediaRoutes } from "../utils/routePrefetch";
 import { isContentStaff } from "../utils/roles";
@@ -259,6 +260,8 @@ const Levels = () => {
         return;
       }
       try {
+        await ensureDbAwake();
+        if (c) return;
         // One optimized request: chapter + videos + files + lessonStatus
         const dash = await getChapterDashboard(chapterId);
         if (c) return;

@@ -159,15 +159,25 @@ const fetchAllPaginated = async (path) => {
 
 export const isBackendOn = () => isApiBaseConfigured() && !!getToken();
 
-/** Ping backend health and wake Neon (db=1). Fire-and-forget. */
-let lastHealthPingAt = 0;
-export const pingHealth = () => {
+/** Wake Neon (db=1). Dedupes in-flight calls so the first page can wait once. */
+let dbWakePromise = null;
+export const ensureDbAwake = () => {
   const base = getBase();
-  if (!base) return;
-  const now = Date.now();
-  if (now - lastHealthPingAt < 8000) return;
-  lastHealthPingAt = now;
-  fetch(`${base}/health/?db=1`, { method: "GET", keepalive: true }).catch(() => {});
+  if (!base) return Promise.resolve();
+  if (dbWakePromise) return dbWakePromise;
+  dbWakePromise = fetch(`${base}/health/?db=1`, { method: "GET", keepalive: true })
+    .catch(() => {})
+    .finally(() => {
+      setTimeout(() => {
+        dbWakePromise = null;
+      }, 45000);
+    });
+  return dbWakePromise;
+};
+
+/** Ping backend health and wake Neon (db=1). Fire-and-forget. */
+export const pingHealth = () => {
+  ensureDbAwake();
 };
 
 /** Build URL for GET /api/files/<id>/content/ (auth-only, no X-Frame-Options issues). */
