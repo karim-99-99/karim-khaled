@@ -25,12 +25,21 @@ def content_cache_key(chapter_id: str) -> str:
     return f'{CONTENT_CACHE_PREFIX}{chapter_id}'
 
 
+TIGER_SLOT_CACHE_KEY = 'tiger_slots_v2'
+TIGER_SLOT_CACHE_TTL = 60 * 10
+
+
+def invalidate_tiger_slot_cache() -> None:
+    cache.delete(TIGER_SLOT_CACHE_KEY)
+
+
 def invalidate_sections_tree_cache() -> None:
     cache.delete(SECTIONS_TREE_CACHE_KEY)
 
 
 def invalidate_chapter_dashboard_cache(chapter_id) -> None:
     invalidate_sections_tree_cache()
+    invalidate_tiger_slot_cache()
     if not chapter_id:
         return
     cache.delete(content_cache_key(str(chapter_id)))

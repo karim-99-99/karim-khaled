@@ -6,8 +6,11 @@ from typing import Any
 
 from django.db.models import Exists, OuterRef, Prefetch, Q
 
+from django.core.cache import cache
+
 from .models import Question, Answer, TigerTestSession, TigerTestUsedQuestion
 from .tiger_test_demo import make_demo_slots
+from .chapter_dashboard import TIGER_SLOT_CACHE_KEY, TIGER_SLOT_CACHE_TTL
 
 VERBAL_SUBJECT_ID = "مادة_اللفظي"
 QUANT_SUBJECT_ID = "مادة_الكمي"
@@ -65,6 +68,10 @@ def _passage_answers_ok(pq: dict) -> bool:
 
 def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Build verbal/quant pools without heavy joins, DISTINCT, or prefetching answers."""
+    cached = cache.get(TIGER_SLOT_CACHE_KEY)
+    if isinstance(cached, (list, tuple)) and len(cached) == 2:
+        return list(cached[0]), list(cached[1])
+
     has_answers = Exists(Answer.objects.filter(question_id=OuterRef("pk")))
     field_names = (
         "id",
@@ -152,6 +159,7 @@ def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     if Question.objects.filter(subject_id__isnull=True).exists():
         _consume(extra)
 
+    cache.set(TIGER_SLOT_CACHE_KEY, (verbal, quant), TIGER_SLOT_CACHE_TTL)
     return verbal, quant
 
 

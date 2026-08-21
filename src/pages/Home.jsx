@@ -25,7 +25,6 @@ import {
   updateChapter,
   reorderChaptersForCategory,
   pingHealth,
-  ensureDbAwake,
 } from "../services/backendApi";
 import { isContentStaff } from "../utils/roles";
 
@@ -159,8 +158,7 @@ const Home = () => {
             if (!cancelled) applyFromSectionsPayload(allCached, cu);
             if (!cancelled) setLoading(false);
           } else {
-            await ensureDbAwake();
-            if (cancelled) return;
+            pingHealth();
           }
           const data = await getSectionsApi();
           if (cancelled) return;

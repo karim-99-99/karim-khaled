@@ -130,7 +130,7 @@ if _db_url:
     _is_neon = "neon.tech" in _db_url.lower() or "pooler" in _db_url.lower()
     DATABASES["default"] = dj_database_url.parse(
         _db_url,
-        conn_max_age=60,
+        conn_max_age=300,
         ssl_require=_is_neon or "sslmode" in _db_url.lower(),
     )
     DATABASES["default"].setdefault("OPTIONS", {})

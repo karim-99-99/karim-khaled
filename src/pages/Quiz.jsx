@@ -22,7 +22,7 @@ import {
   saveQuizAttempt,
   recordLessonQuizAnswers,
   addIncorrectAnswers,
-  ensureDbAwake,
+  pingHealth,
 } from "../services/backendApi";
 import "./QuizFeedback.css";
 
@@ -245,7 +245,7 @@ const Quiz = () => {
       let levelVideo = null;
 
       if (isBackendOn()) {
-        await ensureDbAwake();
+        pingHealth();
         try {
           const pq = await getQuestionsByLevelApi(actualItemId, { force: true });
           if (c) return;
