@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { getCurrentUser } from "../services/storageService";
 import * as backendApi from "../services/backendApi";
 import MathRenderer from "../components/MathRenderer";
@@ -179,8 +179,31 @@ const QuestionGrid = memo(function QuestionGrid({
   reviewIds,
   farthestIndex,
   onSelect,
+  playback,
 }) {
   const reviewSet = new Set(reviewIds || []);
+  if (playback) {
+    return (
+      <div className="tiger-test-grid tiger-test-review-grid" aria-label="أرقام الأسئلة">
+        {questions.map((q, i) => {
+          const st = reviewItemStatus(q);
+          let cls = `tiger-test-grid-cell ${st}`;
+          if (i === currentQIndex) cls += " current";
+          return (
+            <button
+              key={q.id || i}
+              type="button"
+              className={cls}
+              onClick={() => onSelect(i)}
+              title={`السؤال ${i + 1}`}
+            >
+              {i + 1}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div className="tiger-test-grid" aria-label="أرقام الأسئلة">
       {questions.map((q, i) => {
@@ -273,7 +296,9 @@ function SectionTimer({ sessionId, initialSeconds, onExpire }) {
 
 const TigerTest = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const user = getCurrentUser();
+  const pendingAttemptRef = useRef(searchParams.get("attempt"));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [session, setSession] = useState(null);
@@ -284,6 +309,8 @@ const TigerTest = () => {
   const [history, setHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [openingAttempt, setOpeningAttempt] = useState(false);
+  const [replayMode, setReplayMode] = useState(false);
+  const [replaySection, setReplaySection] = useState(1);
   const [fontSize, setFontSize] = useState("md");
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -304,16 +331,30 @@ const TigerTest = () => {
   const [farthestIndex, setFarthestIndex] = useState(0);
   const activeSessionRef = useRef(null);
 
+  const isReplay = Boolean(replayMode && session?.status === "completed");
+
   const sectionCount = session?.section_count || 5;
   const sectionIndex = Math.max(
     0,
-    Math.min((session?.current_section || 1) - 1, Math.max(0, sectionCount - 1))
+    Math.min(
+      ((isReplay ? replaySection : session?.current_section) || 1) - 1,
+      Math.max(0, sectionCount - 1)
+    )
   );
 
-  const sectionQuestions = useMemo(
-    () => sectionQuestionsOf(session),
-    [session]
-  );
+  const sectionQuestions = useMemo(() => {
+    if (isReplay) {
+      const cached = session?.reviewBySection?.[replaySection];
+      if (Array.isArray(cached)) return cached;
+      if (Array.isArray(session?.review)) {
+        return session.review.filter(
+          (q) => (q.section_number || 1) === (replaySection || 1)
+        );
+      }
+      return [];
+    }
+    return sectionQuestionsOf(session);
+  }, [isReplay, session, replaySection]);
 
   const currentQIndex = Math.min(
     session?.current_question_index ?? 0,
@@ -375,36 +416,54 @@ const TigerTest = () => {
   }, [user?.token, navigate]);
 
   useEffect(() => {
+    if (replayMode) return;
     if (session?.status !== "completed" || !session?.id) return;
-    if (Array.isArray(session.review)) return;
+    if (session.reviewReady) return;
+    if (Array.isArray(session.review) && session.review.length > 0) return;
     let cancelled = false;
     setReviewLoading(true);
-    backendApi
-      .getTigerTestResults(session.id)
-      .then((data) => {
+    const count = Math.max(1, session.section_count || 5);
+    Promise.all(
+      Array.from({ length: count }, (_, i) =>
+        backendApi.getTigerTestReview(session.id, i + 1, { explain: true })
+      )
+    )
+      .then((parts) => {
         if (cancelled) return;
-        const next = data?.session;
-        if (next) {
+        const review = parts.flatMap((part) =>
+          Array.isArray(part?.items) ? part.items : []
+        );
+        setSession((prev) =>
+          prev
+            ? {
+                ...prev,
+                review,
+                reviewReady: true,
+              }
+            : prev
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
           setSession((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  ...next,
-                  results: next.results || prev.results,
-                  review: next.review || [],
-                }
-              : next
+            prev ? { ...prev, review: prev.review || [], reviewReady: true } : prev
           );
         }
       })
-      .catch(() => {})
       .finally(() => {
         if (!cancelled) setReviewLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [session?.id, session?.status, session?.review]);
+  }, [
+    replayMode,
+    session?.id,
+    session?.status,
+    session?.review,
+    session?.reviewReady,
+    session?.section_count,
+  ]);
 
   useEffect(() => {
     if (!currentQuestion || !session?.id || session.status !== "in_section") {
@@ -505,6 +564,7 @@ const TigerTest = () => {
     seenRef.current = Array.isArray(s.seen) ? s.seen : [];
     setHasActive(true);
     setMenuScreen(null);
+    setReplayMode(false);
     setShowReadyModal(false);
     setShowReview(false);
     setReviewIndex(0);
@@ -518,6 +578,7 @@ const TigerTest = () => {
     setShowReview(false);
     setShowReadyModal(false);
     setShowPoolWarnings(false);
+    setReplayMode(false);
     setError("");
     setMenuScreen("hub");
     const active = activeSessionRef.current;
@@ -556,27 +617,132 @@ const TigerTest = () => {
     loadHistory();
   }, [menuScreen, loadHistory]);
 
+  const mergeReviewSection = useCallback((sessionId, section, items) => {
+    setSession((prev) => {
+      if (!prev || prev.id !== sessionId) return prev;
+      return {
+        ...prev,
+        reviewBySection: {
+          ...(prev.reviewBySection || {}),
+          [section]: items,
+        },
+      };
+    });
+  }, []);
+
   const openPastAttempt = async (attemptId) => {
     if (!attemptId || openingAttempt) return;
     setOpeningAttempt(true);
     setError("");
+    setReplayMode(true);
+    setReplaySection(1);
+    setShowReview(false);
+    setReviewIndex(0);
+    setShowReadyModal(false);
+    setMenuScreen(null);
+    setSession(null);
     try {
-      const s = await backendApi.getTigerTestSession(attemptId);
+      const [s, first] = await Promise.all([
+        backendApi.getTigerTestSession(attemptId),
+        backendApi.getTigerTestReview(attemptId, 1),
+      ]);
       if (!s || s.status !== "completed") {
+        setReplayMode(false);
         setError("تعذر فتح هذا الاختبار.");
+        setMenuScreen("history");
         return;
       }
-      setSession(s);
-      setShowReview(false);
-      setReviewIndex(0);
-      setShowReadyModal(false);
-      setMenuScreen(null);
+      const items = Array.isArray(first?.items) ? first.items : [];
+      setSession({
+        ...s,
+        current_section: 1,
+        current_question_index: 0,
+        reviewBySection: { 1: items },
+        review: items,
+      });
+      const count = s.section_count || 5;
+      if (count > 1) {
+        backendApi
+          .getTigerTestReview(attemptId, 2)
+          .then((data) => {
+            mergeReviewSection(
+              s.id,
+              2,
+              Array.isArray(data?.items) ? data.items : []
+            );
+          })
+          .catch(() => {});
+      }
     } catch (err) {
+      setReplayMode(false);
       setError(err.message || "تعذر فتح الاختبار السابق");
+      setMenuScreen("history");
     } finally {
       setOpeningAttempt(false);
     }
   };
+
+  useEffect(() => {
+    if (loading) return;
+    const attempt = pendingAttemptRef.current;
+    if (!attempt) return;
+    pendingAttemptRef.current = null;
+    setSearchParams({}, { replace: true });
+    openPastAttempt(attempt);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, setSearchParams]);
+
+  useEffect(() => {
+    if (!isReplay || !session?.id) return;
+    const sec = replaySection || 1;
+    if (Array.isArray(session.reviewBySection?.[sec])) {
+      const next = sec + 1;
+      if (
+        next <= sectionCount &&
+        !Array.isArray(session.reviewBySection?.[next])
+      ) {
+        backendApi
+          .getTigerTestReview(session.id, next)
+          .then((data) => {
+            mergeReviewSection(
+              session.id,
+              next,
+              Array.isArray(data?.items) ? data.items : []
+            );
+          })
+          .catch(() => {});
+      }
+      return;
+    }
+    let cancelled = false;
+    setOpeningAttempt(true);
+    backendApi
+      .getTigerTestReview(session.id, sec)
+      .then((data) => {
+        if (cancelled) return;
+        mergeReviewSection(
+          session.id,
+          sec,
+          Array.isArray(data?.items) ? data.items : []
+        );
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err.message || "تعذر تحميل القسم");
+      })
+      .finally(() => {
+        if (!cancelled) setOpeningAttempt(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isReplay,
+    replaySection,
+    session?.id,
+    session?.reviewBySection,
+    sectionCount,
+    mergeReviewSection,
+  ]);
 
   const handleResume = () => {
     if (!session) return;
@@ -626,7 +792,7 @@ const TigerTest = () => {
   };
 
   const handleSelectAnswer = async (answerId) => {
-    if (!session || !currentQuestion) return;
+    if (isReplay || !session || !currentQuestion) return;
     setNavHint("");
     setSelectedAnswer(answerId);
     setSession((prev) =>
@@ -684,6 +850,12 @@ const TigerTest = () => {
       const safe = Math.max(0, Math.min(index, sectionQuestions.length - 1));
       const q = sectionQuestions[safe];
       if (!q) return;
+      if (isReplay) {
+        setSession((prev) =>
+          prev ? { ...prev, current_question_index: safe } : prev
+        );
+        return;
+      }
       const allowUnanswered = Boolean(options.allowUnanswered);
       const inReview =
         (session.bookmarked || []).includes(q.id) ||
@@ -706,10 +878,26 @@ const TigerTest = () => {
         .syncTigerTestSession(session.id, { current_question_index: safe })
         .catch(() => {});
     },
-    [session, sectionQuestions, answers, currentQIndex]
+    [session, sectionQuestions, answers, currentQIndex, isReplay]
   );
 
   const handlePrev = () => {
+    if (isReplay) {
+      if (currentQIndex > 0) {
+        goToQuestion(currentQIndex - 1);
+        return;
+      }
+      if (replaySection > 1) {
+        const prevSec = replaySection - 1;
+        setReplaySection(prevSec);
+        setSession((prev) =>
+          prev
+            ? { ...prev, current_section: prevSec, current_question_index: 0 }
+            : prev
+        );
+      }
+      return;
+    }
     if (currentQIndex <= 0) return;
     for (let i = currentQIndex - 1; i >= 0; i -= 1) {
       const q = sectionQuestions[i];
@@ -722,6 +910,22 @@ const TigerTest = () => {
   };
 
   const handleSaveNext = async () => {
+    if (isReplay) {
+      if (currentQIndex < sectionQuestions.length - 1) {
+        goToQuestion(currentQIndex + 1);
+        return;
+      }
+      if (replaySection < sectionCount) {
+        const nextSec = replaySection + 1;
+        setReplaySection(nextSec);
+        setSession((prev) =>
+          prev
+            ? { ...prev, current_section: nextSec, current_question_index: 0 }
+            : prev
+        );
+      }
+      return;
+    }
     if (!session || !currentQuestion || ending) return;
     if (!canLeaveCurrent()) {
       setNavHint(
@@ -779,7 +983,38 @@ const TigerTest = () => {
     );
   }
 
-  if (menuScreen === "hub" || menuScreen === "history") {
+  if (
+    pendingAttemptRef.current &&
+    !Array.isArray(session?.reviewBySection?.[1])
+  ) {
+    return (
+      <div className="tiger-test-root" dir="rtl">
+        <div className="tiger-test-loading">جاري فتح الاختبار…</div>
+      </div>
+    );
+  }
+
+  const replaySectionReady = Array.isArray(
+    session?.reviewBySection?.[replaySection || 1]
+  );
+  if (replayMode && !replaySectionReady) {
+    const hasAnyReplaySection =
+      session?.reviewBySection &&
+      Object.keys(session.reviewBySection).length > 0;
+    if (!hasAnyReplaySection) {
+      return (
+        <div className="tiger-test-root" dir="rtl">
+          <div className="tiger-test-loading">جاري فتح الاختبار…</div>
+        </div>
+      );
+    }
+  }
+
+  if (
+    !replayMode &&
+    !openingAttempt &&
+    (menuScreen === "hub" || menuScreen === "history")
+  ) {
     return (
       <div className="tiger-test-root" dir="rtl">
         <div className="tiger-test-header">
@@ -967,7 +1202,15 @@ const TigerTest = () => {
     );
   }
 
-  if (session?.status === "completed") {
+  if (replayMode && !replaySectionReady && !session?.reviewBySection) {
+    return (
+      <div className="tiger-test-root" dir="rtl">
+        <div className="tiger-test-loading">جاري فتح الاختبار…</div>
+      </div>
+    );
+  }
+
+  if (session?.status === "completed" && !replayMode) {
     const r = session.results || {};
     const review = Array.isArray(session.review) ? session.review : [];
     const correctCount = review.filter((q) => q.is_correct).length;
@@ -1262,6 +1505,13 @@ const TigerTest = () => {
 
   return (
     <div className={`tiger-test-root ${fontClass}`.trim()} dir="rtl">
+      {isReplay && !replaySectionReady && (
+        <div className="tiger-test-overlay" role="status">
+          <div className="tiger-test-modal">
+            <p>جاري تحميل القسم…</p>
+          </div>
+        </div>
+      )}
       {error && !showReadyModal && (
         <div className="tiger-test-error-banner" role="alert">
           {error}
@@ -1410,7 +1660,7 @@ const TigerTest = () => {
           </div>
         </div>
       )}
-      {betweenSections && session && !showReadyModal && (
+      {betweenSections && session && !showReadyModal && !isReplay && (
         <div className="tiger-test-overlay">
           <div className="tiger-test-modal">
             <h2>انتهى القسم {session.current_section}</h2>
@@ -1525,12 +1775,16 @@ const TigerTest = () => {
       )}
 
       {session &&
-        session.status === "in_section" &&
         !showReadyModal &&
-        !showPoolWarnings && (
+        !showPoolWarnings &&
+        (session.status === "in_section" || isReplay) && (
           <>
             <div className="tiger-test-header">
-              <span>الأسئلة المرحلة : {answeredInSection}</span>
+              <span>
+                {isReplay
+                  ? "مراجعة اختبار سابق — للقراءة فقط"
+                  : `الأسئلة المرحلة : ${answeredInSection}`}
+              </span>
               <span>عنوان الاختبار : {sectionTitle}</span>
               <span>
                 مجموع الأسئلة في القسم : {sectionQuestions.length}
@@ -1539,12 +1793,21 @@ const TigerTest = () => {
 
             <div className="tiger-test-body">
               <aside className="tiger-test-sidebar">
-                <SectionTimer
-                  key={`${session.id}-${session.current_section}`}
-                  sessionId={session.id}
-                  initialSeconds={session.section_time_remaining ?? 24 * 60}
-                  onExpire={handleExpireSection}
-                />
+                {isReplay ? (
+                  <div className="tiger-test-timer-box">
+                    <div className="tiger-test-timer-label">حالة المراجعة</div>
+                    <div className="tiger-test-timer-digits tiger-test-timer-ended">
+                      انتهى
+                    </div>
+                  </div>
+                ) : (
+                  <SectionTimer
+                    key={`${session.id}-${session.current_section}`}
+                    sessionId={session.id}
+                    initialSeconds={session.section_time_remaining ?? 24 * 60}
+                    onExpire={handleExpireSection}
+                  />
+                )}
 
                 <div className="tiger-test-user-box">
                   <div className="tiger-test-user-icon">👤</div>
@@ -1558,12 +1821,31 @@ const TigerTest = () => {
                     مجموع الأسئلة : {sectionQuestions.length}
                   </p>
                   <div className="tiger-test-stats-row">
-                    <span className="tiger-test-stat-badge tiger-test-stat-blue">
-                      إجابة مؤجلة : {currentReviewIds.length}
-                    </span>
-                    <span className="tiger-test-stat-badge tiger-test-stat-green">
-                      تم الإجابة : {answeredInSection}
-                    </span>
+                    {isReplay ? (
+                      <>
+                        <span className="tiger-test-stat-badge tiger-test-stat-green">
+                          صحيح :{" "}
+                          {sectionQuestions.filter((q) => q.is_correct).length}
+                        </span>
+                        <span className="tiger-test-stat-badge tiger-test-stat-red">
+                          خطأ :{" "}
+                          {
+                            sectionQuestions.filter(
+                              (q) => !q.is_correct && !q.skipped
+                            ).length
+                          }
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="tiger-test-stat-badge tiger-test-stat-blue">
+                          إجابة مؤجلة : {currentReviewIds.length}
+                        </span>
+                        <span className="tiger-test-stat-badge tiger-test-stat-green">
+                          تم الإجابة : {answeredInSection}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1575,35 +1857,94 @@ const TigerTest = () => {
                   reviewIds={currentReviewIds}
                   farthestIndex={farthestIndex}
                   onSelect={goToQuestion}
+                  playback={isReplay}
                 />
 
                 <div className="tiger-test-sidebar-btns">
-                  <button
-                    type="button"
-                    className="tiger-test-sidebar-btn blue"
-                    onClick={() => setShowInstructions(true)}
-                  >
-                    شرح الاختبار
-                  </button>
-                  <button
-                    type="button"
-                    className="tiger-test-sidebar-btn blue"
-                    onClick={() => setShowDeferred(true)}
-                  >
-                    الأسئلة المؤجلة
-                  </button>
-                  <button
-                    type="button"
-                    className="tiger-test-sidebar-btn grey"
-                    onClick={handleEndSection}
-                    disabled={ending}
-                  >
-                    {ending
-                      ? "جاري الإنهاء…"
-                      : session.current_section >= sectionCount
-                      ? "إنهاء الاختبار"
-                      : "إنهاء القسم"}
-                  </button>
+                  {isReplay ? (
+                    <>
+                      <button
+                        type="button"
+                        className="tiger-test-sidebar-btn blue"
+                        disabled={replaySection <= 1}
+                        onClick={() => {
+                          const prevSec = replaySection - 1;
+                          setReplaySection(prevSec);
+                          setSession((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  current_section: prevSec,
+                                  current_question_index: 0,
+                                }
+                              : prev
+                          );
+                        }}
+                      >
+                        القسم السابق
+                      </button>
+                      <button
+                        type="button"
+                        className="tiger-test-sidebar-btn blue"
+                        disabled={replaySection >= sectionCount}
+                        onClick={() => {
+                          const nextSec = replaySection + 1;
+                          setReplaySection(nextSec);
+                          setSession((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  current_section: nextSec,
+                                  current_question_index: 0,
+                                }
+                              : prev
+                          );
+                        }}
+                      >
+                        القسم التالي
+                      </button>
+                      <button
+                        type="button"
+                        className="tiger-test-sidebar-btn grey"
+                        onClick={() => {
+                          setReplayMode(false);
+                          setMenuScreen("history");
+                          setSession(null);
+                        }}
+                      >
+                        رجوع للاختبارات السابقة
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="tiger-test-sidebar-btn blue"
+                        onClick={() => setShowInstructions(true)}
+                      >
+                        شرح الاختبار
+                      </button>
+                      <button
+                        type="button"
+                        className="tiger-test-sidebar-btn blue"
+                        onClick={() => setShowDeferred(true)}
+                      >
+                        الأسئلة المؤجلة
+                      </button>
+                      <button
+                        type="button"
+                        className="tiger-test-sidebar-btn grey"
+                        onClick={handleEndSection}
+                        disabled={ending}
+                      >
+                        {ending
+                          ? "جاري الإنهاء…"
+                          : session.current_section >= sectionCount
+                          ? "إنهاء الاختبار"
+                          : "إنهاء القسم"}
+                      </button>
+                    </>
+                  )}
                   <button
                     type="button"
                     className="tiger-test-sidebar-btn blue"
@@ -1618,9 +1959,11 @@ const TigerTest = () => {
 
               <div className="tiger-test-main">
                 <div className="tiger-test-top-bar">
-                  مجموع الأسئلة في الإختبار {session.total_questions || 0} —
-                  القسم {session.current_section} من {sectionCount} — كل قسم 24
-                  سؤالاً (13 لفظي + 11 كمي) / 24 دقيقة
+                  {isReplay
+                    ? `مراجعة فقط — القسم ${replaySection} من ${sectionCount} — لا يمكن تعديل الإجابات`
+                    : `مجموع الأسئلة في الإختبار ${session.total_questions || 0} —
+                  القسم ${session.current_section} من ${sectionCount} — كل قسم 24
+                  سؤالاً (13 لفظي + 11 كمي) / 24 دقيقة`}
                 </div>
 
                 <div className="tiger-test-watermark">
@@ -1709,6 +2052,42 @@ const TigerTest = () => {
                           )
                             .toLowerCase()
                             .slice(0, 1);
+                          if (isReplay) {
+                            const isCorrectChoice = Boolean(
+                              a.is_correct ||
+                                aid === currentQuestion.correct_answer_id
+                            );
+                            const isUserChoice =
+                              aid === currentQuestion.user_answer_id;
+                            let cls =
+                              "tiger-test-option tiger-test-review-option";
+                            if (isCorrectChoice) cls += " review-correct";
+                            else if (isUserChoice) cls += " review-wrong";
+                            return (
+                              <div
+                                key={`${currentQuestion.id}-${aid}-${ai}`}
+                                className={cls}
+                              >
+                                <span className="tiger-test-review-letter">
+                                  {CHOICE_AR[aid] || aid}
+                                </span>
+                                <span className="tiger-test-option-text">
+                                  <MathRenderer
+                                    html={stripAnswerChoicePrefix(a.text || "")}
+                                  />
+                                </span>
+                                <span className="tiger-test-review-tag">
+                                  {isCorrectChoice ? "الإجابة الصحيحة" : ""}
+                                  {isUserChoice && !isCorrectChoice
+                                    ? "إجابتك الخاطئة"
+                                    : ""}
+                                  {isUserChoice && isCorrectChoice
+                                    ? " · إجابتك"
+                                    : ""}
+                                </span>
+                              </div>
+                            );
+                          }
                           return (
                             <label
                               key={`${currentQuestion.id}-${aid}-${ai}`}
@@ -1732,6 +2111,40 @@ const TigerTest = () => {
                           );
                         })}
                       </div>
+                      {isReplay && (
+                        <div className="tiger-test-replay-video">
+                          {(currentQuestion.video?.url ||
+                            currentQuestion.video?.id) && (
+                            <QuestionVideoLink
+                              video={currentQuestion.video}
+                              siteQuestionNumber={
+                                currentQuestion.site_question_number
+                              }
+                              className="tiger-test-video-link"
+                              onOpen={() =>
+                                setVideoPlayer({
+                                  video: currentQuestion.video,
+                                  startSeconds:
+                                    currentQuestion.video_start_seconds,
+                                  endSeconds:
+                                    currentQuestion.video_end_seconds,
+                                  siteQuestionNumber:
+                                    currentQuestion.site_question_number,
+                                })
+                              }
+                            />
+                          )}
+                          <span className="tiger-test-replay-video-meta">
+                            رقم السؤال{" "}
+                            {currentQuestion.site_question_number ||
+                              currentQIndex + 1}{" "}
+                            · القسم {currentQuestion.section_number || replaySection}
+                            {currentQuestion.subject === "verbal"
+                              ? " · لفظي"
+                              : " · كمي"}
+                          </span>
+                        </div>
+                      )}
                     </>
                   ) : (
                     <p style={{ textAlign: "center", color: "#888", marginTop: 40 }}>
@@ -1741,20 +2154,26 @@ const TigerTest = () => {
                 </div>
 
                 <div className="tiger-test-nav-footer">
-                  <label className="tiger-test-bookmark">
-                    <input
-                      type="checkbox"
-                      checked={
-                        currentQuestion
-                          ? bookmarked.includes(currentQuestion.id) ||
-                            deferred.includes(currentQuestion.id)
-                          : false
-                      }
-                      onChange={(e) => handleBookmark(e.target.checked)}
-                      disabled={!currentQuestion}
-                    />
-                    أضف السؤال للمراجعة
-                  </label>
+                  {isReplay ? (
+                    <span className="tiger-test-bookmark tiger-test-replay-lock">
+                      مراجعة فقط — لا يمكن تعديل الإجابة
+                    </span>
+                  ) : (
+                    <label className="tiger-test-bookmark">
+                      <input
+                        type="checkbox"
+                        checked={
+                          currentQuestion
+                            ? bookmarked.includes(currentQuestion.id) ||
+                              deferred.includes(currentQuestion.id)
+                            : false
+                        }
+                        onChange={(e) => handleBookmark(e.target.checked)}
+                        disabled={!currentQuestion}
+                      />
+                      أضف السؤال للمراجعة
+                    </label>
+                  )}
                   <div className="tiger-test-nav-end">
                     {navHint ? (
                       <p className="tiger-test-nav-hint" role="alert">
@@ -1766,16 +2185,18 @@ const TigerTest = () => {
                         type="button"
                         className="tiger-test-nav-btn prev"
                         disabled={
-                          currentQIndex === 0 ||
-                          !currentQuestion ||
-                          !sectionQuestions
-                            .slice(0, currentQIndex)
-                            .some(
-                              (q, i) =>
-                                answers[q.id] ||
-                                isInReview(q.id) ||
-                                i === farthestIndex
-                            )
+                          isReplay
+                            ? currentQIndex === 0 && replaySection <= 1
+                            : currentQIndex === 0 ||
+                              !currentQuestion ||
+                              !sectionQuestions
+                                .slice(0, currentQIndex)
+                                .some(
+                                  (q, i) =>
+                                    answers[q.id] ||
+                                    isInReview(q.id) ||
+                                    i === farthestIndex
+                                )
                         }
                         onClick={handlePrev}
                       >
@@ -1784,14 +2205,26 @@ const TigerTest = () => {
                       <button
                         type="button"
                         className="tiger-test-nav-btn next primary"
-                        disabled={!currentQuestion || ending}
+                        disabled={
+                          !currentQuestion ||
+                          ending ||
+                          (isReplay &&
+                            currentQIndex >= sectionQuestions.length - 1 &&
+                            replaySection >= sectionCount)
+                        }
                         onClick={handleSaveNext}
                       >
-                        {ending
-                          ? "جاري الإنهاء…"
-                          : currentQIndex >= sectionQuestions.length - 1
-                          ? "حفظ"
-                          : "حفظ و التالي"}
+                        {isReplay
+                          ? currentQIndex >= sectionQuestions.length - 1
+                            ? replaySection >= sectionCount
+                              ? "نهاية الاختبار"
+                              : "القسم التالي"
+                            : "السؤال التالي"
+                          : ending
+                            ? "جاري الإنهاء…"
+                            : currentQIndex >= sectionQuestions.length - 1
+                              ? "حفظ"
+                              : "حفظ و التالي"}
                       </button>
                     </div>
                   </div>
@@ -1803,6 +2236,23 @@ const TigerTest = () => {
               محاكي اختبار النمر ( بدايتي )
             </div>
           </>
+        )}
+        {isReplay && videoPlayer?.video && (
+          <VideoModal
+            isOpen
+            onClose={() => setVideoPlayer(null)}
+            videoUrl={videoPlayer.video.url || ""}
+            title={
+              videoPlayer.siteQuestionNumber
+                ? `شاهد السؤال رقم ${videoPlayer.siteQuestionNumber}`
+                : videoPlayer.video.title || "شرح السؤال"
+            }
+            lessonId={videoPlayer.video.lesson_id || null}
+            videoId={videoPlayer.video.id}
+            bunnyLibraryId={videoPlayer.video.bunny_library_id || null}
+            startSeconds={videoPlayer.startSeconds}
+            endSeconds={videoPlayer.endSeconds}
+          />
         )}
     </div>
   );

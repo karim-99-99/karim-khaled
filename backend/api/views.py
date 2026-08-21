@@ -1822,7 +1822,7 @@ class TrackerStudentResultsView(APIView):
             'incorrect_answers': incorrect_answers + g_sup_w,
             'answered_questions_total': (correct_answers + g_sup_c) + (incorrect_answers + g_sup_w),
             'by_subject': by_subject,
-            'wrong_with_video': tiger_test.wrong_video_items_for_user(user),
+            'namr': tiger_test.namr_stats_for_user(user),
         })
 
 

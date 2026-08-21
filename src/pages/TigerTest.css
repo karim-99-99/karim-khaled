@@ -80,6 +80,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+.tiger-test-timer-ended {
+  font-size: calc(22px * var(--tt, 1));
+  letter-spacing: 0;
+}
+
 .tiger-test-user-box {
   background: #fff;
   border: 1px solid #d0d5dc;
@@ -132,6 +137,10 @@
 
 .tiger-test-stat-green {
   background: #28a745;
+}
+
+.tiger-test-stat-red {
+  background: #c0392b;
 }
 
 .tiger-test-grid {
@@ -873,6 +882,10 @@
   box-shadow: 0 0 0 3px #ff8c00;
 }
 
+.tiger-test-review-grid .tiger-test-grid-cell.current {
+  box-shadow: 0 0 0 3px #ff8c00;
+}
+
 .tiger-test-review-main {
   flex: 1;
   overflow-y: auto;
@@ -1059,6 +1072,29 @@
 
 .tiger-test-wrong-card .tiger-test-review-status-banner {
   margin-bottom: 0;
+}
+
+.tiger-test-replay-video {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.tiger-test-replay-video .tiger-test-video-link {
+  margin-top: 0;
+}
+
+.tiger-test-replay-video-meta {
+  font-size: 14px;
+  font-weight: 700;
+  color: #008080;
+}
+
+.tiger-test-replay-lock {
+  color: #888;
+  font-weight: 700;
 }
 
 .tiger-test-review-explain h3 {

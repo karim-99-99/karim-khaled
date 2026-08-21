@@ -1609,9 +1609,20 @@ export const getTigerTestHistory = async () => {
 
 export const getTigerTestSession = async (sessionId) => {
   const data = await request(`/tiger-test/${encodeURIComponent(sessionId)}/`, {
-    timeoutMs: 25000,
+    timeoutMs: 20000,
   });
   return data?.session ?? null;
+};
+
+export const getTigerTestReview = async (sessionId, section = 1, options = {}) => {
+  const params = new URLSearchParams({
+    section: String(section || 1),
+  });
+  if (options.explain) params.set("explain", "1");
+  return request(
+    `/tiger-test/${encodeURIComponent(sessionId)}/review/?${params.toString()}`,
+    { timeoutMs: 25000 }
+  );
 };
 
 export const syncTigerTestSession = async (sessionId, payload) => {

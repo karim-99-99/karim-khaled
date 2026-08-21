@@ -4,10 +4,23 @@ import {
   isBackendOn,
   getStoredAuthToken,
   getStudentResultsStats,
+  getTigerTestHistory,
 } from "../services/backendApi";
 import { getCurrentUser } from "../services/storageService";
-import VideoModal from "./VideoModal";
-import QuestionVideoLink from "./QuestionVideoLink";
+
+const defaultNamrStats = () => ({
+  attempts_count: 0,
+  verbal_percentage: 0,
+  quant_percentage: 0,
+  final_percentage: 0,
+  verbal_correct: 0,
+  verbal_total: 0,
+  quant_correct: 0,
+  quant_total: 0,
+  correct_answers: 0,
+  incorrect_answers: 0,
+  answered_questions_total: 0,
+});
 
 const defaultSubjectStats = (label = "") => ({
   subject_label: label,
@@ -96,7 +109,6 @@ const StatBubble = ({
 export default function StudentResultsModal({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
-  const [videoPlayer, setVideoPlayer] = useState(null);
   const emptyStats = {
     lessons_engaged_count: 0,
     assignments_engaged_count: 0,
@@ -107,9 +119,18 @@ export default function StudentResultsModal({ open, onClose }) {
       verbal: defaultSubjectStats("لفظي"),
       quantitative: defaultSubjectStats("كمي"),
     },
-    wrong_with_video: [],
+    namr: defaultNamrStats(),
   };
   const [stats, setStats] = useState(emptyStats);
+  const [namrAttempts, setNamrAttempts] = useState([]);
+
+  const openNamrAttempt = (attemptId) => {
+    if (!attemptId) return;
+    onClose?.();
+    window.location.assign(
+      `/tiger-test?attempt=${encodeURIComponent(attemptId)}`
+    );
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -127,9 +148,14 @@ export default function StudentResultsModal({ open, onClose }) {
     }
     let c = false;
     setLoading(true);
-    getStudentResultsStats()
-      .then((data) => {
+    setNamrAttempts([]);
+    Promise.all([
+      getStudentResultsStats(),
+      getTigerTestHistory().catch(() => []),
+    ])
+      .then(([data, attempts]) => {
         if (c || !data) return;
+        setNamrAttempts(Array.isArray(attempts) ? attempts : []);
         const verbal = data?.by_subject?.verbal || defaultSubjectStats("لفظي");
         const quantitative =
           data?.by_subject?.quantitative || defaultSubjectStats("كمي");
@@ -153,9 +179,7 @@ export default function StudentResultsModal({ open, onClose }) {
               subject_label: quantitative.subject_label || "كمي",
             },
           },
-          wrong_with_video: Array.isArray(data.wrong_with_video)
-            ? data.wrong_with_video
-            : [],
+          namr: { ...defaultNamrStats(), ...(data.namr || {}) },
         });
       })
       .catch((e) => {
@@ -359,74 +383,127 @@ export default function StudentResultsModal({ open, onClose }) {
                   />
                 </div>
               </div>
-            </div>
-          )}
 
-          {!loading && (stats.wrong_with_video || []).length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm md:text-base font-extrabold text-slate-100 text-center">
-                شاهد شرح أسئلتك الخاطئة
-              </h3>
-              <p className="text-xs text-slate-400 text-center -mt-1">
-                نفس فيديو البنك أو الواجب، مع رقم السؤال كما يظهر في اللفظي أو الكمي
-              </p>
-              <ul className="space-y-2">
-                {(stats.wrong_with_video || []).map((item) => (
-                  <li
-                    key={item.question_id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5"
-                  >
-                    <div className="text-right min-w-0">
-                      <p className="text-sm font-bold text-slate-100">
-                        {item.subject_label ||
-                          (item.subject === "verbal" ? "لفظي" : item.subject === "quant" ? "كمي" : "")}
-                        {item.lesson_name ? ` · ${item.lesson_name}` : ""}
-                      </p>
-                      {item.source === "tiger" && (
-                        <p className="text-[11px] text-teal-300">من اختبار النمر</p>
-                      )}
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-5">
+                <h3 className="text-sm md:text-base font-extrabold text-slate-100 mb-3 text-center">
+                  محاكي النمر
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <StatBubble
+                    active={open && !loading}
+                    label="اختبارات مكتملة"
+                    sublabel="محاولات اختبار النمر"
+                    value={stats.namr?.attempts_count}
+                    gradient="linear-gradient(145deg, #0f766e 0%, #14b8a6 55%, #67e8f9 100%)"
+                    glow="0 12px 36px rgba(20, 184, 166, 0.4)"
+                    icon="🏁"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="النتيجة النهائية"
+                    sublabel="متوسط اللفظي والكمي ÷ 2"
+                    value={stats.namr?.final_percentage}
+                    gradient="linear-gradient(145deg, #7c2d12 0%, #ea580c 45%, #f59e0b 100%)"
+                    glow="0 12px 36px rgba(234, 88, 12, 0.34)"
+                    icon="🧮"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="اللفظي"
+                    sublabel="آخر اختبار نمر"
+                    value={stats.namr?.verbal_percentage}
+                    gradient="linear-gradient(145deg, #4338ca 0%, #6366f1 50%, #a78bfa 100%)"
+                    glow="0 12px 36px rgba(99, 102, 241, 0.42)"
+                    icon="📚"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="الكمي"
+                    sublabel="آخر اختبار نمر"
+                    value={stats.namr?.quant_percentage}
+                    gradient="linear-gradient(145deg, #0f766e 0%, #14b8a6 55%, #67e8f9 100%)"
+                    glow="0 12px 36px rgba(20, 184, 166, 0.4)"
+                    icon="📚"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="إجابات صحيحة"
+                    sublabel="في محاكي النمر"
+                    value={stats.namr?.correct_answers}
+                    gradient="linear-gradient(145deg, #15803d 0%, #22c55e 55%, #86efac 100%)"
+                    glow="0 12px 36px rgba(34, 197, 94, 0.38)"
+                    icon="✅"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="إجابات خاطئة"
+                    sublabel="في محاكي النمر"
+                    value={stats.namr?.incorrect_answers}
+                    gradient="linear-gradient(145deg, #b45309 0%, #f97316 50%, #fb923c 100%)"
+                    glow="0 12px 36px rgba(249, 115, 22, 0.36)"
+                    icon="❌"
+                  />
+                  <StatBubble
+                    active={open && !loading}
+                    label="إجمالي الأسئلة المجاب عنها"
+                    sublabel="صحيح + خطأ"
+                    value={stats.namr?.answered_questions_total}
+                    gradient="linear-gradient(145deg, #7c2d12 0%, #ea580c 45%, #f59e0b 100%)"
+                    glow="0 12px 36px rgba(234, 88, 12, 0.34)"
+                    icon="🧮"
+                  />
+                </div>
+                {namrAttempts.length > 0 && (
+                  <div className="mt-5 space-y-2">
+                    <p className="text-xs font-bold text-slate-300 text-center">
+                      اضغط اختباراً سابقاً لمراجعة الأخطاء
+                    </p>
+                    <div className="space-y-2 max-h-64 overflow-y-auto pe-1">
+                      {namrAttempts.map((attempt, index) => (
+                        <button
+                          key={attempt.id}
+                          type="button"
+                          onClick={() => openNamrAttempt(attempt.id)}
+                          className="w-full text-right rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-3 py-3 transition"
+                        >
+                          <div className="flex items-center justify-between gap-2 text-sm text-slate-100 font-bold">
+                            <span>اختبار رقم {namrAttempts.length - index}</span>
+                            <span className="text-amber-300 tabular-nums">
+                              {Math.round(Number(attempt.final_percentage) || 0)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                            <span>
+                              لفظي{" "}
+                              {Math.round(Number(attempt.verbal_percentage) || 0)}
+                            </span>
+                            <span>
+                              كمي{" "}
+                              {Math.round(Number(attempt.quant_percentage) || 0)}
+                            </span>
+                            {attempt.completed_at && (
+                              <span>
+                                {new Date(attempt.completed_at).toLocaleString(
+                                  "ar-SA",
+                                  { dateStyle: "medium", timeStyle: "short" }
+                                )}
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      ))}
                     </div>
-                    <QuestionVideoLink
-                      video={item.video}
-                      siteQuestionNumber={item.site_question_number}
-                      className="shrink-0 bg-[#229ED9] text-white px-3 py-2 rounded-lg font-bold text-sm hover:opacity-90"
-                      onOpen={() =>
-                        setVideoPlayer({
-                          video: item.video,
-                          startSeconds: item.video_start_seconds,
-                          endSeconds: item.video_end_seconds,
-                          siteQuestionNumber: item.site_question_number,
-                        })
-                      }
-                    />
-                  </li>
-                ))}
-              </ul>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           <p className="text-center text-[11px] md:text-xs text-slate-500 leading-relaxed px-2">
-            الإحصائيات مقسمة إلى لفظي وكمي وتشمل المجتاز والمتبقي والصحيح والخطأ وإجمالي الإجابات.
+            الإحصائيات مقسمة إلى لفظي وكمي ومحاكي النمر، وتشمل المجتاز والمتبقي والصحيح والخطأ والنتيجة النهائية.
           </p>
         </div>
       </div>
-      {videoPlayer?.video && (
-        <VideoModal
-          isOpen
-          onClose={() => setVideoPlayer(null)}
-          videoUrl={videoPlayer.video.url || ""}
-          title={
-            videoPlayer.siteQuestionNumber
-              ? `شاهد السؤال رقم ${videoPlayer.siteQuestionNumber}`
-              : videoPlayer.video.title || "شرح السؤال"
-          }
-          lessonId={videoPlayer.video.lesson_id || null}
-          videoId={videoPlayer.video.id}
-          bunnyLibraryId={videoPlayer.video.bunny_library_id || null}
-          startSeconds={videoPlayer.startSeconds}
-          endSeconds={videoPlayer.endSeconds}
-        />
-      )}
     </div>
   );
 }

@@ -380,6 +380,44 @@ class TigerTestNextSectionView(APIView):
         return Response({"session": tt.session_to_payload(session)})
 
 
+class TigerTestReviewView(APIView):
+    """Load one completed-section review (avoids building all 120 questions)."""
+
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get(self, request, session_id):
+        try:
+            session = TigerTestSession.objects.get(id=session_id, user=request.user)
+        except TigerTestSession.DoesNotExist:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        if session.status != TigerTestSession.STATUS_COMPLETED:
+            return Response(
+                {"detail": "Test not completed yet."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            section = int(request.query_params.get("section") or 1)
+        except (TypeError, ValueError):
+            section = 1
+        explain = str(request.query_params.get("explain") or "").lower() in (
+            "1",
+            "true",
+            "yes",
+        )
+        items = tt.build_review_items(
+            session,
+            section_number=section,
+            include_explanation=explain,
+        )
+        return Response(
+            {
+                "section": section,
+                "section_count": tt.session_section_count(session),
+                "items": items,
+            }
+        )
+
+
 class TigerTestResultsView(APIView):
     permission_classes = [IsAuthenticatedDeviceAllowed]
 
@@ -397,6 +435,6 @@ class TigerTestResultsView(APIView):
         return Response(
             {
                 "results": session.results,
-                "session": tt.session_to_payload(session),
+                "session": tt.session_to_payload(session, include_review=False),
             }
         )

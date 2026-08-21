@@ -705,9 +705,14 @@ def _source_media_for_lessons(lesson_ids: set[str]) -> tuple[dict, dict, dict]:
         if video.lesson_id and video.lesson_id not in videos_by_lesson:
             videos_by_lesson[video.lesson_id] = video
     site_maps: dict[str, dict[str, int]] = {}
-    qs = Question.objects.filter(lesson_id__in=ids).order_by(
-        "lesson_id", "order_index", "created_at"
-    )
+    qs = Question.objects.filter(lesson_id__in=ids).only(
+        "id",
+        "lesson_id",
+        "question_type",
+        "passage_questions",
+        "order_index",
+        "created_at",
+    ).order_by("lesson_id", "order_index", "created_at")
     by_lesson: dict[str, list[Question]] = {}
     for q in qs:
         by_lesson.setdefault(q.lesson_id, []).append(q)
@@ -958,22 +963,37 @@ def _review_answers_for_slot(question: Question | None, slot: dict) -> list[dict
     ]
 
 
-def build_review_items(session: TigerTestSession) -> list[dict]:
-    """Full post-test review: student answer vs correct answer for every slot."""
-    sections = session.section_slots or []
+def build_review_items(
+    session: TigerTestSession,
+    section_number: int | None = None,
+    include_explanation: bool = True,
+) -> list[dict]:
+    """Post-test review items. Pass section_number to load one section only."""
+    all_sections = session.section_slots or []
     answers = session.answers or {}
-    questions_map = load_questions_map(sections)
+    if section_number is not None:
+        idx = max(0, int(section_number) - 1)
+        if idx >= len(all_sections):
+            return []
+        selected = [(idx, all_sections[idx])]
+        number = sum(len(s) for s in all_sections[:idx])
+        map_slots = all_sections[idx]
+    else:
+        selected = list(enumerate(all_sections))
+        number = 0
+        map_slots = all_sections
+
+    questions_map = load_questions_map(map_slots)
     lesson_ids = {
         q.lesson_id for q in questions_map.values() if getattr(q, "lesson_id", None)
     }
-    for section in sections:
+    for _i, section in selected:
         for slot in section:
             if slot.get("lesson_id"):
                 lesson_ids.add(slot["lesson_id"])
     site_maps, videos_by_lesson, lessons = _source_media_for_lessons(lesson_ids)
     items: list[dict] = []
-    number = 0
-    for section_i, section in enumerate(sections):
+    for section_i, section in selected:
         for slot in section:
             number += 1
             parent = questions_map.get(slot.get("parent_id")) if slot.get("parent_id") else None
@@ -986,7 +1006,9 @@ def build_review_items(session: TigerTestSession) -> list[dict]:
                 explanation = None
             else:
                 correct_id = _correct_answer_id(parent, slot) if parent else None
-                explanation = _explanation_for_slot(parent, slot)
+                explanation = (
+                    _explanation_for_slot(parent, slot) if include_explanation else None
+                )
             user_raw = answers.get(slot["slot_id"])
             user_ans = str(user_raw).lower()[:1] if user_raw else None
             correct_s = str(correct_id).lower()[:1] if correct_id else None
@@ -1060,6 +1082,83 @@ def score_session(session: TigerTestSession) -> dict:
     }
 
 
+def namr_stats_for_user(user) -> dict:
+    """Light Tiger Test totals for نتائجي — scores only, no question review."""
+    empty = {
+        "attempts_count": 0,
+        "verbal_percentage": 0,
+        "quant_percentage": 0,
+        "final_percentage": 0,
+        "verbal_correct": 0,
+        "verbal_total": 0,
+        "quant_correct": 0,
+        "quant_total": 0,
+        "correct_answers": 0,
+        "incorrect_answers": 0,
+        "answered_questions_total": 0,
+    }
+    sessions = TigerTestSession.objects.filter(
+        user=user,
+        status=TigerTestSession.STATUS_COMPLETED,
+    ).order_by("-completed_at", "-created_at")
+
+    attempts = []
+    verbal_correct = 0
+    verbal_total = 0
+    quant_correct = 0
+    quant_total = 0
+    for session in sessions:
+        results = session.results or {}
+        if results.get("abandoned"):
+            continue
+        attempts.append(results)
+        verbal_correct += int(results.get("verbal_correct") or 0)
+        verbal_total += int(results.get("verbal_total") or 0)
+        quant_correct += int(results.get("quant_correct") or 0)
+        quant_total += int(results.get("quant_total") or 0)
+
+    if not attempts:
+        return empty
+
+    latest = attempts[0]
+    try:
+        verbal_pct = float(latest.get("verbal_percentage") or 0)
+    except (TypeError, ValueError):
+        verbal_pct = 0.0
+    try:
+        quant_pct = float(latest.get("quant_percentage") or 0)
+    except (TypeError, ValueError):
+        quant_pct = 0.0
+    parts = []
+    if int(latest.get("verbal_total") or 0):
+        parts.append(verbal_pct)
+    if int(latest.get("quant_total") or 0):
+        parts.append(quant_pct)
+    try:
+        stored_final = latest.get("final_percentage")
+        final_pct = int(round(float(stored_final))) if stored_final is not None else (
+            int(round(sum(parts) / len(parts))) if parts else 0
+        )
+    except (TypeError, ValueError):
+        final_pct = int(round(sum(parts) / len(parts))) if parts else 0
+
+    correct_answers = verbal_correct + quant_correct
+    answered_total = verbal_total + quant_total
+    return {
+        "attempts_count": len(attempts),
+        "verbal_percentage": int(round(verbal_pct)),
+        "quant_percentage": int(round(quant_pct)),
+        "final_percentage": final_pct,
+        "verbal_correct": verbal_correct,
+        "verbal_total": verbal_total,
+        "quant_correct": quant_correct,
+        "quant_total": quant_total,
+        "correct_answers": correct_answers,
+        "incorrect_answers": max(0, answered_total - correct_answers),
+        "answered_questions_total": answered_total,
+    }
+
+
 def mark_questions_used(user, section_slots: list[list[dict]]):
     keys = []
     for section in section_slots:
@@ -1124,6 +1223,7 @@ def session_to_payload(
     session: TigerTestSession,
     include_questions: bool = True,
     current_section_only: bool = True,
+    include_review: bool = False,
 ) -> dict:
     sections = session.section_slots or []
     n_sections = len(sections) if sections else 0
@@ -1187,7 +1287,7 @@ def session_to_payload(
         else None,
         "review": (
             build_review_items(session)
-            if session.status == TigerTestSession.STATUS_COMPLETED
+            if include_review and session.status == TigerTestSession.STATUS_COMPLETED
             else None
         ),
     }
