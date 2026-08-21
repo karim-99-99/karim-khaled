@@ -20,6 +20,9 @@ const Videos = () => {
   const [searchParams] = useSearchParams();
   const itemIdFromUrl = searchParams.get('itemId');
   const returnUrl = searchParams.get('returnUrl');
+  const subjectIdFromUrl = searchParams.get('subjectId');
+  const categoryIdFromUrl = searchParams.get('categoryId');
+  const chapterIdFromUrl = searchParams.get('chapterId');
   const useBackend = backendApi.isBackendOn();
   
   const [subjects, setSubjects] = useState([]);
@@ -78,6 +81,15 @@ const Videos = () => {
           setSubjects(all);
           // After subjects are loaded, find and set the lesson if itemIdFromUrl exists
           if (itemIdFromUrl) {
+            if (subjectIdFromUrl && categoryIdFromUrl && chapterIdFromUrl) {
+              setSelectedSubject(subjectIdFromUrl);
+              setSelectedCategory(categoryIdFromUrl);
+              setSelectedChapter(chapterIdFromUrl);
+              setSelectedLevel(itemIdFromUrl);
+              backendApi.getVideoByLevel(itemIdFromUrl).then((v) => {
+                if (!v) setShowForm(true);
+              });
+            } else {
             // Get lesson directly to find its parents
             backendApi.getItemById(itemIdFromUrl).then((lesson) => {
               if (lesson && lesson.chapter) {
@@ -102,6 +114,7 @@ const Videos = () => {
                 }).catch(() => {});
               }
             }).catch(() => {});
+            }
           }
         }
       }).catch(() => setSubjects([]));

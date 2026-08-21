@@ -1315,6 +1315,34 @@ export const getPublicFoundationResources = async (subjectId) => {
   return request(`/public/foundation/${qs ? `?${qs}` : ""}`, { method: "GET" });
 };
 
+export const getPublicTryFree = async () => {
+  return request("/public/try-free/", { method: "GET", timeoutMs: 25000 });
+};
+
+export const getPublicTryFreeLesson = async (lessonId) => {
+  return request(`/public/try-free/${encodeURIComponent(lessonId)}/`, {
+    method: "GET",
+    timeoutMs: 30000,
+  });
+};
+
+export const getPublicTryFreeBunnySignedUrl = async (
+  bunnyVideoId,
+  lessonId = null,
+  libraryId = null
+) => {
+  if (!bunnyVideoId) throw new Error("bunnyVideoId is required");
+  const params = new URLSearchParams({ video_id: bunnyVideoId });
+  if (lessonId) params.set("lesson_id", String(lessonId));
+  if (libraryId) params.set("library_id", String(libraryId));
+  const data = await request(
+    `/public/try-free/bunny-signed-url/?${params.toString()}`,
+    { timeoutMs: 20000 }
+  );
+  if (!data?.url) throw new Error("Bunny signed URL not returned by server");
+  return data.url;
+};
+
 // Admin-only helpers to upload public foundation content
 export const addPublicFoundationVideo = async (subjectId, payload = {}) => {
   const fd = new FormData();

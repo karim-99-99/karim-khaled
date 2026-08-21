@@ -85,6 +85,14 @@ const Dashboard = () => {
           )}
 
           <button
+            onClick={() => navigate("/admin/try-free")}
+            className="bg-emerald-500 hover:bg-emerald-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
+          >
+            <span className="text-2xl">🆓</span>
+            <span>إدارة جرب مجاناً</span>
+          </button>
+
+          <button
             onClick={() => navigate("/foundation")}
             className="bg-primary-500 hover:bg-primary-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >

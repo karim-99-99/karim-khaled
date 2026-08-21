@@ -32,6 +32,7 @@ from .bunny_config import get_bunny_library_configs, get_bunny_config_for_librar
 from .bunny_stream import bunny_create_and_upload, bunny_video_exists, BunnyStreamError
 from .permissions import IsAuthenticatedDeviceAllowed
 from . import tiger_test
+from . import trial as trial_content
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, LoginSerializer,
     ChangePasswordSerializer, AdminResetPasswordSerializer,
@@ -56,6 +57,7 @@ from .chapter_dashboard import (
 )
 
 DISABLED_SECTION_IDS = ['قسم_تحصيلي']
+CATALOG_HIDDEN_SECTION_IDS = trial_content.CATALOG_HIDDEN_SECTION_IDS
 PUBLIC_FOUNDATION_SUBJECT_IDS = ['مادة_اللفظي', 'مادة_الكمي']
 
 
@@ -428,6 +430,70 @@ class PublicFoundationView(APIView):
         return Response({'videos': videos, 'files': files})
 
 
+class PublicTryFreeView(APIView):
+    """Public list of 'جرب مجانا' lessons. No login required."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        meta = trial_content.trial_meta()
+        chapter_id = meta['chapter_id']
+        lessons = (
+            Lesson.objects.filter(chapter_id=chapter_id)
+            .annotate(
+                question_count=Count('questions', distinct=True),
+                has_video=Exists(Video.objects.filter(lesson_id=OuterRef('pk'))),
+                has_file=Exists(File.objects.filter(lesson_id=OuterRef('pk'))),
+            )
+            .order_by('order', 'name')
+        )
+        return Response(
+            {
+                **meta,
+                'lessons': LessonSerializer(lessons, many=True).data,
+            }
+        )
+
+
+class PublicTryFreeLessonView(APIView):
+    """Public lesson detail: video, files, and quiz questions. No login required."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, lesson_id):
+        trial_content.ensure_trial_tree()
+        try:
+            lesson = Lesson.objects.select_related(
+                'chapter',
+                'chapter__category',
+                'chapter__category__subject',
+            ).get(id=lesson_id, chapter_id=trial_content.TRIAL_CHAPTER_ID)
+        except Lesson.DoesNotExist:
+            return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        videos = Video.objects.filter(lesson_id=lesson.id).order_by('order', '-created_at')
+        files = File.objects.filter(lesson_id=lesson.id).order_by('order', '-created_at')
+        questions = (
+            Question.objects.filter(lesson_id=lesson.id)
+            .prefetch_related('answers')
+            .order_by('order_index', 'created_at')
+        )
+        return Response(
+            {
+                'lesson': LessonSerializer(lesson).data,
+                'videos': VideoSerializer(
+                    videos, many=True, context={'request': request}
+                ).data,
+                'files': FileSerializer(
+                    files, many=True, context={'request': request}
+                ).data,
+                'questions': QuestionSerializer(
+                    questions, many=True, context={'request': request}
+                ).data,
+            }
+        )
+
+
 def _change_password_for_user(request):
     """Shared logic: authenticated user changes own password."""
     serializer = ChangePasswordSerializer(data=request.data)
@@ -575,7 +641,7 @@ class SectionViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        return qs.exclude(id__in=DISABLED_SECTION_IDS)
+        return qs.exclude(id__in=CATALOG_HIDDEN_SECTION_IDS)
 
     def list(self, request, *args, **kwargs):
         cached = cache.get(SECTIONS_TREE_CACHE_KEY)
@@ -615,6 +681,8 @@ class SubjectViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
+        if self.action == 'list':
+            return qs.exclude(section_id__in=CATALOG_HIDDEN_SECTION_IDS)
         return qs.exclude(section_id__in=DISABLED_SECTION_IDS)
 
     def perform_create(self, serializer):
@@ -642,7 +710,12 @@ class CategoryViewSet(viewsets.ModelViewSet):
         sid = self.request.query_params.get('subject_id')
         if sid:
             qs = qs.filter(subject_id=sid)
-        return qs.exclude(subject__section_id__in=DISABLED_SECTION_IDS)
+        hidden = (
+            CATALOG_HIDDEN_SECTION_IDS
+            if self.action == 'list'
+            else DISABLED_SECTION_IDS
+        )
+        return qs.exclude(subject__section_id__in=hidden)
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -678,7 +751,12 @@ class ChapterViewSet(viewsets.ModelViewSet):
         cid = self.request.query_params.get('category_id')
         if cid:
             qs = qs.filter(category_id=cid)
-        qs = qs.exclude(category__subject__section_id__in=DISABLED_SECTION_IDS)
+        hidden = (
+            CATALOG_HIDDEN_SECTION_IDS
+            if self.action == 'list'
+            else DISABLED_SECTION_IDS
+        )
+        qs = qs.exclude(category__subject__section_id__in=hidden)
         if self.action == 'retrieve':
             items_qs = Lesson.objects.annotate(
                 question_count=Count('questions', distinct=True),
@@ -1093,6 +1171,9 @@ class VideoViewSet(viewsets.ModelViewSet):
                 created_by=request.user,
             )
             self._sync_video_hierarchy(video)
+            if trial_content.is_trial_video(video) and not video.is_public:
+                video.is_public = True
+                video.save(update_fields=['is_public'])
             invalidate_chapter_dashboard_cache(video.chapter_id)
             if video.lesson_id:
                 invalidate_chapter_dashboard_for_lesson(video.lesson_id)
@@ -1154,6 +1235,9 @@ class VideoViewSet(viewsets.ModelViewSet):
         
         # Set related fields if lesson exists
         video.sync_hierarchy_from_lesson()
+        if trial_content.is_trial_video(video) and not video.is_public:
+            video.is_public = True
+            video.save(update_fields=['is_public'])
         
         # Update serializer instance for response
         serializer.instance = video
@@ -1218,6 +1302,8 @@ class FileViewSet(viewsets.ModelViewSet):
             file_obj.category = file_obj.lesson.chapter.category
             file_obj.subject = file_obj.lesson.chapter.category.subject
             file_obj.section = file_obj.lesson.chapter.category.subject.section
+            if trial_content.is_trial_lesson(file_obj.lesson):
+                file_obj.is_public = True
             file_obj.save()
         
         # Update serializer instance for response
@@ -2458,6 +2544,60 @@ class BunnySignedUrlView(APIView):
             'expires': expires,
             'risk': log_entry.risk_level,
         })
+
+
+class PublicTryFreeBunnySignedUrlView(BunnySignedUrlView):
+    """Signed Bunny URL for trial videos only — guests allowed, no access log user."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        raw_video_id = request.query_params.get('video_id', '').strip()
+        if not raw_video_id:
+            return Response({'error': 'video_id is required'}, status=400)
+        lesson_id = request.query_params.get('lesson_id', '').strip()
+        requested_library_id = (
+            request.query_params.get('library_id', '').strip()
+            or extract_bunny_library_id(raw_video_id)
+        )
+
+        video_id = extract_bunny_video_id(raw_video_id)
+        video = None
+        if video_id:
+            video = self._find_video_by_bunny_id(video_id)
+            if not video and lesson_id:
+                video, video_id = self._find_video_by_lesson_hint(lesson_id, video_id)
+        elif lesson_id:
+            video, video_id = self._find_video_by_lesson_hint(lesson_id, None)
+        else:
+            return Response({'error': 'Invalid Bunny video_id format.'}, status=400)
+
+        if not video or not trial_content.is_trial_video(video):
+            return Response(
+                {'error': 'Video is not available in the free trial.'},
+                status=404,
+            )
+
+        library_id, lib_cfg = self._resolve_bunny_library(
+            video,
+            video_id,
+            requested_library_id=requested_library_id,
+        )
+        security_key = str((lib_cfg or {}).get('security_key', '') or '').strip()
+        if not library_id or not security_key:
+            return Response(
+                {'error': 'Bunny Stream is not configured for this video library.'},
+                status=503,
+            )
+
+        expires = int(time.time()) + (4 * 60 * 60)
+        token_data = f"{security_key}{video_id}{expires}"
+        token = hashlib.sha256(token_data.encode()).hexdigest()
+        signed_url = (
+            f"https://iframe.mediadelivery.net/embed/{library_id}/{video_id}"
+            f"?token={token}&expires={expires}&autoplay=false"
+        )
+        return Response({'url': signed_url, 'expires': expires})
 
 
 class VideoAbuseDetectorView(APIView):

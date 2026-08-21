@@ -84,6 +84,17 @@ const Header = () => {
             >
               الدورات
             </Link>
+            <Link
+              to="/try-free"
+              className={`px-4 py-2 rounded-full transition-colors font-medium bg-transparent ${
+                location.pathname.startsWith("/try-free")
+                  ? "text-primary-500 border-2 border-primary-500"
+                  : "text-dark-600 hover:text-primary-500 hover:border-2 hover:border-primary-500 border-2 border-transparent"
+              }`}
+              onClick={() => setIsMenuOpen(false)}
+            >
+              جرب مجاناً
+            </Link>
             {currentUser && (
               <Link
                 to="/tiger-test"

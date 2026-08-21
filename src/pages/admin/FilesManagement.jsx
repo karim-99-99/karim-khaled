@@ -11,6 +11,9 @@ const FilesManagement = () => {
   const [searchParams] = useSearchParams();
   const itemIdFromUrl = searchParams.get('itemId');
   const returnUrl = searchParams.get('returnUrl');
+  const subjectIdFromUrl = searchParams.get('subjectId');
+  const categoryIdFromUrl = searchParams.get('categoryId');
+  const chapterIdFromUrl = searchParams.get('chapterId');
   const useBackend = backendApi.isBackendOn();
   
   const [subjects, setSubjects] = useState([]);
@@ -48,16 +51,18 @@ const FilesManagement = () => {
           setSubjects(all);
           // After subjects are loaded, find and set the lesson if itemIdFromUrl exists
           if (itemIdFromUrl) {
-            // Get lesson directly to find its parents
+            if (subjectIdFromUrl && categoryIdFromUrl && chapterIdFromUrl) {
+              setSelectedSubject(subjectIdFromUrl);
+              setSelectedCategory(categoryIdFromUrl);
+              setSelectedChapter(chapterIdFromUrl);
+              setSelectedLevel(itemIdFromUrl);
+            } else {
             backendApi.getItemById(itemIdFromUrl).then((lesson) => {
               if (lesson && lesson.chapter) {
-                // Get chapter to find category
                 backendApi.getChapterById(lesson.chapter).then((chapter) => {
                   if (chapter && chapter.category) {
-                    // Get category to find subject
                     backendApi.getCategoryById(chapter.category).then((category) => {
                       if (category && category.subject) {
-                        // Set all fields
                         setSelectedSubject(category.subject);
                         setSelectedCategory(category.id);
                         setSelectedChapter(chapter.id);
@@ -68,6 +73,7 @@ const FilesManagement = () => {
                 }).catch(() => {});
               }
             }).catch(() => {});
+            }
           }
         }
       }).catch(() => setSubjects([]));

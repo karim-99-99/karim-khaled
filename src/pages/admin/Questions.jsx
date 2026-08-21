@@ -525,9 +525,33 @@ const Questions = () => {
     try {
       const allSubjects = getSubjects();
       const allowed = (allSubjects || []).filter(
-        (s) => s?.id === "مادة_اللفظي" || s?.id === "مادة_الكمي"
+        (s) =>
+          s?.id === "مادة_اللفظي" ||
+          s?.id === "مادة_الكمي" ||
+          s?.id === "مادة_تجربة_مجانية"
       );
-      if (allowed.length > 0) setSubjects(allowed);
+      let nextSubjects = allowed;
+      if (subjectIdFromUrl === "مادة_تجربة_مجانية") {
+        if (!nextSubjects.some((s) => s.id === subjectIdFromUrl)) {
+          nextSubjects = [
+            ...nextSubjects,
+            {
+              id: subjectIdFromUrl,
+              name: "جرب مجانا",
+              categories: [
+                {
+                  id: categoryIdFromUrl,
+                  name: "جرب مجانا",
+                  chapters: [
+                    { id: chapterIdFromUrl, name: "الدروس التجريبية" },
+                  ],
+                },
+              ],
+            },
+          ];
+        }
+      }
+      setSubjects(nextSubjects);
 
       if (itemIdFromUrl) {
         if (subjectIdFromUrl && categoryIdFromUrl && chapterIdFromUrl) {

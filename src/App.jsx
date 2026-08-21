@@ -31,6 +31,8 @@ const FileViewer = lazy(() => import("./pages/FileViewer.jsx"));
 const TestMathType = lazy(() => import("./pages/TestMathType.jsx"));
 const TigerTest = lazy(() => import("./pages/TigerTest.jsx"));
 const Foundation = lazy(() => import("./pages/Foundation.jsx"));
+const TryFree = lazy(() => import("./pages/TryFree.jsx"));
+const TryFreeLesson = lazy(() => import("./pages/TryFreeLesson.jsx"));
 
 // Lazy load admin pages
 const Dashboard = lazy(() => import("./pages/admin/Dashboard.jsx"));
@@ -47,6 +49,9 @@ const ClassroomsManagement = lazy(() =>
   import("./pages/admin/ClassroomsManagement.jsx")
 );
 const FilesManagement = lazy(() => import("./pages/admin/FilesManagement.jsx"));
+const TryFreeManagement = lazy(() =>
+  import("./pages/admin/TryFreeManagement.jsx")
+);
 const StudentTracker = lazy(() => import("./pages/StudentTracker.jsx"));
 const IncorrectAnswers = lazy(() => import("./pages/IncorrectAnswers.jsx"));
 const Profile = lazy(() => import("./pages/Profile.jsx"));
@@ -159,6 +164,8 @@ function App() {
                 {/* Unified courses page - accessible without authentication */}
                 <Route path="/courses" element={<Home />} />
                 <Route path="/foundation" element={<Foundation />} />
+                <Route path="/try-free" element={<TryFree />} />
+                <Route path="/try-free/:lessonId" element={<TryFreeLesson />} />
 
                 {/* Subjects page - shows materials (رياضيات, فيزياء, etc.) - public */}
                 <Route
@@ -361,6 +368,17 @@ function App() {
                       checkActive={false}
                     >
                       <FilesManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/try-free"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["admin", "content_admin"]}
+                      checkActive={false}
+                    >
+                      <TryFreeManagement />
                     </ProtectedRoute>
                   }
                 />

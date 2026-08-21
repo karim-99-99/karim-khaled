@@ -459,6 +459,12 @@ const SinglePage = () => {
                    
                   </span>
                 </button>
+                <button
+                  onClick={() => navigate("/try-free")}
+                  className="group px-8 py-4 bg-white border-2 border-primary-500 text-primary-600 hover:bg-primary-50 rounded-2xl text-lg md:text-xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+                >
+                  جرب مجاناً
+                </button>
                 {/* <button
                   onClick={handleDiscoverFreeCourses}
                   className="group px-8 py-4 bg-white border-2 border-primary-500 text-primary-600 hover:bg-primary-50 rounded-2xl text-lg md:text-xl font-bold transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
