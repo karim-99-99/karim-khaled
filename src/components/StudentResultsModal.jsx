@@ -6,6 +6,8 @@ import {
   getStudentResultsStats,
 } from "../services/backendApi";
 import { getCurrentUser } from "../services/storageService";
+import VideoModal from "./VideoModal";
+import QuestionVideoLink from "./QuestionVideoLink";
 
 const defaultSubjectStats = (label = "") => ({
   subject_label: label,
@@ -94,7 +96,8 @@ const StatBubble = ({
 export default function StudentResultsModal({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState(null);
-  const [stats, setStats] = useState({
+  const [videoPlayer, setVideoPlayer] = useState(null);
+  const emptyStats = {
     lessons_engaged_count: 0,
     assignments_engaged_count: 0,
     correct_answers: 0,
@@ -104,39 +107,21 @@ export default function StudentResultsModal({ open, onClose }) {
       verbal: defaultSubjectStats("لفظي"),
       quantitative: defaultSubjectStats("كمي"),
     },
-  });
+    wrong_with_video: [],
+  };
+  const [stats, setStats] = useState(emptyStats);
 
   useEffect(() => {
     if (!open) return;
     setErr(null);
     const me = getCurrentUser();
     if (me?.role && me.role !== "student") {
-      setStats({
-        lessons_engaged_count: 0,
-        assignments_engaged_count: 0,
-        correct_answers: 0,
-        incorrect_answers: 0,
-        answered_questions_total: 0,
-        by_subject: {
-          verbal: defaultSubjectStats("لفظي"),
-          quantitative: defaultSubjectStats("كمي"),
-        },
-      });
+      setStats(emptyStats);
       setErr("نتائجي متاحة لحسابات الطلاب فقط.");
       return;
     }
     if (!isApiBaseConfigured() || !getStoredAuthToken() || !isBackendOn()) {
-      setStats({
-        lessons_engaged_count: 0,
-        assignments_engaged_count: 0,
-        correct_answers: 0,
-        incorrect_answers: 0,
-        answered_questions_total: 0,
-        by_subject: {
-          verbal: defaultSubjectStats("لفظي"),
-          quantitative: defaultSubjectStats("كمي"),
-        },
-      });
+      setStats(emptyStats);
       setErr("سجّل الدخول كطالب واضبط رابط الخادم (VITE_API_URL) وجرّب مرة أخرى.");
       return;
     }
@@ -168,6 +153,9 @@ export default function StudentResultsModal({ open, onClose }) {
               subject_label: quantitative.subject_label || "كمي",
             },
           },
+          wrong_with_video: Array.isArray(data.wrong_with_video)
+            ? data.wrong_with_video
+            : [],
         });
       })
       .catch((e) => {
@@ -374,11 +362,71 @@ export default function StudentResultsModal({ open, onClose }) {
             </div>
           )}
 
+          {!loading && (stats.wrong_with_video || []).length > 0 && (
+            <div className="space-y-3">
+              <h3 className="text-sm md:text-base font-extrabold text-slate-100 text-center">
+                شاهد شرح أسئلتك الخاطئة
+              </h3>
+              <p className="text-xs text-slate-400 text-center -mt-1">
+                نفس فيديو البنك أو الواجب، مع رقم السؤال كما يظهر في اللفظي أو الكمي
+              </p>
+              <ul className="space-y-2">
+                {(stats.wrong_with_video || []).map((item) => (
+                  <li
+                    key={item.question_id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5"
+                  >
+                    <div className="text-right min-w-0">
+                      <p className="text-sm font-bold text-slate-100">
+                        {item.subject_label ||
+                          (item.subject === "verbal" ? "لفظي" : item.subject === "quant" ? "كمي" : "")}
+                        {item.lesson_name ? ` · ${item.lesson_name}` : ""}
+                      </p>
+                      {item.source === "tiger" && (
+                        <p className="text-[11px] text-teal-300">من اختبار النمر</p>
+                      )}
+                    </div>
+                    <QuestionVideoLink
+                      video={item.video}
+                      siteQuestionNumber={item.site_question_number}
+                      className="shrink-0 bg-[#229ED9] text-white px-3 py-2 rounded-lg font-bold text-sm hover:opacity-90"
+                      onOpen={() =>
+                        setVideoPlayer({
+                          video: item.video,
+                          startSeconds: item.video_start_seconds,
+                          endSeconds: item.video_end_seconds,
+                          siteQuestionNumber: item.site_question_number,
+                        })
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <p className="text-center text-[11px] md:text-xs text-slate-500 leading-relaxed px-2">
             الإحصائيات مقسمة إلى لفظي وكمي وتشمل المجتاز والمتبقي والصحيح والخطأ وإجمالي الإجابات.
           </p>
         </div>
       </div>
+      {videoPlayer?.video && (
+        <VideoModal
+          isOpen
+          onClose={() => setVideoPlayer(null)}
+          videoUrl={videoPlayer.video.url || ""}
+          title={
+            videoPlayer.siteQuestionNumber
+              ? `شاهد السؤال رقم ${videoPlayer.siteQuestionNumber}`
+              : videoPlayer.video.title || "شرح السؤال"
+          }
+          lessonId={videoPlayer.video.lesson_id || null}
+          videoId={videoPlayer.video.id}
+          bunnyLibraryId={videoPlayer.video.bunny_library_id || null}
+          startSeconds={videoPlayer.startSeconds}
+          endSeconds={videoPlayer.endSeconds}
+        />
+      )}
     </div>
   );
 }

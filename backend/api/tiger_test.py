@@ -8,7 +8,15 @@ from django.db.models import Exists, OuterRef, Prefetch, Q
 
 from django.core.cache import cache
 
-from .models import Question, Answer, TigerTestSession, TigerTestUsedQuestion
+from .models import (
+    Question,
+    Answer,
+    TigerTestSession,
+    TigerTestUsedQuestion,
+    Video,
+    Lesson,
+    IncorrectAnswer,
+)
 from .tiger_test_demo import make_demo_slots
 from .chapter_dashboard import TIGER_SLOT_CACHE_KEY, TIGER_SLOT_CACHE_TTL
 
@@ -595,6 +603,330 @@ def _explanation_for_slot(question: Question | None, slot: dict) -> str | None:
     return text or None
 
 
+def _parse_video_seconds(value) -> int | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        n = int(value)
+        return n if n >= 0 else None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.isdigit():
+        return int(text)
+    parts = text.split(":")
+    try:
+        nums = [int(p) for p in parts]
+    except ValueError:
+        return None
+    if len(nums) == 2:
+        return nums[0] * 60 + nums[1]
+    if len(nums) == 3:
+        return nums[0] * 3600 + nums[1] * 60 + nums[2]
+    return None
+
+
+def _slot_video_times(question: Question | None, slot: dict) -> tuple[int | None, int | None]:
+    if not question:
+        return None, None
+    start = _parse_video_seconds(getattr(question, "video_start_seconds", None))
+    end = _parse_video_seconds(getattr(question, "video_end_seconds", None))
+    if slot.get("passage_index") is not None:
+        pq_list = question.passage_questions or []
+        idx = slot["passage_index"]
+        pq = (
+            pq_list[idx]
+            if idx < len(pq_list) and isinstance(pq_list[idx], dict)
+            else {}
+        )
+        p_start = _parse_video_seconds(
+            (pq or {}).get("video_start_seconds")
+            or (pq or {}).get("videoStartSeconds")
+        )
+        p_end = _parse_video_seconds(
+            (pq or {}).get("video_end_seconds")
+            or (pq or {}).get("videoEndSeconds")
+        )
+        if p_start is not None:
+            start = p_start
+        if p_end is not None:
+            end = p_end
+    return start, end
+
+
+def _video_payload(video: Video | None) -> dict | None:
+    if not video:
+        return None
+    url = (video.video_url or "").strip() or None
+    if not url and video.video_file:
+        try:
+            url = video.video_file.url
+        except Exception:
+            url = None
+    if not url:
+        return None
+    return {
+        "id": video.id,
+        "url": url,
+        "title": video.title or "",
+        "bunny_library_id": video.bunny_library_id or None,
+        "lesson_id": video.lesson_id,
+    }
+
+
+def _flatten_lesson_site_numbers(questions: list[Question]) -> dict[str, int]:
+    numbered: dict[str, int] = {}
+    n = 0
+    for q in questions:
+        if q.question_type == Question.QUESTION_TYPE_PASSAGE:
+            pq_list = q.passage_questions or []
+            if not isinstance(pq_list, list):
+                continue
+            for idx, pq in enumerate(pq_list):
+                if not isinstance(pq, dict) or not _passage_answers_ok(pq):
+                    continue
+                n += 1
+                numbered[_slot_id_for_passage(q.id, idx)] = n
+        else:
+            n += 1
+            numbered[q.id] = n
+    return numbered
+
+
+def _source_media_for_lessons(lesson_ids: set[str]) -> tuple[dict, dict, dict]:
+    ids = {lid for lid in lesson_ids if lid}
+    if not ids:
+        return {}, {}, {}
+    lessons = {les.id: les for les in Lesson.objects.filter(id__in=ids)}
+    videos_by_lesson: dict[str, Video] = {}
+    for video in Video.objects.filter(lesson_id__in=ids).order_by("order", "-created_at"):
+        if video.lesson_id and video.lesson_id not in videos_by_lesson:
+            videos_by_lesson[video.lesson_id] = video
+    site_maps: dict[str, dict[str, int]] = {}
+    qs = Question.objects.filter(lesson_id__in=ids).order_by(
+        "lesson_id", "order_index", "created_at"
+    )
+    by_lesson: dict[str, list[Question]] = {}
+    for q in qs:
+        by_lesson.setdefault(q.lesson_id, []).append(q)
+    for lid, questions in by_lesson.items():
+        site_maps[lid] = _flatten_lesson_site_numbers(questions)
+    return site_maps, videos_by_lesson, lessons
+
+
+def _source_link_for_slot(
+    parent: Question | None,
+    slot: dict,
+    site_maps: dict,
+    videos_by_lesson: dict,
+    lessons: dict,
+) -> dict:
+    lesson_id = (parent.lesson_id if parent else None) or slot.get("lesson_id")
+    video = videos_by_lesson.get(lesson_id) if lesson_id else None
+    site_map = site_maps.get(lesson_id) or {}
+    site_n = site_map.get(slot.get("slot_id"))
+    if site_n is None and parent and parent.order_index:
+        site_n = int(parent.order_index)
+    start, end = _slot_video_times(parent, slot)
+    lesson = lessons.get(lesson_id) if lesson_id else None
+    return {
+        "lesson_id": lesson_id,
+        "lesson_name": (lesson.name if lesson else "") or "",
+        "site_question_number": site_n,
+        "video": _video_payload(video),
+        "video_start_seconds": start,
+        "video_end_seconds": end,
+    }
+
+
+def persist_session_incorrect_answers(user, session: TigerTestSession) -> None:
+    """Save wrong/skipped Tiger items so نتائجي and الأجوبة الخاطئة can open the source video."""
+    try:
+        items = build_review_items(session)
+        lesson_ids = {item.get("lesson_id") for item in items if item.get("lesson_id")}
+        valid_lessons = set(
+            Lesson.objects.filter(id__in=lesson_ids).values_list("id", flat=True)
+        )
+        for item in items:
+            if item.get("is_correct") or item.get("is_demo"):
+                continue
+            qid = str(item.get("id") or "").strip()
+            if not qid:
+                continue
+            lid = item.get("lesson_id") if item.get("lesson_id") in valid_lessons else None
+            IncorrectAnswer.objects.update_or_create(
+                user=user,
+                question_id=qid,
+                defaults={
+                    "lesson_id": lid,
+                    "lesson_name": (item.get("lesson_name") or "")[:200],
+                    "category_name": "اختبار النمر",
+                    "subject_name": SUBJECT_LABELS.get(item.get("subject"), "")[:200],
+                    "question_snapshot": {
+                        "question": item.get("question"),
+                        "answers": item.get("answers"),
+                        "explanation": item.get("explanation"),
+                        "site_question_number": item.get("site_question_number"),
+                        "video": item.get("video"),
+                        "video_start_seconds": item.get("video_start_seconds"),
+                        "video_end_seconds": item.get("video_end_seconds"),
+                        "subject": item.get("subject"),
+                        "source": "tiger",
+                    },
+                    "user_answer_id": str(item.get("user_answer_id") or "")[:10],
+                    "correct_answer_id": str(item.get("correct_answer_id") or "")[:10],
+                },
+            )
+    except Exception:
+        # Completing the test must not fail if tracker write has a problem.
+        return
+
+
+def wrong_video_items_for_user(user, limit: int = 80) -> list[dict]:
+    """Wrong answers (homework + tiger) with source video + site question number."""
+    rows = list(
+        IncorrectAnswer.objects.filter(user=user).order_by("-created_at")[:limit]
+    )
+    lesson_ids = {row.lesson_id for row in rows if row.lesson_id}
+    qids = []
+    for row in rows:
+        snap = row.question_snapshot or {}
+        if snap.get("video") and snap.get("site_question_number") is not None:
+            continue
+        qid = str(row.question_id or "")
+        if qid.startswith("passage_"):
+            parent_id = qid[len("passage_") : qid.rfind("_")]
+            if parent_id:
+                qids.append(parent_id)
+        elif qid:
+            qids.append(qid)
+
+    parents = {
+        q.id: q
+        for q in Question.objects.filter(id__in=[x for x in qids if x]).only(
+            "id",
+            "lesson_id",
+            "order_index",
+            "question_type",
+            "passage_questions",
+            "video_start_seconds",
+            "video_end_seconds",
+        )
+    }
+    for q in parents.values():
+        if q.lesson_id:
+            lesson_ids.add(q.lesson_id)
+    site_maps, videos_by_lesson, lessons = _source_media_for_lessons(lesson_ids)
+
+    out: list[dict] = []
+    for row in rows:
+        snap = row.question_snapshot or {}
+        video = snap.get("video")
+        site_n = snap.get("site_question_number")
+        start = snap.get("video_start_seconds")
+        end = snap.get("video_end_seconds")
+        lesson_id = row.lesson_id
+        lesson_name = row.lesson_name or ""
+        subject = snap.get("subject")
+        if not video or site_n is None:
+            parent = None
+            slot = {"slot_id": row.question_id, "passage_index": None, "lesson_id": lesson_id}
+            qid = str(row.question_id or "")
+            if qid.startswith("passage_"):
+                try:
+                    idx = int(qid.rsplit("_", 1)[-1])
+                    parent_id = qid[len("passage_") : qid.rfind("_")]
+                    parent = parents.get(parent_id)
+                    slot["passage_index"] = idx
+                    slot["parent_id"] = parent_id
+                except Exception:
+                    parent = parents.get(qid)
+            else:
+                parent = parents.get(qid)
+            if parent and not lesson_id:
+                lesson_id = parent.lesson_id
+                slot["lesson_id"] = lesson_id
+            link = _source_link_for_slot(
+                parent, slot, site_maps, videos_by_lesson, lessons
+            )
+            video = video or link.get("video")
+            site_n = site_n if site_n is not None else link.get("site_question_number")
+            start = start if start is not None else link.get("video_start_seconds")
+            end = end if end is not None else link.get("video_end_seconds")
+            lesson_id = lesson_id or link.get("lesson_id")
+            lesson_name = lesson_name or link.get("lesson_name") or ""
+        if not video:
+            continue
+        if not subject:
+            if "لفظي" in (row.subject_name or ""):
+                subject = "verbal"
+            elif "كمي" in (row.subject_name or ""):
+                subject = "quant"
+        out.append(
+            {
+                "question_id": row.question_id,
+                "lesson_id": lesson_id,
+                "lesson_name": lesson_name,
+                "subject": subject or "",
+                "subject_label": SUBJECT_LABELS.get(subject, row.subject_name or ""),
+                "site_question_number": site_n,
+                "video": video,
+                "video_start_seconds": _parse_video_seconds(start),
+                "video_end_seconds": _parse_video_seconds(end),
+                "source": snap.get("source")
+                or (
+                    "tiger"
+                    if (row.category_name or "") == "اختبار النمر"
+                    else "homework"
+                ),
+            }
+        )
+
+    if len(out) < limit:
+        seen = {item["question_id"] for item in out}
+        latest = (
+            TigerTestSession.objects.filter(
+                user=user,
+                status=TigerTestSession.STATUS_COMPLETED,
+            )
+            .order_by("-completed_at", "-created_at")
+            .first()
+        )
+        results = (latest.results or {}) if latest else {}
+        if latest and not results.get("abandoned"):
+            try:
+                for item in build_review_items(latest):
+                    if item.get("is_correct") or item.get("is_demo") or not item.get("video"):
+                        continue
+                    qid = item.get("id")
+                    if not qid or qid in seen:
+                        continue
+                    seen.add(qid)
+                    out.append(
+                        {
+                            "question_id": qid,
+                            "lesson_id": item.get("lesson_id"),
+                            "lesson_name": item.get("lesson_name") or "",
+                            "subject": item.get("subject") or "",
+                            "subject_label": SUBJECT_LABELS.get(
+                                item.get("subject"), ""
+                            ),
+                            "site_question_number": item.get("site_question_number"),
+                            "video": item.get("video"),
+                            "video_start_seconds": item.get("video_start_seconds"),
+                            "video_end_seconds": item.get("video_end_seconds"),
+                            "source": "tiger",
+                        }
+                    )
+                    if len(out) >= limit:
+                        break
+            except Exception:
+                pass
+    return out
+
+
 def _review_answers_for_slot(question: Question | None, slot: dict) -> list[dict]:
     if slot.get("is_demo"):
         demo = slot.get("demo") or {}
@@ -631,6 +963,14 @@ def build_review_items(session: TigerTestSession) -> list[dict]:
     sections = session.section_slots or []
     answers = session.answers or {}
     questions_map = load_questions_map(sections)
+    lesson_ids = {
+        q.lesson_id for q in questions_map.values() if getattr(q, "lesson_id", None)
+    }
+    for section in sections:
+        for slot in section:
+            if slot.get("lesson_id"):
+                lesson_ids.add(slot["lesson_id"])
+    site_maps, videos_by_lesson, lessons = _source_media_for_lessons(lesson_ids)
     items: list[dict] = []
     number = 0
     for section_i, section in enumerate(sections):
@@ -638,6 +978,9 @@ def build_review_items(session: TigerTestSession) -> list[dict]:
             number += 1
             parent = questions_map.get(slot.get("parent_id")) if slot.get("parent_id") else None
             base = serialize_slot_for_client(parent, slot)
+            source = _source_link_for_slot(
+                parent, slot, site_maps, videos_by_lesson, lessons
+            )
             if slot.get("is_demo"):
                 correct_id = (slot.get("demo") or {}).get("correct")
                 explanation = None
@@ -660,6 +1003,7 @@ def build_review_items(session: TigerTestSession) -> list[dict]:
                     "is_correct": is_correct,
                     "skipped": skipped,
                     "explanation": explanation,
+                    **source,
                 }
             )
     return items
@@ -697,13 +1041,13 @@ def score_session(session: TigerTestSession) -> dict:
 
     verbal_pct = round((verbal_correct / verbal_total) * 100, 1) if verbal_total else 0.0
     quant_pct = round((quant_correct / quant_total) * 100, 1) if quant_total else 0.0
-    # Final = average of the two section percentages (missing section counts as 0)
+    # Final = average of the two section percentages, nearest integer
     parts = []
     if verbal_total:
         parts.append(verbal_pct)
     if quant_total:
         parts.append(quant_pct)
-    final_pct = round(sum(parts) / len(parts), 1) if parts else 0.0
+    final_pct = int(round(sum(parts) / len(parts))) if parts else 0
 
     return {
         "verbal_correct": verbal_correct,

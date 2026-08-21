@@ -3,6 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { getCurrentUser } from "../services/storageService";
 import * as backendApi from "../services/backendApi";
 import MathRenderer from "../components/MathRenderer";
+import VideoModal from "../components/VideoModal";
+import QuestionVideoLink from "../components/QuestionVideoLink";
 import logoimage from "../assets/karim.png";
 import "./TigerTest.css";
 
@@ -20,6 +22,22 @@ function formatTime(seconds) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${String(m).padStart(2, "0")}:${String(r).padStart(2, "0")}`;
+}
+
+function formatAttemptDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("ar-SA", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+function scoreNumber(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n);
 }
 
 function nextSectionPrompt(currentSection, sectionCount) {
@@ -77,19 +95,26 @@ const QuestionGrid = memo(function QuestionGrid({
   currentQIndex,
   answers,
   seen,
+  reviewIds,
+  farthestIndex,
   onSelect,
 }) {
+  const reviewSet = new Set(reviewIds || []);
   return (
     <div className="tiger-test-grid" aria-label="أرقام الأسئلة">
       {questions.map((q, i) => {
         const answered = Boolean(answers[q.id]);
+        const inReview = reviewSet.has(q.id);
+        const isFarthest = i === farthestIndex;
         const leftUnanswered =
           !answered && i !== currentQIndex && seen.includes(q.id);
         let cls = "tiger-test-grid-cell";
         if (i === currentQIndex) cls += " current";
         else if (answered) cls += " answered";
+        else if (inReview) cls += " review";
         else if (leftUnanswered) cls += " unanswered";
-        const clickable = answered || i === currentQIndex;
+        const clickable =
+          answered || i === currentQIndex || inReview || isFarthest;
         if (!clickable) cls += " locked";
         return (
           <button
@@ -101,13 +126,22 @@ const QuestionGrid = memo(function QuestionGrid({
               if (clickable) onSelect(i);
             }}
             title={
-              answered
-                ? `السؤال ${i + 1}`
-                : i === currentQIndex
-                  ? `السؤال الحالي ${i + 1}`
-                  : `لا يمكن الانتقال إلى السؤال ${i + 1} قبل الإجابة`
+              i === currentQIndex
+                ? `السؤال الحالي ${i + 1}`
+                : answered
+                  ? `السؤال ${i + 1}`
+                  : inReview
+                    ? `سؤال للمراجعة ${i + 1}`
+                    : isFarthest
+                      ? `السؤال الذي كنت عليه ${i + 1}`
+                      : `لا يمكن الانتقال إلى السؤال ${i + 1} قبل الإجابة`
             }
           >
+            {inReview ? (
+              <span className="tiger-test-grid-star" aria-hidden="true">
+                ★
+              </span>
+            ) : null}
             {i + 1}
           </button>
         );
@@ -162,9 +196,13 @@ const TigerTest = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [session, setSession] = useState(null);
-  const [showReadyModal, setShowReadyModal] = useState(true);
+  const [menuScreen, setMenuScreen] = useState("hub");
+  const [showReadyModal, setShowReadyModal] = useState(false);
   const [hasActive, setHasActive] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [openingAttempt, setOpeningAttempt] = useState(false);
   const [fontSize, setFontSize] = useState("md");
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showInstructions, setShowInstructions] = useState(false);
@@ -177,9 +215,13 @@ const TigerTest = () => {
   const [reviewIndex, setReviewIndex] = useState(0);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [ending, setEnding] = useState(false);
+  const [videoPlayer, setVideoPlayer] = useState(null);
   const endingRef = useRef(false);
   const seenRef = useRef([]);
   const seenFlushRef = useRef(null);
+  const farthestRef = useRef(0);
+  const [farthestIndex, setFarthestIndex] = useState(0);
+  const activeSessionRef = useRef(null);
 
   const sectionCount = session?.section_count || 5;
   const sectionIndex = Math.max(
@@ -229,15 +271,17 @@ const TigerTest = () => {
       .getTigerTestActive()
       .then((active) => {
         if (active) {
+          activeSessionRef.current = active;
           setHasActive(true);
           setSession(active);
           seenRef.current = Array.isArray(active.seen) ? active.seen : [];
-          setShowReadyModal(true);
           const qs = sectionQuestionsOf(active);
           const idx = active.current_question_index ?? 0;
           const q = qs[idx];
           setSelectedAnswer(q ? active.answers?.[q.id] || null : null);
         }
+        setMenuScreen("hub");
+        setShowReadyModal(false);
       })
       .catch((err) => setError(err.message || "فشل تحميل الاختبار"))
       .finally(() => setLoading(false));
@@ -294,6 +338,18 @@ const TigerTest = () => {
   }, [currentQuestion?.id, session?.id, session?.status]);
 
   useEffect(() => {
+    farthestRef.current = session?.current_question_index ?? 0;
+    setFarthestIndex(farthestRef.current);
+  }, [session?.id, session?.current_section]);
+
+  useEffect(() => {
+    if (currentQIndex > farthestRef.current) {
+      farthestRef.current = currentQIndex;
+      setFarthestIndex(currentQIndex);
+    }
+  }, [currentQIndex]);
+
+  useEffect(() => {
     return () => {
       if (seenFlushRef.current) clearTimeout(seenFlushRef.current);
       if (session?.id) flushSeen(session.id, seenRef.current);
@@ -305,6 +361,11 @@ const TigerTest = () => {
     setSession(s);
     if (s.status === "between_sections" || s.status === "completed") {
       setShowPoolWarnings(false);
+    }
+    if (s.status === "completed") {
+      activeSessionRef.current = null;
+      setHasActive(false);
+      setMenuScreen(null);
     }
   };
 
@@ -341,9 +402,11 @@ const TigerTest = () => {
   }, [session?.id, sectionCount]);
 
   const applyStartedSession = (s) => {
+    activeSessionRef.current = s;
     setSession(s);
     seenRef.current = Array.isArray(s.seen) ? s.seen : [];
     setHasActive(true);
+    setMenuScreen(null);
     setShowReadyModal(false);
     setShowReview(false);
     setReviewIndex(0);
@@ -353,8 +416,73 @@ const TigerTest = () => {
     }
   };
 
+  const goToHub = () => {
+    setShowReview(false);
+    setShowReadyModal(false);
+    setShowPoolWarnings(false);
+    setError("");
+    setMenuScreen("hub");
+    const active = activeSessionRef.current;
+    if (active && active.status !== "completed") {
+      setSession(active);
+      setHasActive(true);
+    } else {
+      activeSessionRef.current = null;
+      setHasActive(false);
+      setSession(null);
+    }
+  };
+
+  const openStartFromHub = () => {
+    setError("");
+    const active = activeSessionRef.current;
+    if (active && active.status !== "completed") {
+      setSession(active);
+      setHasActive(true);
+    }
+    setShowReadyModal(true);
+  };
+
+  const loadHistory = useCallback(() => {
+    setHistoryLoading(true);
+    setError("");
+    backendApi
+      .getTigerTestHistory()
+      .then((attempts) => setHistory(attempts))
+      .catch((err) => setError(err.message || "فشل تحميل الاختبارات السابقة"))
+      .finally(() => setHistoryLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (menuScreen !== "history") return;
+    loadHistory();
+  }, [menuScreen, loadHistory]);
+
+  const openPastAttempt = async (attemptId) => {
+    if (!attemptId || openingAttempt) return;
+    setOpeningAttempt(true);
+    setError("");
+    try {
+      const s = await backendApi.getTigerTestSession(attemptId);
+      if (!s || s.status !== "completed") {
+        setError("تعذر فتح هذا الاختبار.");
+        return;
+      }
+      setSession(s);
+      setShowReview(false);
+      setReviewIndex(0);
+      setShowReadyModal(false);
+      setMenuScreen(null);
+    } catch (err) {
+      setError(err.message || "تعذر فتح الاختبار السابق");
+    } finally {
+      setOpeningAttempt(false);
+    }
+  };
+
   const handleResume = () => {
     if (!session) return;
+    setMenuScreen(null);
     setShowReadyModal(false);
   };
 
@@ -367,6 +495,7 @@ const TigerTest = () => {
       if (s) applyStartedSession(s);
     } catch (err) {
       setError(err.message || "فشل بدء الاختبار");
+      setShowReadyModal(true);
     } finally {
       setStarting(false);
     }
@@ -458,11 +587,16 @@ const TigerTest = () => {
       const q = sectionQuestions[safe];
       if (!q) return;
       const allowUnanswered = Boolean(options.allowUnanswered);
-      if (
-        safe !== currentQIndex &&
-        !answers[q.id] &&
-        !allowUnanswered
-      ) {
+      const inReview =
+        (session.bookmarked || []).includes(q.id) ||
+        (session.deferred || []).includes(q.id);
+      const reachable =
+        allowUnanswered ||
+        safe === currentQIndex ||
+        Boolean(answers[q.id]) ||
+        inReview ||
+        safe === farthestRef.current;
+      if (safe !== currentQIndex && !reachable) {
         return;
       }
       setNavHint("");
@@ -479,8 +613,14 @@ const TigerTest = () => {
 
   const handlePrev = () => {
     if (currentQIndex <= 0) return;
-    const prevQ = sectionQuestions[currentQIndex - 1];
-    if (prevQ && answers[prevQ.id]) goToQuestion(currentQIndex - 1);
+    for (let i = currentQIndex - 1; i >= 0; i -= 1) {
+      const q = sectionQuestions[i];
+      if (!q) continue;
+      if (answers[q.id] || isInReview(q.id) || i === farthestRef.current) {
+        goToQuestion(i);
+        return;
+      }
+    }
   };
 
   const handleSaveNext = async () => {
@@ -495,7 +635,9 @@ const TigerTest = () => {
       goToQuestion(currentQIndex + 1, { allowUnanswered: true });
       return;
     }
-    await finishCurrentSection();
+    setNavHint(
+      "هذا آخر سؤال في القسم. يمكنك مراجعة الأسئلة، ثم إنهاء القسم من الزر الجانبي أو انتظار انتهاء الوقت."
+    );
   };
 
   const handleEndSection = () => {
@@ -532,8 +674,196 @@ const TigerTest = () => {
     );
   }
 
-  if (session?.status === "completed" && session?.results) {
-    const r = session.results;
+  if (menuScreen === "hub" || menuScreen === "history") {
+    return (
+      <div className="tiger-test-root" dir="rtl">
+        <div className="tiger-test-header">
+          <span>اختبار النمر</span>
+          <span>محاكي اختبار النمر (بدايتي)</span>
+        </div>
+        {error && (
+          <div className="tiger-test-error-banner" role="alert">
+            {error}
+          </div>
+        )}
+        {menuScreen === "hub" ? (
+          <div className="tiger-test-hub">
+            <h2>اختر ما تريد</h2>
+            <p className="tiger-test-hub-lead">
+              ابدأ اختبار النمر الآن، أو راجع نتائج اختباراتك السابقة.
+            </p>
+            {hasActive && (
+              <p className="tiger-test-hub-note">
+                لديك اختبار قيد التنفيذ. يمكنك متابعته من «ابدأ اختبار النمر».
+              </p>
+            )}
+            <div className="tiger-test-hub-cards">
+              <button
+                type="button"
+                className="tiger-test-hub-card"
+                onClick={openStartFromHub}
+              >
+                <span className="tiger-test-hub-card-title">
+                  ابدأ اختبار النمر
+                </span>
+                <span className="tiger-test-hub-card-text">
+                  5 أقسام × 24 سؤالاً، ومدة كل قسم 24 دقيقة.
+                </span>
+              </button>
+              <button
+                type="button"
+                className="tiger-test-hub-card"
+                onClick={() => setMenuScreen("history")}
+              >
+                <span className="tiger-test-hub-card-title">
+                  مراجعة اختباراتك السابقة
+                </span>
+                <span className="tiger-test-hub-card-text">
+                  شاهد درجاتك اللفظية والكمية والنتيجة النهائية.
+                </span>
+              </button>
+            </div>
+            <button
+              type="button"
+              className="tiger-test-modal-btn secondary"
+              onClick={() => navigate("/courses")}
+            >
+              العودة للدورات
+            </button>
+          </div>
+        ) : (
+          <div className="tiger-test-history">
+            <div className="tiger-test-history-head">
+              <h2>اختباراتك السابقة</h2>
+              <button
+                type="button"
+                className="tiger-test-modal-btn secondary"
+                onClick={goToHub}
+              >
+                رجوع
+              </button>
+            </div>
+            {historyLoading ? (
+              <div className="tiger-test-loading">جاري تحميل النتائج…</div>
+            ) : history.length === 0 ? (
+              <p className="tiger-test-history-empty">
+                لا توجد اختبارات مكتملة بعد. ابدأ اختبار النمر أولاً.
+              </p>
+            ) : (
+              <div className="tiger-test-history-list">
+                {history.map((attempt, index) => (
+                  <button
+                    key={attempt.id}
+                    type="button"
+                    className="tiger-test-history-item"
+                    disabled={openingAttempt}
+                    onClick={() => openPastAttempt(attempt.id)}
+                  >
+                    <div className="tiger-test-history-item-top">
+                      <strong>اختبار {history.length - index}</strong>
+                      <span>
+                        {formatAttemptDate(
+                          attempt.completed_at || attempt.created_at
+                        )}
+                      </span>
+                    </div>
+                    <div className="tiger-test-history-scores">
+                      <span>
+                        لفظي{" "}
+                        <b>{scoreNumber(attempt.verbal_percentage)}</b>
+                      </span>
+                      <span>
+                        كمي{" "}
+                        <b>{scoreNumber(attempt.quant_percentage)}</b>
+                      </span>
+                      <span className="tiger-test-history-final">
+                        النهائي{" "}
+                        <b>{scoreNumber(attempt.final_percentage)}</b>
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+            {openingAttempt && (
+              <p className="tiger-test-history-opening">جاري فتح الاختبار…</p>
+            )}
+          </div>
+        )}
+
+        {showReadyModal && (
+          <div className="tiger-test-overlay">
+            <div className="tiger-test-modal">
+              <h2>اختبار النمر</h2>
+              {hasActive && session && session.status !== "completed" ? (
+                <>
+                  <p>لديك اختبار قيد التنفيذ. هل تريد المتابعة أم البدء من جديد؟</p>
+                  <p style={{ fontSize: 13, color: "#888" }}>
+                    القسم الحالي: {session.current_section} من{" "}
+                    {session.section_count || sectionCount} — أسئلة هذا الاختبار:{" "}
+                    {session.total_questions || 0}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>هل أنت مستعد لبدء اختبار النمر؟</p>
+                  <p style={{ fontSize: 13, color: "#888" }}>
+                    يتكون الاختبار من 5 أقسام، في كل قسم 24 سؤالاً (13 لفظي + 11
+                    كمي)، ومدة كل قسم 24 دقيقة. لا تُعاد الأسئلة نفسها للطالب.
+                    إذا نقص بنك الأسئلة يُكمل عشوائياً من ملف آخر في البنوك.
+                  </p>
+                </>
+              )}
+              {error && (
+                <p style={{ color: "#c00", marginBottom: 16 }}>{error}</p>
+              )}
+              <div className="tiger-test-modal-btns">
+                <button
+                  type="button"
+                  className="tiger-test-modal-btn secondary"
+                  onClick={() => setShowReadyModal(false)}
+                >
+                  إلغاء
+                </button>
+                {hasActive && session && session.status !== "completed" ? (
+                  <>
+                    <button
+                      type="button"
+                      className="tiger-test-modal-btn secondary"
+                      disabled={starting}
+                      onClick={() => handleStart(true)}
+                    >
+                      {starting ? "جاري البدء…" : "بدء جديد"}
+                    </button>
+                    <button
+                      type="button"
+                      className="tiger-test-modal-btn primary"
+                      onClick={handleResume}
+                    >
+                      متابعة
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="tiger-test-modal-btn primary"
+                    disabled={starting}
+                    onClick={() => handleStart(false)}
+                  >
+                    {starting ? "جاري البدء…" : "نعم، ابدأ"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="tiger-test-footer-bar">محاكي اختبار النمر ( بدايتي )</div>
+      </div>
+    );
+  }
+
+  if (session?.status === "completed") {
+    const r = session.results || {};
     const review = Array.isArray(session.review) ? session.review : [];
     const correctCount = review.filter((q) => q.is_correct).length;
     const wrongCount = review.filter((q) => !q.is_correct && !q.skipped).length;
@@ -563,21 +893,23 @@ const TigerTest = () => {
             <div className="tiger-test-result-cards">
               <div className="tiger-test-result-card">
                 <h3>القسم الكمي</h3>
-                <div className="pct">{r.quant_percentage}%</div>
+                <div className="pct">{r.quant_percentage}</div>
                 <p style={{ marginTop: 8, fontSize: 14, color: "#666" }}>
                   {r.quant_correct} من {r.quant_total} سؤال
                 </p>
               </div>
               <div className="tiger-test-result-card">
                 <h3>القسم اللفظي</h3>
-                <div className="pct">{r.verbal_percentage}%</div>
+                <div className="pct">{r.verbal_percentage}</div>
                 <p style={{ marginTop: 8, fontSize: 14, color: "#666" }}>
                   {r.verbal_correct} من {r.verbal_total} سؤال
                 </p>
               </div>
               <div className="tiger-test-result-card tiger-test-result-final">
                 <h3>النتيجة النهائية</h3>
-                <div className="pct">{r.final_percentage}%</div>
+                <div className="pct">
+                  {Math.round(Number(r.final_percentage) || 0)}
+                </div>
                 <p style={{ marginTop: 8, fontSize: 14, opacity: 0.9 }}>
                   متوسط القسمين (لفظي + كمي) ÷ 2
                 </p>
@@ -595,6 +927,13 @@ const TigerTest = () => {
               </span>
             </div>
             <div className="tiger-test-modal-btns" style={{ marginTop: 28 }}>
+              <button
+                type="button"
+                className="tiger-test-modal-btn secondary"
+                onClick={goToHub}
+              >
+                العودة للقائمة
+              </button>
               <button
                 type="button"
                 className="tiger-test-modal-btn secondary"
@@ -623,6 +962,36 @@ const TigerTest = () => {
                 اختبار جديد
               </button>
             </div>
+            {review.some((q) => !q.is_correct && (q.video?.url || q.video?.id)) && (
+              <div className="tiger-test-wrong-videos">
+                <h3>فيديوهات الأسئلة الخاطئة</h3>
+                <ul>
+                  {review
+                    .filter((q) => !q.is_correct && (q.video?.url || q.video?.id))
+                    .map((q) => (
+                      <li key={q.id}>
+                        <span>
+                          {q.subject === "verbal" ? "لفظي" : "كمي"}
+                          {q.lesson_name ? ` · ${q.lesson_name}` : ""}
+                        </span>
+                        <QuestionVideoLink
+                          video={q.video}
+                          siteQuestionNumber={q.site_question_number}
+                          className="tiger-test-video-link"
+                          onOpen={() =>
+                            setVideoPlayer({
+                              video: q.video,
+                              startSeconds: q.video_start_seconds,
+                              endSeconds: q.video_end_seconds,
+                              siteQuestionNumber: q.site_question_number,
+                            })
+                          }
+                        />
+                      </li>
+                    ))}
+                </ul>
+              </div>
+            )}
           </div>
         ) : (
           <div className="tiger-test-review">
@@ -783,6 +1152,27 @@ const TigerTest = () => {
                         </div>
                       ) : null}
 
+                      {!reviewQuestion.is_correct &&
+                        (reviewQuestion.video?.url || reviewQuestion.video?.id) && (
+                          <QuestionVideoLink
+                            video={reviewQuestion.video}
+                            siteQuestionNumber={
+                              reviewQuestion.site_question_number
+                            }
+                            className="tiger-test-video-link"
+                            onOpen={() =>
+                              setVideoPlayer({
+                                video: reviewQuestion.video,
+                                startSeconds:
+                                  reviewQuestion.video_start_seconds,
+                                endSeconds: reviewQuestion.video_end_seconds,
+                                siteQuestionNumber:
+                                  reviewQuestion.site_question_number,
+                              })
+                            }
+                          />
+                        )}
+
                       <div className="tiger-test-review-nav">
                         <button
                           type="button"
@@ -820,6 +1210,23 @@ const TigerTest = () => {
           </div>
         )}
         <div className="tiger-test-footer-bar">محاكي اختبار النمر ( بدايتي )</div>
+        {videoPlayer?.video && (
+          <VideoModal
+            isOpen
+            onClose={() => setVideoPlayer(null)}
+            videoUrl={videoPlayer.video.url || ""}
+            title={
+              videoPlayer.siteQuestionNumber
+                ? `شاهد السؤال رقم ${videoPlayer.siteQuestionNumber}`
+                : videoPlayer.video.title || "شرح السؤال"
+            }
+            lessonId={videoPlayer.video.lesson_id || null}
+            videoId={videoPlayer.video.id}
+            bunnyLibraryId={videoPlayer.video.bunny_library_id || null}
+            startSeconds={videoPlayer.startSeconds}
+            endSeconds={videoPlayer.endSeconds}
+          />
+        )}
       </div>
     );
   }
@@ -830,7 +1237,7 @@ const TigerTest = () => {
     `${session?.current_section || 1} - القسم ${SECTION_NAMES[sectionIndex] || ""}`;
 
   return (
-    <div className="tiger-test-root" dir="rtl">
+    <div className={`tiger-test-root ${fontClass}`.trim()} dir="rtl">
       {error && !showReadyModal && (
         <div className="tiger-test-error-banner" role="alert">
           {error}
@@ -866,7 +1273,7 @@ const TigerTest = () => {
               <button
                 type="button"
                 className="tiger-test-modal-btn secondary"
-                onClick={() => navigate("/courses")}
+                onClick={goToHub}
               >
                 إلغاء
               </button>
@@ -1122,7 +1529,7 @@ const TigerTest = () => {
                 </div>
 
                 <div>
-                  <p style={{ fontSize: 13, marginBottom: 8 }}>
+                  <p className="tiger-test-sidebar-count">
                     مجموع الأسئلة : {sectionQuestions.length}
                   </p>
                   <div className="tiger-test-stats-row">
@@ -1141,6 +1548,8 @@ const TigerTest = () => {
                   currentQIndex={currentQIndex}
                   answers={answers}
                   seen={seen}
+                  reviewIds={[...bookmarked, ...deferred]}
+                  farthestIndex={farthestIndex}
                   onSelect={goToQuestion}
                 />
 
@@ -1198,24 +1607,33 @@ const TigerTest = () => {
                   <div className="tiger-test-font-controls">
                     <button
                       type="button"
-                      className="tiger-test-font-btn"
-                      onClick={() => setFontSize("lg")}
-                    >
-                      +A
-                    </button>
-                    <button
-                      type="button"
-                      className="tiger-test-font-btn"
+                      className={`tiger-test-font-btn ${
+                        fontSize === "md" ? "active" : ""
+                      }`}
                       onClick={() => setFontSize("md")}
+                      title="حجم الخط الافتراضي"
                     >
                       A
                     </button>
                     <button
                       type="button"
-                      className="tiger-test-font-btn"
+                      className={`tiger-test-font-btn ${
+                        fontSize === "sm" ? "active" : ""
+                      }`}
                       onClick={() => setFontSize("sm")}
+                      title="تصغير الخط"
                     >
-                      -A
+                      A-
+                    </button>
+                    <button
+                      type="button"
+                      className={`tiger-test-font-btn ${
+                        fontSize === "lg" ? "active" : ""
+                      }`}
+                      onClick={() => setFontSize("lg")}
+                      title="تكبير الخط"
+                    >
+                      A+
                     </button>
                   </div>
 
@@ -1233,12 +1651,12 @@ const TigerTest = () => {
                       </div>
 
                       {(currentQuestion.passage_text) && (
-                        <div className={`tiger-test-passage ${fontClass}`}>
+                        <div className="tiger-test-passage">
                           <MathRenderer html={currentQuestion.passage_text} />
                         </div>
                       )}
 
-                      <div className={`tiger-test-question-text ${fontClass}`}>
+                      <div className="tiger-test-question-text">
                         {(currentQuestion.is_passage ||
                           currentQuestion.passage_index != null) && (
                           <div className="tiger-test-passage-q-label">
@@ -1274,11 +1692,6 @@ const TigerTest = () => {
                                 selectedAnswer === aid ? "selected" : ""
                               }`}
                             >
-                              <span className="tiger-test-option-text">
-                                <MathRenderer
-                                  html={stripAnswerChoicePrefix(a.text || "")}
-                                />
-                              </span>
                               <input
                                 type="radio"
                                 name={`q-${currentQuestion.id}`}
@@ -1286,6 +1699,11 @@ const TigerTest = () => {
                                 checked={selectedAnswer === aid}
                                 onChange={() => handleSelectAnswer(aid)}
                               />
+                              <span className="tiger-test-option-text">
+                                <MathRenderer
+                                  html={stripAnswerChoicePrefix(a.text || "")}
+                                />
+                              </span>
                             </label>
                           );
                         })}
@@ -1326,7 +1744,14 @@ const TigerTest = () => {
                         disabled={
                           currentQIndex === 0 ||
                           !currentQuestion ||
-                          !answers[sectionQuestions[currentQIndex - 1]?.id]
+                          !sectionQuestions
+                            .slice(0, currentQIndex)
+                            .some(
+                              (q, i) =>
+                                answers[q.id] ||
+                                isInReview(q.id) ||
+                                i === farthestIndex
+                            )
                         }
                         onClick={handlePrev}
                       >
@@ -1341,9 +1766,7 @@ const TigerTest = () => {
                         {ending
                           ? "جاري الإنهاء…"
                           : currentQIndex >= sectionQuestions.length - 1
-                          ? session.current_section >= sectionCount
-                            ? "إنهاء الاختبار"
-                            : "إنهاء القسم"
+                          ? "حفظ"
                           : "حفظ و التالي"}
                       </button>
                     </div>

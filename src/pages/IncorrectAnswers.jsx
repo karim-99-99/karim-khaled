@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import MathRenderer from "../components/MathRenderer";
+import VideoModal from "../components/VideoModal";
+import QuestionVideoLink from "../components/QuestionVideoLink";
 import {
   isBackendOn,
   getIncorrectAnswers,
@@ -18,6 +20,7 @@ const IncorrectAnswers = () => {
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [showResult, setShowResult] = useState(false);
   const [removeOnCorrect, setRemoveOnCorrect] = useState(true);
+  const [videoPlayer, setVideoPlayer] = useState(null);
 
   useEffect(() => {
     if (!isBackendOn()) {
@@ -217,6 +220,36 @@ const IncorrectAnswers = () => {
                 </div>
               )}
 
+              {(currentItem?.video?.url ||
+                currentItem?.video?.id ||
+                snapshot.video?.url ||
+                snapshot.video?.id) && (
+                <div className="mb-6">
+                  <QuestionVideoLink
+                    video={currentItem.video || snapshot.video}
+                    siteQuestionNumber={
+                      currentItem.site_question_number ??
+                      snapshot.site_question_number
+                    }
+                    className="bg-[#229ED9] text-white px-5 py-3 rounded-lg font-semibold hover:opacity-90"
+                    onOpen={() =>
+                      setVideoPlayer({
+                        video: currentItem.video || snapshot.video,
+                        startSeconds:
+                          currentItem.video_start_seconds ??
+                          snapshot.video_start_seconds,
+                        endSeconds:
+                          currentItem.video_end_seconds ??
+                          snapshot.video_end_seconds,
+                        siteQuestionNumber:
+                          currentItem.site_question_number ??
+                          snapshot.site_question_number,
+                      })
+                    }
+                  />
+                </div>
+              )}
+
               <div className="flex justify-between">
                 <button
                   onClick={goToPrev}
@@ -237,6 +270,23 @@ const IncorrectAnswers = () => {
           </>
         )}
       </div>
+      {videoPlayer?.video && (
+        <VideoModal
+          isOpen
+          onClose={() => setVideoPlayer(null)}
+          videoUrl={videoPlayer.video.url || ""}
+          title={
+            videoPlayer.siteQuestionNumber
+              ? `شاهد السؤال رقم ${videoPlayer.siteQuestionNumber}`
+              : videoPlayer.video.title || "شرح السؤال"
+          }
+          lessonId={videoPlayer.video.lesson_id || null}
+          videoId={videoPlayer.video.id}
+          bunnyLibraryId={videoPlayer.video.bunny_library_id || null}
+          startSeconds={videoPlayer.startSeconds}
+          endSeconds={videoPlayer.endSeconds}
+        />
+      )}
     </div>
   );
 };

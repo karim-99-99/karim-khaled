@@ -31,6 +31,7 @@ from .utils import get_client_ip, extract_bunny_video_id, extract_bunny_library_
 from .bunny_config import get_bunny_library_configs, get_bunny_config_for_library
 from .bunny_stream import bunny_create_and_upload, bunny_video_exists, BunnyStreamError
 from .permissions import IsAuthenticatedDeviceAllowed
+from . import tiger_test
 from .serializers import (
     UserSerializer, UserCreateSerializer, UserUpdateSerializer, LoginSerializer,
     ChangePasswordSerializer, AdminResetPasswordSerializer,
@@ -1821,6 +1822,7 @@ class TrackerStudentResultsView(APIView):
             'incorrect_answers': incorrect_answers + g_sup_w,
             'answered_questions_total': (correct_answers + g_sup_c) + (incorrect_answers + g_sup_w),
             'by_subject': by_subject,
+            'wrong_with_video': tiger_test.wrong_video_items_for_user(user),
         })
 
 
@@ -1977,8 +1979,14 @@ class IncorrectAnswerListCreateView(APIView):
 
     def get(self, request):
         items = IncorrectAnswer.objects.filter(user=request.user).select_related('lesson').order_by('-created_at')
+        links = {
+            item['question_id']: item
+            for item in tiger_test.wrong_video_items_for_user(request.user, limit=200)
+        }
         out = []
         for ia in items:
+            snap = ia.question_snapshot or {}
+            link = links.get(ia.question_id) or {}
             out.append({
                 'id': ia.id,
                 'question_id': ia.question_id,
@@ -1986,10 +1994,19 @@ class IncorrectAnswerListCreateView(APIView):
                 'lesson_name': ia.lesson_name,
                 'category_name': ia.category_name,
                 'subject_name': ia.subject_name,
-                'question_snapshot': ia.question_snapshot,
+                'question_snapshot': snap,
                 'user_answer_id': ia.user_answer_id,
                 'correct_answer_id': ia.correct_answer_id,
                 'created_at': ia.created_at.isoformat() if ia.created_at else None,
+                'site_question_number': snap.get('site_question_number')
+                or link.get('site_question_number'),
+                'video': snap.get('video') or link.get('video'),
+                'video_start_seconds': snap.get('video_start_seconds')
+                if snap.get('video_start_seconds') is not None
+                else link.get('video_start_seconds'),
+                'video_end_seconds': snap.get('video_end_seconds')
+                if snap.get('video_end_seconds') is not None
+                else link.get('video_end_seconds'),
             })
         return Response(out)
 

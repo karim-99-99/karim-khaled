@@ -117,6 +117,49 @@ class TigerTestAbandonView(APIView):
         return Response({"ok": True})
 
 
+class TigerTestHistoryView(APIView):
+    """List completed Tiger Test attempts for the current student."""
+
+    permission_classes = [IsAuthenticatedDeviceAllowed]
+
+    def get(self, request):
+        sessions = TigerTestSession.objects.filter(
+            user=request.user,
+            status=TigerTestSession.STATUS_COMPLETED,
+        ).order_by("-completed_at", "-created_at")[:50]
+
+        attempts = []
+        for session in sessions:
+            results = session.results or {}
+            if results.get("abandoned"):
+                continue
+            try:
+                final_pct = int(round(float(results.get("final_percentage") or 0)))
+            except (TypeError, ValueError):
+                final_pct = 0
+            attempts.append(
+                {
+                    "id": str(session.id),
+                    "created_at": (
+                        session.created_at.isoformat() if session.created_at else None
+                    ),
+                    "completed_at": (
+                        session.completed_at.isoformat()
+                        if session.completed_at
+                        else None
+                    ),
+                    "verbal_percentage": results.get("verbal_percentage") or 0,
+                    "quant_percentage": results.get("quant_percentage") or 0,
+                    "final_percentage": final_pct,
+                    "verbal_correct": results.get("verbal_correct") or 0,
+                    "verbal_total": results.get("verbal_total") or 0,
+                    "quant_correct": results.get("quant_correct") or 0,
+                    "quant_total": results.get("quant_total") or 0,
+                }
+            )
+        return Response({"attempts": attempts})
+
+
 class TigerTestSessionView(APIView):
     permission_classes = [IsAuthenticatedDeviceAllowed]
 
@@ -249,6 +292,7 @@ class TigerTestEndSectionView(APIView):
                     "completed_at",
                 ]
             )
+            tt.persist_session_incorrect_answers(request.user, session)
         else:
             session.status = TigerTestSession.STATUS_BETWEEN_SECTIONS
             session.save(update_fields=["section_time_remaining", "status"])
@@ -284,6 +328,7 @@ class TigerTestNextSectionView(APIView):
             session.status = TigerTestSession.STATUS_COMPLETED
             session.completed_at = timezone.now()
             session.save(update_fields=["results", "status", "completed_at"])
+            tt.persist_session_incorrect_answers(request.user, session)
             return Response({"session": tt.session_to_payload(session)})
 
         # Skip any accidental empty sections
@@ -300,6 +345,7 @@ class TigerTestNextSectionView(APIView):
             session.status = TigerTestSession.STATUS_COMPLETED
             session.completed_at = timezone.now()
             session.save(update_fields=["results", "status", "completed_at"])
+            tt.persist_session_incorrect_answers(request.user, session)
             return Response({"session": tt.session_to_payload(session)})
 
         session.current_section = next_section

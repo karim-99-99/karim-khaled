@@ -337,7 +337,7 @@ const VideoModal = ({
     : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
+    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black bg-opacity-75">
       <div className="relative w-full max-w-4xl mx-4 bg-white rounded-lg shadow-xl border-t-4 border-primary-500">
         <div className="flex items-center justify-between p-4 border-b border-gray-200">
           <h3 className="text-xl font-bold text-dark-600">{title}</h3>

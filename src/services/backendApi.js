@@ -1602,6 +1602,11 @@ export const abandonTigerTest = async () => {
   return request("/tiger-test/abandon/", { method: "POST", timeoutMs: 20000 });
 };
 
+export const getTigerTestHistory = async () => {
+  const data = await request("/tiger-test/history/", { timeoutMs: 25000 });
+  return Array.isArray(data?.attempts) ? data.attempts : [];
+};
+
 export const getTigerTestSession = async (sessionId) => {
   const data = await request(`/tiger-test/${encodeURIComponent(sessionId)}/`, {
     timeoutMs: 25000,
