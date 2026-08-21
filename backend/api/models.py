@@ -576,7 +576,7 @@ class StudentGroupMembership(models.Model):
 
 
 class TigerTestSession(models.Model):
-    """Full Tiger Test (محاكي اختبار النمر) attempt — 5 sections × 25 minutes."""
+    """Full Tiger Test (محاكي اختبار النمر) attempt — 5 sections × 24 minutes."""
     STATUS_IN_SECTION = 'in_section'
     STATUS_BETWEEN_SECTIONS = 'between_sections'
     STATUS_COMPLETED = 'completed'
@@ -591,7 +591,7 @@ class TigerTestSession(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_IN_SECTION)
     current_section = models.PositiveSmallIntegerField(default=1)
     current_question_index = models.PositiveSmallIntegerField(default=0)
-    section_time_remaining = models.PositiveIntegerField(default=25 * 60)
+    section_time_remaining = models.PositiveIntegerField(default=24 * 60)
     section_started_at = models.DateTimeField(null=True, blank=True)
     section_slots = models.JSONField(default=list)
     answers = models.JSONField(default=dict)

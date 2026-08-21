@@ -11,12 +11,14 @@ from .tiger_test_demo import make_demo_slots
 
 VERBAL_SUBJECT_ID = "مادة_اللفظي"
 QUANT_SUBJECT_ID = "مادة_الكمي"
-VERBAL_TOTAL = 65
-QUANT_TOTAL = 60
 SECTION_COUNT = 5
-SECTION_SECONDS = 25 * 60
-QUESTIONS_PER_SECTION = 25
-TOTAL_QUESTIONS = SECTION_COUNT * QUESTIONS_PER_SECTION  # 125
+VERBAL_PER_SECTION = 13
+QUANT_PER_SECTION = 11
+QUESTIONS_PER_SECTION = VERBAL_PER_SECTION + QUANT_PER_SECTION  # 24
+SECTION_SECONDS = 24 * 60
+VERBAL_TOTAL = VERBAL_PER_SECTION * SECTION_COUNT  # 65
+QUANT_TOTAL = QUANT_PER_SECTION * SECTION_COUNT  # 55
+TOTAL_QUESTIONS = SECTION_COUNT * QUESTIONS_PER_SECTION  # 120
 
 SECTION_TITLES = [
     "1 - القسم الأول",
@@ -107,6 +109,7 @@ def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                             "parent_id": q.id,
                             "passage_index": idx,
                             "subject": kind,
+                            "lesson_id": q.lesson_id,
                         }
                     )
             else:
@@ -121,6 +124,7 @@ def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                         "parent_id": q.id,
                         "passage_index": None,
                         "subject": kind,
+                        "lesson_id": q.lesson_id,
                     }
                 )
 
@@ -167,18 +171,11 @@ def _used_keys_for_user(user) -> set[str]:
 def _available_from_pool(
     pool: list[dict], used: set[str], user, exclude_ids: set[str] | None = None
 ) -> list[dict]:
+    """Unused slots only — never repeat a question for the same student."""
     exclude_ids = exclude_ids or set()
-    available = [
+    return [
         s for s in pool if s["slot_id"] not in used and s["slot_id"] not in exclude_ids
     ]
-    if not available and pool:
-        # Reset used history for this pool so the student can reuse after exhausting bank
-        TigerTestUsedQuestion.objects.filter(
-            user=user, question_key__in=[s["slot_id"] for s in pool]
-        ).delete()
-        used -= {s["slot_id"] for s in pool}
-        available = [s for s in pool if s["slot_id"] not in exclude_ids]
-    return available
 
 
 def _pick_from_pool(
@@ -188,13 +185,30 @@ def _pick_from_pool(
     user,
     exclude_ids: set[str] | None = None,
 ) -> list[dict]:
+    """Pick unused slots across bank files (lessons). If one file is short, fill from another."""
     if count <= 0:
         return []
     available = _available_from_pool(pool, used, user, exclude_ids)
     if not available:
         return []
-    n = min(count, len(available))
-    picked = random.sample(available, n)
+
+    by_bank: dict[str, list[dict]] = {}
+    for s in available:
+        bank = s.get("lesson_id") or s.get("parent_id") or "_none"
+        by_bank.setdefault(str(bank), []).append(s)
+
+    bank_keys = list(by_bank.keys())
+    random.shuffle(bank_keys)
+
+    picked: list[dict] = []
+    for key in bank_keys:
+        if len(picked) >= count:
+            break
+        bucket = list(by_bank[key])
+        random.shuffle(bucket)
+        need = count - len(picked)
+        picked.extend(bucket[:need])
+
     for s in picked:
         used.add(s["slot_id"])
     return picked
@@ -243,22 +257,55 @@ def _pick_with_fallback(
     return picked
 
 
-def _distribute_into_sections(all_slots: list[dict]) -> list[list[dict]]:
-    """Always 5 sections of exactly 25 questions each."""
-    slots = list(all_slots)
-    random.shuffle(slots)
-    if len(slots) < TOTAL_QUESTIONS:
+def _passage_groups(slots: list[dict]) -> list[list[dict]]:
+    """Keep sub-questions of the same passage consecutive; each still counts as one slot."""
+    groups: dict[str, list[dict]] = {}
+    order_keys: list[str] = []
+    singles: list[list[dict]] = []
+    for s in slots:
+        if s.get("passage_index") is not None and s.get("parent_id"):
+            pid = str(s["parent_id"])
+            if pid not in groups:
+                groups[pid] = []
+                order_keys.append(pid)
+            groups[pid].append(s)
+        else:
+            singles.append([s])
+    out: list[list[dict]] = []
+    for pid in order_keys:
+        g = groups[pid]
+        g.sort(key=lambda x: x.get("passage_index") or 0)
+        out.append(g)
+    out.extend(singles)
+    return out
+
+
+def _distribute_into_sections(verbal: list[dict], quant: list[dict]) -> list[list[dict]]:
+    """Always 5 sections of 24 questions: 13 verbal + 11 quantitative."""
+    verbal = list(verbal)
+    quant = list(quant)
+    if len(verbal) < VERBAL_TOTAL or len(quant) < QUANT_TOTAL:
         return []
-    slots = slots[:TOTAL_QUESTIONS]
-    return [
-        slots[i * QUESTIONS_PER_SECTION : (i + 1) * QUESTIONS_PER_SECTION]
-        for i in range(SECTION_COUNT)
-    ]
+    sections: list[list[dict]] = []
+    for i in range(SECTION_COUNT):
+        v = verbal[i * VERBAL_PER_SECTION : (i + 1) * VERBAL_PER_SECTION]
+        q = quant[i * QUANT_PER_SECTION : (i + 1) * QUANT_PER_SECTION]
+        groups = _passage_groups(v) + _passage_groups(q)
+        random.shuffle(groups)
+        section = [slot for g in groups for slot in g]
+        if len(section) != QUESTIONS_PER_SECTION:
+            return []
+        sections.append(section)
+    return sections
+
+
+def _intended_subject(slot: dict) -> str:
+    return slot.get("borrowed_for") or slot.get("subject") or "quant"
 
 
 def _fill_to_full_test(merged: list[dict], warnings: list[dict]) -> list[dict]:
-    """Pad with demo questions so the test is always 5 × 25."""
-    verbal_have = sum(1 for s in merged if s.get("subject") == "verbal")
+    """Pad with demo questions so the test is always 5 × 24 (13 verbal + 11 quant)."""
+    verbal_have = sum(1 for s in merged if _intended_subject(s) == "verbal")
     quant_have = len(merged) - verbal_have
     v_need = max(0, VERBAL_TOTAL - verbal_have)
     q_need = max(0, QUANT_TOTAL - quant_have)
@@ -297,8 +344,9 @@ def _fill_to_full_test(merged: list[dict], warnings: list[dict]) -> list[dict]:
 
 def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
     """
-    Build exactly 5 sections of 25 questions (125 total).
-    Uses the live bank first, then demo questions to fill any shortfall.
+    Build exactly 5 sections of 24 questions (13 verbal + 11 quant, 120 total).
+    Picks unused bank questions first (no repeats for the student), then other
+    bank files, then demo questions only if the banks are exhausted.
     """
     warnings: list[dict] = []
     used = _used_keys_for_user(user)
@@ -337,7 +385,20 @@ def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
         merged.append(s)
 
     merged = _fill_to_full_test(merged, warnings)
-    sections = _distribute_into_sections(merged)
+    verbal_final = [s for s in merged if _intended_subject(s) == "verbal"]
+    quant_final = [s for s in merged if _intended_subject(s) != "verbal"]
+    if len(verbal_final) < VERBAL_TOTAL:
+        need = VERBAL_TOTAL - len(verbal_final)
+        verbal_final.extend(quant_final[:need])
+        quant_final = quant_final[need:]
+    if len(quant_final) < QUANT_TOTAL:
+        need = QUANT_TOTAL - len(quant_final)
+        quant_final.extend(verbal_final[:need])
+        verbal_final = verbal_final[need:]
+
+    sections = _distribute_into_sections(
+        verbal_final[:VERBAL_TOTAL], quant_final[:QUANT_TOTAL]
+    )
     if len(sections) != SECTION_COUNT:
         raise ValueError("تعذر تجهيز أقسام اختبار النمر.")
 
@@ -417,6 +478,17 @@ def _correct_answer_id(question: Question, slot: dict) -> str | None:
     return correct.answer_id if correct else None
 
 
+def _sub_question_html(question: Question, slot: dict) -> str:
+    pq_list = question.passage_questions or []
+    idx = slot["passage_index"]
+    pq = (
+        pq_list[idx]
+        if idx < len(pq_list) and isinstance(pq_list[idx], dict)
+        else {}
+    )
+    return (pq.get("question") or "").strip()
+
+
 def serialize_slot_for_client(question: Question | None, slot: dict) -> dict:
     if slot.get("is_demo"):
         demo = slot.get("demo") or {}
@@ -424,6 +496,9 @@ def serialize_slot_for_client(question: Question | None, slot: dict) -> dict:
             "id": slot["slot_id"],
             "subject": slot.get("subject") or "quant",
             "question": demo.get("question") or "",
+            "passage_text": None,
+            "is_passage": False,
+            "passage_index": None,
             "answers": demo.get("answers") or [],
             "image": None,
             "is_demo": True,
@@ -433,6 +508,9 @@ def serialize_slot_for_client(question: Question | None, slot: dict) -> dict:
             "id": slot["slot_id"],
             "subject": slot.get("subject") or "quant",
             "question": "",
+            "passage_text": None,
+            "is_passage": False,
+            "passage_index": slot.get("passage_index"),
             "answers": [],
             "image": None,
         }
@@ -443,10 +521,19 @@ def serialize_slot_for_client(question: Question | None, slot: dict) -> dict:
             image_url = img.url
         except Exception:
             image_url = None
+    is_passage = slot.get("passage_index") is not None
+    passage_text = None
+    q_html = question.question or ""
+    if is_passage:
+        passage_text = (question.passage_text or "").strip() or None
+        q_html = _sub_question_html(question, slot)
     return {
         "id": slot["slot_id"],
         "subject": slot["subject"],
-        "question": _question_html_for_slot(question, slot),
+        "question": q_html,
+        "passage_text": passage_text,
+        "is_passage": bool(is_passage),
+        "passage_index": slot.get("passage_index"),
         "answers": _answers_for_slot(question, slot),
         "image": image_url,
     }
@@ -481,6 +568,93 @@ def serialize_section_questions(
         if item.get("answers") or item.get("is_demo") or item.get("question"):
             out.append(item)
     return out
+
+
+def _explanation_for_slot(question: Question | None, slot: dict) -> str | None:
+    if not question:
+        return None
+    if slot.get("passage_index") is not None:
+        pq_list = question.passage_questions or []
+        idx = slot["passage_index"]
+        pq = (
+            pq_list[idx]
+            if idx < len(pq_list) and isinstance(pq_list[idx], dict)
+            else {}
+        )
+        text = (pq.get("explanation") or question.explanation or "").strip()
+        return text or None
+    text = (question.explanation or "").strip()
+    return text or None
+
+
+def _review_answers_for_slot(question: Question | None, slot: dict) -> list[dict]:
+    if slot.get("is_demo"):
+        demo = slot.get("demo") or {}
+        correct = str((demo.get("correct") or "")).lower()[:1]
+        out = []
+        for i, a in enumerate(demo.get("answers") or []):
+            if not isinstance(a, dict):
+                continue
+            aid = str(a.get("answer_id") or chr(ord("a") + i)).lower()[:1]
+            out.append(
+                {
+                    "answer_id": aid,
+                    "text": a.get("text") or "",
+                    "is_correct": bool(correct) and aid == correct,
+                }
+            )
+        return out
+    if not question:
+        return []
+    correct_id = _correct_answer_id(question, slot)
+    correct_s = str(correct_id).lower()[:1] if correct_id else None
+    return [
+        {
+            **a,
+            "is_correct": bool(correct_s)
+            and str(a.get("answer_id") or "").lower()[:1] == correct_s,
+        }
+        for a in _answers_for_slot(question, slot)
+    ]
+
+
+def build_review_items(session: TigerTestSession) -> list[dict]:
+    """Full post-test review: student answer vs correct answer for every slot."""
+    sections = session.section_slots or []
+    answers = session.answers or {}
+    questions_map = load_questions_map(sections)
+    items: list[dict] = []
+    number = 0
+    for section_i, section in enumerate(sections):
+        for slot in section:
+            number += 1
+            parent = questions_map.get(slot.get("parent_id")) if slot.get("parent_id") else None
+            base = serialize_slot_for_client(parent, slot)
+            if slot.get("is_demo"):
+                correct_id = (slot.get("demo") or {}).get("correct")
+                explanation = None
+            else:
+                correct_id = _correct_answer_id(parent, slot) if parent else None
+                explanation = _explanation_for_slot(parent, slot)
+            user_raw = answers.get(slot["slot_id"])
+            user_ans = str(user_raw).lower()[:1] if user_raw else None
+            correct_s = str(correct_id).lower()[:1] if correct_id else None
+            skipped = not user_ans
+            is_correct = bool(user_ans and correct_s and user_ans == correct_s)
+            items.append(
+                {
+                    **base,
+                    "answers": _review_answers_for_slot(parent, slot),
+                    "number": number,
+                    "section_number": section_i + 1,
+                    "correct_answer_id": correct_s,
+                    "user_answer_id": user_ans,
+                    "is_correct": is_correct,
+                    "skipped": skipped,
+                    "explanation": explanation,
+                }
+            )
+    return items
 
 
 def score_session(session: TigerTestSession) -> dict:
@@ -659,4 +833,9 @@ def session_to_payload(
         "results": session.results
         if session.status == TigerTestSession.STATUS_COMPLETED
         else None,
+        "review": (
+            build_review_items(session)
+            if session.status == TigerTestSession.STATUS_COMPLETED
+            else None
+        ),
     }

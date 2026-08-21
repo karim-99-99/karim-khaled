@@ -736,18 +736,12 @@ const mapQuestionFromBackend = (q) => {
             `passage_${q.id}_${idx}_${Math.random().toString(36).substr(2, 6)}`,
           question: pq.question || "",
           explanation: pq.explanation || null,
-          videoStartSeconds:
-            pq.video_start_seconds != null
-              ? Number(pq.video_start_seconds)
-              : pq.videoStartSeconds != null
-                ? Number(pq.videoStartSeconds)
-                : null,
-          videoEndSeconds:
-            pq.video_end_seconds != null
-              ? Number(pq.video_end_seconds)
-              : pq.videoEndSeconds != null
-                ? Number(pq.videoEndSeconds)
-                : null,
+          videoStartSeconds: parseVideoTimestamp(
+            pq.video_start_seconds ?? pq.videoStartSeconds
+          ),
+          videoEndSeconds: parseVideoTimestamp(
+            pq.video_end_seconds ?? pq.videoEndSeconds
+          ),
           answers: (Array.isArray(pq.answers) ? pq.answers : []).map(
             (a, ai) => {
               const aid = (a.answer_id ?? a.id ?? "abcd"[ai])
@@ -773,10 +767,8 @@ const mapQuestionFromBackend = (q) => {
       question: q.question || "",
       questionEn: q.question_en || "",
       explanation: q.explanation || "",
-      videoStartSeconds:
-        q.video_start_seconds != null ? Number(q.video_start_seconds) : null,
-      videoEndSeconds:
-        q.video_end_seconds != null ? Number(q.video_end_seconds) : null,
+      videoStartSeconds: parseVideoTimestamp(q.video_start_seconds ?? q.videoStartSeconds),
+      videoEndSeconds: parseVideoTimestamp(q.video_end_seconds ?? q.videoEndSeconds),
       image: q.question_image_url || q.question_image || null,
       imageScale: imageScale,
       imageAlign: imageAlign,

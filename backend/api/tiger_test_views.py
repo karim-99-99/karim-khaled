@@ -336,6 +336,6 @@ class TigerTestResultsView(APIView):
         return Response(
             {
                 "results": session.results,
-                "session": tt.session_to_payload(session, include_questions=False),
+                "session": tt.session_to_payload(session),
             }
         )

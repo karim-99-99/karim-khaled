@@ -12,6 +12,7 @@ import ProgressBar from "../components/ProgressBar";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
 import MathRenderer from "../components/MathRenderer";
+import { parseVideoTimestamp } from "../utils/videoTimestamp";
 import {
   isBackendOn,
   getQuestionsByLevel as getQuestionsByLevelApi,
@@ -72,18 +73,12 @@ function flattenQuestionsForQuiz(raw) {
           question: combined,
           questionEn: null,
           explanation: pq.explanation || null,
-          videoStartSeconds:
-            pq.videoStartSeconds != null
-              ? Number(pq.videoStartSeconds)
-              : pq.video_start_seconds != null
-                ? Number(pq.video_start_seconds)
-                : null,
-          videoEndSeconds:
-            pq.videoEndSeconds != null
-              ? Number(pq.videoEndSeconds)
-              : pq.video_end_seconds != null
-                ? Number(pq.video_end_seconds)
-                : null,
+          videoStartSeconds: parseVideoTimestamp(
+            pq.videoStartSeconds ?? pq.video_start_seconds
+          ),
+          videoEndSeconds: parseVideoTimestamp(
+            pq.videoEndSeconds ?? pq.video_end_seconds
+          ),
           image: null,
           answers,
           itemId: q.itemId,
@@ -91,7 +86,15 @@ function flattenQuestionsForQuiz(raw) {
         });
       }
     } else {
-      out.push(q);
+      out.push({
+        ...q,
+        videoStartSeconds: parseVideoTimestamp(
+          q.videoStartSeconds ?? q.video_start_seconds
+        ),
+        videoEndSeconds: parseVideoTimestamp(
+          q.videoEndSeconds ?? q.video_end_seconds
+        ),
+      });
     }
   }
   return out;
@@ -961,23 +964,19 @@ const Quiz = () => {
 
               {video &&
                 (video.url || video.id) &&
-                currentQuestion?.videoStartSeconds != null &&
-                !Number.isNaN(Number(currentQuestion.videoStartSeconds)) && (
+                parseVideoTimestamp(currentQuestion?.videoStartSeconds) !=
+                  null && (
                   <div className="mt-4">
                     <button
                       type="button"
                       onClick={() => {
                         setVideoSegment({
-                          startSeconds: Number(
+                          startSeconds: parseVideoTimestamp(
                             currentQuestion.videoStartSeconds
                           ),
-                          endSeconds:
-                            currentQuestion.videoEndSeconds != null &&
-                            !Number.isNaN(
-                              Number(currentQuestion.videoEndSeconds)
-                            )
-                              ? Number(currentQuestion.videoEndSeconds)
-                              : null,
+                          endSeconds: parseVideoTimestamp(
+                            currentQuestion.videoEndSeconds
+                          ),
                         });
                         setShowVideo(true);
                       }}

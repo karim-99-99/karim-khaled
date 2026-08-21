@@ -19,7 +19,10 @@ import {
 import { getCurrentUser } from "../services/storageService";
 import { isContentStaff } from "../utils/roles";
 import VideoWatermark from "./VideoWatermark";
-import { formatVideoTimestamp } from "../utils/videoTimestamp";
+import {
+  formatVideoTimestamp,
+  parseVideoTimestamp,
+} from "../utils/videoTimestamp";
 
 const PLAYERJS_SRC =
   "https://assets.mediadelivery.net/playerjs/player-0.1.0.min.js";
@@ -47,20 +50,61 @@ function loadPlayerJs() {
   });
 }
 
-/** Append Bunny start-time query param without breaking existing query/token. */
+/**
+ * Bunny embed params for a question clip.
+ * rememberPosition=false is required so the library does not resume from the
+ * last watch point (which makes every question start at 0).
+ */
 function withBunnyStartTime(url, startSeconds) {
-  if (!url || startSeconds == null || Number.isNaN(Number(startSeconds))) {
-    return url;
-  }
-  const t = Math.max(0, Math.floor(Number(startSeconds)));
+  if (!url) return url;
+  const t = parseVideoTimestamp(startSeconds);
   try {
     const u = new URL(url);
-    u.searchParams.set("t", `${t}s`);
+    if (t != null) {
+      u.searchParams.set("rememberPosition", "false");
+      u.searchParams.set("preload", "true");
+      u.searchParams.set("t", `${t}s`);
+      u.searchParams.set("autoplay", "true");
+    }
     return u.toString();
   } catch {
+    if (t == null) return url;
+    const extra = `rememberPosition=false&preload=true&t=${t}s&autoplay=true`;
     const sep = url.includes("?") ? "&" : "?";
-    return `${url}${sep}t=${t}s`;
+    return `${url}${sep}${extra}`;
   }
+}
+
+function seekBunnyPlayer(player, start, cancelled) {
+  if (start == null || !player) return;
+  let attempts = 0;
+  const maxAttempts = 20;
+
+  const apply = () => {
+    if (cancelled.current || attempts >= maxAttempts) return;
+    attempts += 1;
+    try {
+      player.setCurrentTime(start);
+    } catch {
+      /* ignore */
+    }
+    try {
+      player.play();
+    } catch {
+      /* ignore */
+    }
+    try {
+      player.getCurrentTime((now) => {
+        if (cancelled.current) return;
+        if (typeof now === "number" && now + 1.5 >= start) return;
+        window.setTimeout(apply, 280);
+      });
+    } catch {
+      window.setTimeout(apply, 280);
+    }
+  };
+
+  apply();
 }
 
 const VideoModal = ({
@@ -83,14 +127,8 @@ const VideoModal = ({
   const currentUser = getCurrentUser();
   const isAdmin = isContentStaff(currentUser);
 
-  const start =
-    startSeconds != null && startSeconds !== ""
-      ? Math.max(0, Math.floor(Number(startSeconds)))
-      : null;
-  const end =
-    endSeconds != null && endSeconds !== ""
-      ? Math.max(0, Math.floor(Number(endSeconds)))
-      : null;
+  const start = parseVideoTimestamp(startSeconds);
+  const end = parseVideoTimestamp(endSeconds);
 
   useEffect(() => {
     if (isOpen && lessonId && isBackendOn()) {
@@ -186,32 +224,28 @@ const VideoModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- remount on open/url/segment
   }, [videoUrl, isOpen, start, fetchBunnyUrl]);
 
-  // Bunny iframe: Player.js seek + pause at end
+  // Bunny iframe: Player.js seek + pause at end (retry until clip start sticks)
   useEffect(() => {
     if (!isOpen || !actualVideoUrl || !isEmbedVideoUrl(actualVideoUrl)) return;
-    let cancelled = false;
+    const cancelled = { current: false };
     let unsub = null;
+    let player = null;
 
-    (async () => {
+    const setup = async () => {
+      if (cancelled.current || !iframeRef.current) return;
+      if (player) {
+        seekBunnyPlayer(player, start, cancelled);
+        return;
+      }
       try {
         const playerjs = await loadPlayerJs();
-        if (cancelled || !iframeRef.current || !playerjs?.Player) return;
-        const player = new playerjs.Player(iframeRef.current);
+        if (cancelled.current || !iframeRef.current || !playerjs?.Player) return;
+        player = new playerjs.Player(iframeRef.current);
         playerRef.current = player;
-        player.on("ready", () => {
-          if (cancelled) return;
-          if (start != null) {
-            try {
-              player.setCurrentTime(start);
-            } catch {
-              /* ignore */
-            }
-            try {
-              player.play();
-            } catch {
-              /* ignore */
-            }
-          }
+
+        const onReady = () => {
+          if (cancelled.current) return;
+          seekBunnyPlayer(player, start, cancelled);
           if (end != null && end > (start ?? 0)) {
             const onTime = () => {
               player.getCurrentTime((t) => {
@@ -233,14 +267,32 @@ const VideoModal = ({
               }
             };
           }
+        };
+
+        player.on("ready", onReady);
+        player.on("play", () => {
+          if (cancelled.current || start == null) return;
+          player.getCurrentTime((t) => {
+            if (typeof t === "number" && t < start - 1.25) {
+              seekBunnyPlayer(player, start, cancelled);
+            }
+          });
         });
+        window.setTimeout(() => {
+          if (!cancelled.current) seekBunnyPlayer(player, start, cancelled);
+        }, 400);
       } catch {
         /* Player.js optional — URL t= still applies */
       }
-    })();
+    };
+
+    setup();
+    const iframe = iframeRef.current;
+    if (iframe) iframe.addEventListener("load", setup);
 
     return () => {
-      cancelled = true;
+      cancelled.current = true;
+      if (iframe) iframe.removeEventListener("load", setup);
       if (unsub) unsub();
       playerRef.current = null;
     };
@@ -341,11 +393,12 @@ const VideoModal = ({
               </div>
             ) : actualVideoUrl && isEmbedVideoUrl(actualVideoUrl) ? (
               <iframe
+                id={`bunny-stream-embed-${start ?? "full"}-${end ?? "x"}`}
                 key={`bunny-${start ?? "full"}-${end ?? "x"}`}
                 ref={iframeRef}
                 src={embedSrc || actualVideoUrl}
                 className="w-full h-full rounded"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                 allowFullScreen
                 referrerPolicy="origin"
               />
