@@ -193,6 +193,13 @@
   color: #fff;
 }
 
+.tiger-test-grid-cell.review.current {
+  background: #1d6fd8;
+  border-color: #0d47a1;
+  color: #fff;
+  box-shadow: 0 0 0 2px #ff8c00;
+}
+
 .tiger-test-grid-star {
   position: absolute;
   top: -5px;

@@ -213,10 +213,11 @@ const QuestionGrid = memo(function QuestionGrid({
         const leftUnanswered =
           !answered && i !== currentQIndex && seen.includes(q.id);
         let cls = "tiger-test-grid-cell";
-        if (i === currentQIndex) cls += " current";
+        if (inReview) cls += " review";
+        else if (i === currentQIndex) cls += " current";
         else if (answered) cls += " answered";
-        else if (inReview) cls += " review";
         else if (leftUnanswered) cls += " unanswered";
+        if (i === currentQIndex && inReview) cls += " current";
         const clickable =
           answered || i === currentQIndex || inReview || isFarthest;
         if (!clickable) cls += " locked";
