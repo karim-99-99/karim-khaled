@@ -295,7 +295,16 @@ class TigerTestEndSectionView(APIView):
             tt.persist_session_incorrect_answers(request.user, session)
         else:
             session.status = TigerTestSession.STATUS_BETWEEN_SECTIONS
-            session.save(update_fields=["section_time_remaining", "status"])
+            session.bookmarked = []
+            session.deferred = []
+            session.save(
+                update_fields=[
+                    "section_time_remaining",
+                    "status",
+                    "bookmarked",
+                    "deferred",
+                ]
+            )
         return Response({"session": tt.session_to_payload(session)})
 
 
@@ -353,6 +362,9 @@ class TigerTestNextSectionView(APIView):
         session.section_time_remaining = tt.SECTION_SECONDS
         session.section_started_at = timezone.now()
         session.status = TigerTestSession.STATUS_IN_SECTION
+        session.bookmarked = []
+        session.deferred = []
+        session.seen = []
         session.save(
             update_fields=[
                 "current_section",
@@ -360,6 +372,9 @@ class TigerTestNextSectionView(APIView):
                 "section_time_remaining",
                 "section_started_at",
                 "status",
+                "bookmarked",
+                "deferred",
+                "seen",
             ]
         )
         return Response({"session": tt.session_to_payload(session)})

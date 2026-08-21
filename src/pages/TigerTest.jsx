@@ -55,6 +55,87 @@ function stripAnswerChoicePrefix(html) {
   );
 }
 
+function ReviewQuestionBody({ item, onOpenVideo }) {
+  if (!item) return null;
+  const answers = Array.isArray(item.answers) ? item.answers : [];
+  const hasVideo = Boolean(item.video?.url || item.video?.id);
+  return (
+    <div className="tiger-test-review-question-body">
+      {item.passage_text ? (
+        <div className="tiger-test-passage">
+          <MathRenderer html={item.passage_text} />
+        </div>
+      ) : null}
+
+      <div className="tiger-test-question-text">
+        {(item.is_passage || item.passage_index != null) && (
+          <div className="tiger-test-passage-q-label">
+            السؤال {(item.passage_index ?? 0) + 1}:
+          </div>
+        )}
+        <MathRenderer html={item.question || ""} />
+      </div>
+
+      {item.image ? (
+        <img src={item.image} alt="" className="tiger-test-review-image" />
+      ) : null}
+
+      <div className="tiger-test-options">
+        {answers.map((a, ai) => {
+          const aid = String(a.answer_id || a.id || "abcd"[ai] || "a")
+            .toLowerCase()
+            .slice(0, 1);
+          const isCorrectChoice = Boolean(
+            a.is_correct || aid === item.correct_answer_id
+          );
+          const isUserChoice = aid === item.user_answer_id;
+          let cls = "tiger-test-option tiger-test-review-option";
+          if (isCorrectChoice) cls += " review-correct";
+          else if (isUserChoice) cls += " review-wrong";
+          return (
+            <div key={`${item.id}-${aid}-${ai}`} className={cls}>
+              <span className="tiger-test-review-letter">
+                {CHOICE_AR[aid] || aid}
+              </span>
+              <span className="tiger-test-option-text">
+                <MathRenderer html={stripAnswerChoicePrefix(a.text || "")} />
+              </span>
+              <span className="tiger-test-review-tag">
+                {isCorrectChoice ? "الإجابة الصحيحة" : ""}
+                {isUserChoice && !isCorrectChoice ? "إجابتك الخاطئة" : ""}
+                {isUserChoice && isCorrectChoice ? " · إجابتك" : ""}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {item.explanation ? (
+        <div className="tiger-test-review-explain">
+          <h3>شرح الإجابة</h3>
+          <MathRenderer html={item.explanation} />
+        </div>
+      ) : null}
+
+      {!item.is_correct && hasVideo && (
+        <QuestionVideoLink
+          video={item.video}
+          siteQuestionNumber={item.site_question_number}
+          className="tiger-test-video-link"
+          onOpen={() =>
+            onOpenVideo?.({
+              video: item.video,
+              startSeconds: item.video_start_seconds,
+              endSeconds: item.video_end_seconds,
+              siteQuestionNumber: item.site_question_number,
+            })
+          }
+        />
+      )}
+    </div>
+  );
+}
+
 /** Merge a light API patch without dropping loaded questions. */
 function applySessionPatch(prev, patch) {
   if (!patch) return prev;
@@ -244,6 +325,12 @@ const TigerTest = () => {
   const bookmarked = session?.bookmarked || [];
   const deferred = session?.deferred || [];
   const seen = session?.seen || [];
+  const currentReviewIds = useMemo(() => {
+    const inSection = new Set(sectionQuestions.map((q) => q.id));
+    return [...new Set([...bookmarked, ...deferred])].filter((id) =>
+      inSection.has(id)
+    );
+  }, [sectionQuestions, bookmarked, deferred]);
 
   const answeredInSection = useMemo(
     () => sectionQuestions.filter((q) => answers[q.id]).length,
@@ -358,10 +445,15 @@ const TigerTest = () => {
 
   const applyEndedSession = (s) => {
     if (!s) return;
-    setSession(s);
     if (s.status === "between_sections" || s.status === "completed") {
       setShowPoolWarnings(false);
     }
+    if (s.status === "between_sections") {
+      setShowDeferred(false);
+      setSession({ ...s, bookmarked: [], deferred: [] });
+      return;
+    }
+    setSession(s);
     if (s.status === "completed") {
       activeSessionRef.current = null;
       setHasActive(false);
@@ -374,6 +466,10 @@ const TigerTest = () => {
     endingRef.current = true;
     setEnding(true);
     setError("");
+    if (seenFlushRef.current) {
+      clearTimeout(seenFlushRef.current);
+      seenFlushRef.current = null;
+    }
     const prev = session;
     const isLast = (session.current_section || 1) >= sectionCount;
     if (!isLast) {
@@ -381,6 +477,8 @@ const TigerTest = () => {
         ...session,
         status: "between_sections",
         current_section_questions: [],
+        bookmarked: [],
+        deferred: [],
       });
     }
     try {
@@ -649,12 +747,19 @@ const TigerTest = () => {
     if (!session || ending) return;
     setEnding(true);
     setError("");
+    if (seenFlushRef.current) {
+      clearTimeout(seenFlushRef.current);
+      seenFlushRef.current = null;
+    }
     try {
       const s = await backendApi.nextTigerTestSection(session.id);
       if (s) {
-        setSession(s);
-        seenRef.current = Array.isArray(s.seen) ? s.seen : seenRef.current;
+        setSession({ ...s, bookmarked: s.bookmarked || [], deferred: s.deferred || [] });
+        seenRef.current = Array.isArray(s.seen) ? s.seen : [];
+        farthestRef.current = 0;
+        setFarthestIndex(0);
         setSelectedAnswer(null);
+        setShowDeferred(false);
       }
     } catch (err) {
       setError(err.message || "فشل بدء القسم التالي");
@@ -962,34 +1067,39 @@ const TigerTest = () => {
                 اختبار جديد
               </button>
             </div>
-            {review.some((q) => !q.is_correct && (q.video?.url || q.video?.id)) && (
-              <div className="tiger-test-wrong-videos">
-                <h3>فيديوهات الأسئلة الخاطئة</h3>
-                <ul>
-                  {review
-                    .filter((q) => !q.is_correct && (q.video?.url || q.video?.id))
+            {reviewLoading && wrongCount === 0 ? (
+              <p className="tiger-test-history-opening">جاري تجهيز الأسئلة الخاطئة…</p>
+            ) : (
+              <div className="tiger-test-wrong-list">
+                <h3>الأسئلة المجابة خطأ</h3>
+                {review.filter((q) => !q.is_correct && !q.skipped).length === 0 ? (
+                  <p className="tiger-test-history-empty">
+                    لا توجد أسئلة خاطئة في هذا الاختبار.
+                  </p>
+                ) : (
+                  review
+                    .filter((q) => !q.is_correct && !q.skipped)
                     .map((q) => (
-                      <li key={q.id}>
-                        <span>
-                          {q.subject === "verbal" ? "لفظي" : "كمي"}
-                          {q.lesson_name ? ` · ${q.lesson_name}` : ""}
-                        </span>
-                        <QuestionVideoLink
-                          video={q.video}
-                          siteQuestionNumber={q.site_question_number}
-                          className="tiger-test-video-link"
-                          onOpen={() =>
-                            setVideoPlayer({
-                              video: q.video,
-                              startSeconds: q.video_start_seconds,
-                              endSeconds: q.video_end_seconds,
-                              siteQuestionNumber: q.site_question_number,
-                            })
-                          }
+                      <article key={q.id} className="tiger-test-wrong-card">
+                        <div className="tiger-test-wrong-card-head">
+                          <span className="tiger-test-review-status-banner wrong">
+                            إجابتك خاطئة ·{" "}
+                            {q.subject === "verbal" ? "لفظي" : "كمي"}
+                          </span>
+                          <span className="tiger-test-wrong-card-meta">
+                            القسم {q.section_number} · سؤال الاختبار {q.number}
+                            {q.site_question_number
+                              ? ` · رقم السؤال في البنك ${q.site_question_number}`
+                              : ""}
+                          </span>
+                        </div>
+                        <ReviewQuestionBody
+                          item={q}
+                          onOpenVideo={setVideoPlayer}
                         />
-                      </li>
-                    ))}
-                </ul>
+                      </article>
+                    ))
+                )}
               </div>
             )}
           </div>
@@ -1077,101 +1187,15 @@ const TigerTest = () => {
                           ? " · لفظي"
                           : " · كمي"}
                       </div>
-
-                      {reviewQuestion.passage_text ? (
-                        <div className="tiger-test-passage">
-                          <MathRenderer html={reviewQuestion.passage_text} />
-                        </div>
+                      {reviewQuestion.site_question_number ? (
+                        <p className="tiger-test-wrong-card-meta">
+                          رقم السؤال في البنك {reviewQuestion.site_question_number}
+                        </p>
                       ) : null}
-
-                      <div className="tiger-test-question-text">
-                        {(reviewQuestion.is_passage ||
-                          reviewQuestion.passage_index != null) && (
-                          <div className="tiger-test-passage-q-label">
-                            السؤال {(reviewQuestion.passage_index ?? 0) + 1}:
-                          </div>
-                        )}
-                        <MathRenderer html={reviewQuestion.question || ""} />
-                      </div>
-
-                      {reviewQuestion.image ? (
-                        <img
-                          src={reviewQuestion.image}
-                          alt=""
-                          className="tiger-test-review-image"
-                        />
-                      ) : null}
-
-                      <div className="tiger-test-options">
-                        {(reviewQuestion.answers || []).map((a, ai) => {
-                          const aid = String(
-                            a.answer_id || a.id || "abcd"[ai] || "a"
-                          )
-                            .toLowerCase()
-                            .slice(0, 1);
-                          const isCorrectChoice = Boolean(
-                            a.is_correct ||
-                              aid === reviewQuestion.correct_answer_id
-                          );
-                          const isUserChoice =
-                            aid === reviewQuestion.user_answer_id;
-                          let cls = "tiger-test-option tiger-test-review-option";
-                          if (isCorrectChoice) cls += " review-correct";
-                          else if (isUserChoice) cls += " review-wrong";
-                          return (
-                            <div
-                              key={`${reviewQuestion.id}-${aid}-${ai}`}
-                              className={cls}
-                            >
-                              <span className="tiger-test-review-letter">
-                                {CHOICE_AR[aid] || aid}
-                              </span>
-                              <span className="tiger-test-option-text">
-                                <MathRenderer
-                                  html={stripAnswerChoicePrefix(a.text || "")}
-                                />
-                              </span>
-                              <span className="tiger-test-review-tag">
-                                {isCorrectChoice ? "الإجابة الصحيحة" : ""}
-                                {isUserChoice && !isCorrectChoice
-                                  ? "إجابتك"
-                                  : ""}
-                                {isUserChoice && isCorrectChoice
-                                  ? " · إجابتك"
-                                  : ""}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {reviewQuestion.explanation ? (
-                        <div className="tiger-test-review-explain">
-                          <h3>شرح الإجابة</h3>
-                          <MathRenderer html={reviewQuestion.explanation} />
-                        </div>
-                      ) : null}
-
-                      {!reviewQuestion.is_correct &&
-                        (reviewQuestion.video?.url || reviewQuestion.video?.id) && (
-                          <QuestionVideoLink
-                            video={reviewQuestion.video}
-                            siteQuestionNumber={
-                              reviewQuestion.site_question_number
-                            }
-                            className="tiger-test-video-link"
-                            onOpen={() =>
-                              setVideoPlayer({
-                                video: reviewQuestion.video,
-                                startSeconds:
-                                  reviewQuestion.video_start_seconds,
-                                endSeconds: reviewQuestion.video_end_seconds,
-                                siteQuestionNumber:
-                                  reviewQuestion.site_question_number,
-                              })
-                            }
-                          />
-                        )}
+                      <ReviewQuestionBody
+                        item={reviewQuestion}
+                        onOpenVideo={setVideoPlayer}
+                      />
 
                       <div className="tiger-test-review-nav">
                         <button
@@ -1360,7 +1384,7 @@ const TigerTest = () => {
             <p>
               {session.current_section >= sectionCount
                 ? "هل أنت متأكد من إنهاء الاختبار؟ ستظهر النتيجة النهائية."
-                : "هل أنت متأكد من إنهاء القسم الحالي؟ سيتوقف الوقت ولن تتمكن من العودة لهذا القسم."}
+                : "هل أنت متأكد من إنهاء القسم الحالي؟ سيتوقف الوقت، ولن تتمكن من الرجوع لأسئلة هذا القسم أو الأسئلة المضافة للمراجعة."}
             </p>
             <div className="tiger-test-modal-btns">
               <button
@@ -1433,7 +1457,8 @@ const TigerTest = () => {
               محاكي اختبار النمر من 5 أقسام. كل قسم 24 سؤالاً (13 لفظي + 11 كمي)
               ومدة 24 دقيقة. لا تنتقل للسؤال التالي إلا بعد الإجابة ثم «حفظ و
               التالي»، أو إضافة السؤال للمراجعة ثم «حفظ و التالي». الأسئلة
-              المجاب عليها تظهر بالأخضر الداكن ويمكن الرجوع إليها من اللوحة.
+              المجاب عليها تظهر بالأخضر الداكن ويمكن الرجوع إليها من اللوحة أثناء
+              القسم فقط. بعد إنهاء القسم لا يمكن الرجوع لأسئلة المراجعة.
             </p>
             <button
               type="button"
@@ -1456,11 +1481,11 @@ const TigerTest = () => {
             onClick={(e) => e.stopPropagation()}
           >
             <h2>الأسئلة المؤجلة</h2>
-            {deferred.length === 0 && bookmarked.length === 0 ? (
-              <p>لا توجد أسئلة مؤجلة.</p>
+            {currentReviewIds.length === 0 ? (
+              <p>لا توجد أسئلة مؤجلة في هذا القسم.</p>
             ) : (
               <div style={{ textAlign: "right", maxHeight: 240, overflowY: "auto" }}>
-                {(deferred.length ? deferred : bookmarked).map((id) => {
+                {currentReviewIds.map((id) => {
                   const foundIndex = sectionQuestions.findIndex((q) => q.id === id);
                   return (
                     <button
@@ -1481,7 +1506,7 @@ const TigerTest = () => {
                     >
                       {foundIndex >= 0
                         ? `السؤال ${foundIndex + 1}`
-                        : `سؤال من قسم آخر`}
+                        : `سؤال من قسم منتهٍ`}
                     </button>
                   );
                 })}
@@ -1534,8 +1559,7 @@ const TigerTest = () => {
                   </p>
                   <div className="tiger-test-stats-row">
                     <span className="tiger-test-stat-badge tiger-test-stat-blue">
-                      إجابة مؤجلة :{" "}
-                      {deferred.length || bookmarked.length}
+                      إجابة مؤجلة : {currentReviewIds.length}
                     </span>
                     <span className="tiger-test-stat-badge tiger-test-stat-green">
                       تم الإجابة : {answeredInSection}
@@ -1548,7 +1572,7 @@ const TigerTest = () => {
                   currentQIndex={currentQIndex}
                   answers={answers}
                   seen={seen}
-                  reviewIds={[...bookmarked, ...deferred]}
+                  reviewIds={currentReviewIds}
                   farthestIndex={farthestIndex}
                   onSelect={goToQuestion}
                 />
