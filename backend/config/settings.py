@@ -92,12 +92,11 @@ if _redis_url:
         }
     }
 else:
+    # LocMem is per-process: with >1 gunicorn worker, lesson reorder
+    # invalidates one worker while another still serves the old list.
     CACHES = {
         'default': {
-            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-            'LOCATION': 'qodrat-api',
-            'TIMEOUT': 60 * 15,
-            'OPTIONS': {'MAX_ENTRIES': 2000},
+            'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
         }
     }
 

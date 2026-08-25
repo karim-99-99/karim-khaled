@@ -11,6 +11,10 @@ import TelegramLoginButton from "../components/TelegramLoginButton";
 import backgroundImage from "../assets/kareem.jpg";
 import { isArabicBrowser } from "../utils/language";
 import { isContentStaff } from "../utils/roles";
+import {
+  DEVICE_RESTRICTED_AR,
+  DEVICE_RESTRICTED_EN,
+} from "../utils/deviceAccess";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -48,9 +52,7 @@ const Login = () => {
         ) {
           setIsDeviceRestricted(true);
           setError(
-            isArabicBrowser()
-              ? "الحساب مسموح له بالدخول من جهاز واحد فقط. أنت تحاول الدخول من جهاز أو شبكة مختلفة. تواصل مع الإدارة لتفعيل الدخول من أكثر من جهاز."
-              : "This account can only log in from one registered device. You are using a different device or network. Contact the admin to allow multi-device access."
+            isArabicBrowser() ? DEVICE_RESTRICTED_AR : DEVICE_RESTRICTED_EN
           );
         } else if (err.code === "account_inactive" || msg.includes("not active")) {
           setIsAccountNotActive(true);
@@ -256,8 +258,8 @@ const Login = () => {
                     setIsDeviceRestricted(true);
                     setError(
                       isArabicBrowser()
-                        ? "الحساب مسموح له بالدخول من جهاز واحد فقط. أنت تحاول الدخول من جهاز أو شبكة مختلفة. تواصل مع الإدارة لتفعيل الدخول من أكثر من جهاز."
-                        : "This account can only log in from one registered device. Contact the admin to allow multi-device access."
+                        ? DEVICE_RESTRICTED_AR
+                        : DEVICE_RESTRICTED_EN
                     );
                   } else if (
                     err.code === "account_inactive" ||

@@ -5,6 +5,11 @@
  */
 
 import { parseVideoTimestamp } from "../utils/videoTimestamp";
+import {
+  isDeviceRestrictedError,
+  notifyDeviceRestricted,
+  clearDeviceRestricted,
+} from "../utils/deviceAccess";
 
 const getBase = () => {
   const url = import.meta.env.VITE_API_URL;
@@ -128,6 +133,7 @@ const request = async (path, options = {}) => {
       `خطأ ${res.status}`;
     const e = new Error(msg);
     e.data = err;
+    e.status = res.status;
     if (err.code) e.code = err.code;
     else if (
       res.status === 403 &&
@@ -135,6 +141,12 @@ const request = async (path, options = {}) => {
       (msg.includes("registered device") || msg.includes("multi-device"))
     )
       e.code = "device_restricted";
+    if (
+      !isAuthEndpoint &&
+      (e.code === "device_restricted" || isDeviceRestrictedError(e))
+    ) {
+      notifyDeviceRestricted();
+    }
     throw e;
   }
   if (res.status === 204) return null;
@@ -303,6 +315,8 @@ export const updateUser = async (userId, updates) => {
   const backendUpdates = {};
   if (updates.isActive !== undefined)
     backendUpdates.is_active_account = updates.isActive;
+  if (updates.name !== undefined && updates.first_name === undefined)
+    backendUpdates.first_name = updates.name;
   if (updates.first_name !== undefined)
     backendUpdates.first_name = updates.first_name;
   if (updates.last_name !== undefined)
@@ -358,6 +372,7 @@ export const deleteUser = async (userId) => {
 export const getMe = async () => {
   try {
     const data = await request("/users/me/");
+    if (data) clearDeviceRestricted();
     return data ? mapUserFromBackend(data) : null;
   } catch {
     return null;
@@ -542,24 +557,34 @@ export const deleteChapter = async (chapterId) => {
  * reorder action yet.
  */
 export const reorderChaptersForCategory = async (categoryId, order) => {
+  const ids = (order || []).map((id) => String(id));
   try {
     const res = await request("/chapters/reorder/", {
       method: "POST",
-      body: JSON.stringify({ category_id: categoryId, order }),
+      body: JSON.stringify({ category_id: String(categoryId), order: ids }),
     });
     invalidateSectionsCache();
     return res;
-  } catch (_err) {
-    for (let i = 0; i < order.length; i++) {
+  } catch (err) {
+    if (err?.status && err.status !== 404) throw err;
+    let ok = 0;
+    let lastErr = err;
+    for (let i = 0; i < ids.length; i++) {
       try {
-        await request(`/chapters/${encodeURIComponent(order[i])}/`, {
+        await request(`/chapters/${encodeURIComponent(ids[i])}/`, {
           method: "PATCH",
           body: JSON.stringify({ order: i + 1 }),
         });
-      } catch (_) {}
+        ok += 1;
+      } catch (e) {
+        lastErr = e;
+      }
     }
     invalidateSectionsCache();
-    return { updated: order.length };
+    if (ok === 0) {
+      throw lastErr || new Error("تعذر حفظ ترتيب الفصول");
+    }
+    return { updated: ok };
   }
 };
 
@@ -603,24 +628,34 @@ export const deleteLesson = async (lessonId) => {
  * ids in desired sequence. Falls back to per-lesson PATCH if backend is older.
  */
 export const reorderLessonsForChapter = async (chapterId, order) => {
+  const ids = (order || []).map((id) => String(id));
   try {
     const res = await request("/lessons/reorder/", {
       method: "POST",
-      body: JSON.stringify({ chapter_id: chapterId, order }),
+      body: JSON.stringify({ chapter_id: String(chapterId), order: ids }),
     });
     invalidateSectionsCache();
     return res;
-  } catch (_err) {
-    for (let i = 0; i < order.length; i++) {
+  } catch (err) {
+    if (err?.status && err.status !== 404) throw err;
+    let ok = 0;
+    let lastErr = err;
+    for (let i = 0; i < ids.length; i++) {
       try {
-        await request(`/lessons/${encodeURIComponent(order[i])}/`, {
+        await request(`/lessons/${encodeURIComponent(ids[i])}/`, {
           method: "PATCH",
           body: JSON.stringify({ order: i + 1 }),
         });
-      } catch (_) {}
+        ok += 1;
+      } catch (e) {
+        lastErr = e;
+      }
     }
     invalidateSectionsCache();
-    return { updated: order.length };
+    if (ok === 0) {
+      throw lastErr || new Error("تعذر حفظ ترتيب الدروس");
+    }
+    return { updated: ok };
   }
 };
 
@@ -866,7 +901,7 @@ export const getQuestionsByLevel = async (levelId, options = {}) => {
     return sorted;
   } catch (err) {
     console.error("Error in getQuestionsByLevel:", err);
-    return [];
+    throw err;
   }
 };
 
@@ -1483,11 +1518,13 @@ export const getLessonProgressList = async (filters = {}) => {
  * One request for Levels page: chapter + lite videos/files + lessonStatus.
  * Falls back to parallel fetches if the backend has no /dashboard/ yet.
  */
-export const getChapterDashboard = async (chapterId) => {
+export const getChapterDashboard = async (chapterId, options = {}) => {
   if (!chapterId) return null;
+  const refresh = options?.refresh === true;
+  const q = refresh ? "?refresh=1" : "";
   try {
     const data = await request(
-      `/chapters/${encodeURIComponent(chapterId)}/dashboard/`
+      `/chapters/${encodeURIComponent(chapterId)}/dashboard/${q}`
     );
     if (!data || !data.chapter) return null;
     const chapter = {
@@ -1508,13 +1545,21 @@ export const getChapterDashboard = async (chapterId) => {
       lessonStatus: data.lessonStatus || data.lesson_status || {},
     };
   } catch {
+    const loadOrEmpty = async (fn) => {
+      try {
+        return await fn();
+      } catch (e) {
+        if (isDeviceRestrictedError(e)) throw e;
+        return [];
+      }
+    };
     try {
       const [chapter, videos, files, attempts, progressList] = await Promise.all([
         getChapterById(chapterId),
-        getVideos({ chapter_id: chapterId }).catch(() => []),
-        getFiles({ chapter_id: chapterId }).catch(() => []),
-        getQuizAttempts({ chapter_id: chapterId }).catch(() => []),
-        getLessonProgressList({ chapter_id: chapterId }).catch(() => []),
+        loadOrEmpty(() => getVideos({ chapter_id: chapterId })),
+        loadOrEmpty(() => getFiles({ chapter_id: chapterId })),
+        loadOrEmpty(() => getQuizAttempts({ chapter_id: chapterId })),
+        loadOrEmpty(() => getLessonProgressList({ chapter_id: chapterId })),
       ]);
       if (!chapter) return null;
       const lessonId = (x) => (x && typeof x === "object" ? x.id : x);
@@ -1534,7 +1579,8 @@ export const getChapterDashboard = async (chapterId) => {
         if (!completedIds.has(id)) lessonStatus[id] = "started";
       });
       return { chapter, videos, files, lessonStatus };
-    } catch {
+    } catch (e) {
+      if (isDeviceRestrictedError(e)) throw e;
       return null;
     }
   }

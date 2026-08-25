@@ -25,6 +25,11 @@ import { resolveCourseBackgroundVariant } from "../data/courseBackgroundWords";
 import { isArabicBrowser } from "../utils/language";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
 import {
+  DEVICE_RESTRICTED_AR,
+  DEVICE_RESTRICTED_EN,
+  isDeviceRestrictedError,
+} from "../utils/deviceAccess";
+import {
   getChapterDashboard,
   updateLesson,
   addLesson,
@@ -109,6 +114,16 @@ function writeChapterCache(chapterId, ch) {
   }
 }
 
+function clearDashCache(chapterId) {
+  if (typeof window === "undefined" || !chapterId) return;
+  try {
+    sessionStorage.removeItem(`${DASH_CACHE_PREFIX}${chapterId}`);
+    sessionStorage.removeItem(`${CHAPTER_CACHE_PREFIX}${chapterId}`);
+  } catch {
+    // ignore
+  }
+}
+
 const Levels = () => {
   const { sectionId, subjectId, categoryId, chapterId } = useParams();
   const navigate = useNavigate();
@@ -144,6 +159,7 @@ const Levels = () => {
   const [showLoginRequiredModal, setShowLoginRequiredModal] = useState(false);
   /** للحساب غير المفعل: عرض نافذة التواصل مع الإدارة + واتساب */
   const [showActivationRequiredModal, setShowActivationRequiredModal] = useState(false);
+  const [deviceRestricted, setDeviceRestricted] = useState(false);
 
   const useBackend = !!import.meta.env.VITE_API_URL;
   const isStudentNotActive =
@@ -275,8 +291,9 @@ const Levels = () => {
           writeDashCache(chapterId, dash);
         }
         setLoading(false);
-      } catch {
+      } catch (e) {
         if (!c) {
+          setDeviceRestricted(isDeviceRestrictedError(e));
           setMediaReady(true);
           setLoading(false);
         }
@@ -327,12 +344,13 @@ const Levels = () => {
   };
 
   /** Re-fetch via dashboard after admin mutations (keeps videos/files/status in sync). */
-  const refreshDashboard = async () => {
+  const refreshDashboard = async (fresh = false) => {
     if (!useBackend) {
       setChapter(getChapterById(chapterId) || null);
       return;
     }
-    const dash = await getChapterDashboard(chapterId);
+    if (fresh) clearDashCache(chapterId);
+    const dash = await getChapterDashboard(chapterId, { refresh: fresh });
     if (!dash?.chapter) return;
     setChapter(dash.chapter);
     setVideos(Array.isArray(dash.videos) ? dash.videos : []);
@@ -448,7 +466,7 @@ const Levels = () => {
     try {
       if (useBackend) {
         await updateLesson(itemId, { name: editName.trim() });
-        await refreshDashboard();
+        await refreshDashboard(true);
       } else {
         updateItemName(itemId, editName.trim());
         setChapter(getChapterById(chapterId) || null);
@@ -473,7 +491,7 @@ const Levels = () => {
     try {
       if (useBackend) {
         await addLesson(chapterId, name, true);
-        await refreshDashboard();
+        await refreshDashboard(true);
       } else {
         addItemToChapter(chapterId, name, true);
         setChapter(getChapterById(chapterId) || null);
@@ -498,7 +516,7 @@ const Levels = () => {
     try {
       if (useBackend) {
         await deleteLesson(itemId);
-        await refreshDashboard();
+        await refreshDashboard(true);
       } else {
         deleteItemFromChapter(itemId);
         setChapter(getChapterById(chapterId) || null);
@@ -517,9 +535,9 @@ const Levels = () => {
       if (useBackend) {
         await reorderLessonsForChapter(
           chapterId,
-          withOrder.map((l) => l.id)
+          withOrder.map((l) => String(l.id))
         );
-        refreshDashboard().catch(() => {});
+        await refreshDashboard(true);
       } else {
         setLessonOrderByIds(chapterId, withOrder.map((l) => l.id));
         setChapter(getChapterById(chapterId) || null);
@@ -533,7 +551,9 @@ const Levels = () => {
 
   const handleMoveLessonInline = async (itemId, direction) => {
     if (!itemId || !chapterId) return;
-    const idx = sortedItems.findIndex((x) => x?.id === itemId);
+    const idx = sortedItems.findIndex(
+      (x) => String(x?.id) === String(itemId)
+    );
     if (idx === -1) return;
     const newIdx = direction === "up" ? idx - 1 : idx + 1;
     if (newIdx < 0 || newIdx >= sortedItems.length) return;
@@ -548,7 +568,9 @@ const Levels = () => {
     if (!itemId || !chapterId) return;
     const n = sortedItems.length;
     if (n < 2) return;
-    const from = sortedItems.findIndex((x) => x?.id === itemId);
+    const from = sortedItems.findIndex(
+      (x) => String(x?.id) === String(itemId)
+    );
     if (from === -1) return;
     const to = Math.max(0, Math.min(newPosition1Based - 1, n - 1));
     if (from === to) return;
@@ -734,10 +756,22 @@ const Levels = () => {
             </div>
           )}
 
+          {deviceRestricted && currentUser && !isAdmin && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
+              <p className="text-dark-700 font-medium">
+                {isArabicBrowser()
+                  ? DEVICE_RESTRICTED_AR
+                  : DEVICE_RESTRICTED_EN}
+              </p>
+            </div>
+          )}
+
           <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${pressedCardId ? 'course-nav-group course-nav-group--has-selection' : ''}`}>
             {sortedItems.map((item) => {
               const status = getItemStatus(item.id);
-              const itemIndex = sortedItems.findIndex((x) => x?.id === item.id);
+              const itemIndex = sortedItems.findIndex(
+                (x) => String(x?.id) === String(item.id)
+              );
               const canMoveUp = itemIndex > 0;
               const canMoveDown =
                 itemIndex !== -1 && itemIndex < sortedItems.length - 1;
@@ -768,7 +802,11 @@ const Levels = () => {
                   aria-labelledby={`lesson-title-${item.id}`}
                 >
                   {isAdmin && (
-                    <div className="absolute top-2 left-2 flex gap-2 z-10">
+                    <div
+                      className="absolute top-2 left-2 flex gap-2 z-20"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <button
                         onClick={(e) =>
                           editingItem === item.id

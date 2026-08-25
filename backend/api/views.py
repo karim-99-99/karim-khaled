@@ -12,6 +12,7 @@ from rest_framework.authtoken.models import Token
 from django.conf import settings as django_settings
 from django.contrib.auth import authenticate, login, logout
 from django.core.management import call_command
+from django.db import transaction
 from django.db.models import Q, Count, Avg, Max, Sum, Prefetch, Exists, OuterRef
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
@@ -27,7 +28,7 @@ from .models import (
 _CHAPTER_SHALLOW_QS = Chapter.objects.annotate(
     lesson_count=Count('items')
 ).order_by('order')
-from .utils import get_client_ip, extract_bunny_video_id, extract_bunny_library_id
+from .utils import get_client_ip, ips_match, extract_bunny_video_id, extract_bunny_library_id
 from .bunny_config import get_bunny_library_configs, get_bunny_config_for_library
 from .bunny_stream import bunny_create_and_upload, bunny_video_exists, BunnyStreamError
 from .permissions import IsAuthenticatedDeviceAllowed
@@ -244,7 +245,7 @@ def _student_access_denied_response(user, request):
         reg = getattr(user, 'registered_ip', None) or ''
         if reg.strip():
             ip = get_client_ip(request) or ''
-            if ip.strip() != reg.strip():
+            if not ips_match(ip, reg):
                 return Response(
                     {
                         'error': 'This account can only log in from one registered device. Contact the administrator to allow multi-device access.',
@@ -781,7 +782,13 @@ class ChapterViewSet(viewsets.ModelViewSet):
         Single payload for Levels page: chapter + lite videos/files + lessonStatus.
         Shared content is cached; student progress is always computed fresh.
         """
-        data = build_chapter_dashboard(pk, request.user)
+        refresh = str(request.query_params.get('refresh') or '').lower() in (
+            '1', 'true', 'yes',
+        )
+        is_staff = getattr(request.user, 'role', None) in ('admin', 'content_admin')
+        data = build_chapter_dashboard(
+            pk, request.user, force_refresh=refresh or is_staff
+        )
         if data is None:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         return Response(data)
@@ -802,29 +809,44 @@ class ChapterViewSet(viewsets.ModelViewSet):
                 {'detail': 'category_id and order (list of chapter ids) are required.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        category_id = str(category_id)
+        wanted = [str(cid) for cid in order_ids if cid is not None and str(cid).strip()]
+        if not wanted:
+            return Response(
+                {'detail': 'order (list of chapter ids) is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         chapters = list(Chapter.objects.filter(category_id=category_id))
-        ch_by_id = {c.id: c for c in chapters}
+        ch_by_id = {str(c.id): c for c in chapters}
         updated = 0
         next_order = 1
         seen = set()
-        for cid in order_ids:
-            ch = ch_by_id.get(cid)
-            if not ch:
-                continue
-            ch.order = next_order
-            ch.save(update_fields=['order'])
-            seen.add(cid)
-            next_order += 1
-            updated += 1
-            invalidate_chapter_dashboard_cache(cid)
-        # Trailing chapters (not in order list) keep relative order
-        trailing = [c for c in chapters if c.id not in seen]
-        trailing.sort(key=lambda c: (c.order or 0, c.name))
-        for ch in trailing:
-            ch.order = next_order
-            ch.save(update_fields=['order'])
-            next_order += 1
+        to_save = []
+        with transaction.atomic():
+            for cid in wanted:
+                ch = ch_by_id.get(cid)
+                if not ch:
+                    continue
+                ch.order = next_order
+                to_save.append(ch)
+                seen.add(cid)
+                next_order += 1
+                updated += 1
+            trailing = [c for c in chapters if str(c.id) not in seen]
+            trailing.sort(key=lambda c: (c.order or 0, c.name))
+            for ch in trailing:
+                ch.order = next_order
+                to_save.append(ch)
+                next_order += 1
+            if to_save:
+                Chapter.objects.bulk_update(to_save, ['order'])
+        for ch in to_save:
             invalidate_chapter_dashboard_cache(ch.id)
+        if updated == 0:
+            return Response(
+                {'detail': 'No matching chapters for this category. Order was not changed.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return Response({'updated': updated})
 
     def perform_create(self, serializer):
@@ -899,26 +921,42 @@ class LessonViewSet(viewsets.ModelViewSet):
                 {'detail': 'chapter_id and order (list of lesson ids) are required.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        chapter_id = str(chapter_id)
+        wanted = [str(lid) for lid in order_ids if lid is not None and str(lid).strip()]
+        if not wanted:
+            return Response(
+                {'detail': 'order (list of lesson ids) is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         lessons = list(Lesson.objects.filter(chapter_id=chapter_id))
-        by_id = {l.id: l for l in lessons}
+        by_id = {str(l.id): l for l in lessons}
         updated = 0
         next_order = 1
         seen = set()
-        for lid in order_ids:
-            le = by_id.get(lid)
-            if not le:
-                continue
-            le.order = next_order
-            le.save(update_fields=['order'])
-            seen.add(lid)
-            next_order += 1
-            updated += 1
-        trailing = [l for l in lessons if l.id not in seen]
-        trailing.sort(key=lambda l: (l.order or 0, l.name))
-        for le in trailing:
-            le.order = next_order
-            le.save(update_fields=['order'])
-            next_order += 1
+        to_save = []
+        with transaction.atomic():
+            for lid in wanted:
+                le = by_id.get(lid)
+                if not le:
+                    continue
+                le.order = next_order
+                to_save.append(le)
+                seen.add(lid)
+                next_order += 1
+                updated += 1
+            trailing = [l for l in lessons if str(l.id) not in seen]
+            trailing.sort(key=lambda l: (l.order or 0, l.name))
+            for le in trailing:
+                le.order = next_order
+                to_save.append(le)
+                next_order += 1
+            if to_save:
+                Lesson.objects.bulk_update(to_save, ['order'])
+        if updated == 0:
+            return Response(
+                {'detail': 'No matching lessons for this chapter. Order was not changed.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         invalidate_chapter_dashboard_cache(chapter_id)
         return Response({'updated': updated})
 

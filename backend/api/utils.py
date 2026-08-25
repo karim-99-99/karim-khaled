@@ -9,13 +9,32 @@ BUNNY_VIDEO_UUID_RE = re.compile(
 BUNNY_VIDEO_NUMERIC_RE = re.compile(r'^\d{6,}$')
 
 
+def normalize_client_ip(ip):
+    """Strip IPv4-mapped IPv6 and optional :port so device-lock compares stay stable."""
+    if not ip:
+        return ''
+    ip = str(ip).strip()
+    if ip.lower().startswith('::ffff:'):
+        ip = ip[7:]
+    if ip.count(':') == 1 and '.' in ip:
+        ip = ip.split(':', 1)[0]
+    return ip.strip()
+
+
 def get_client_ip(request):
     """Get client IP from request. Supports X-Forwarded-For (e.g. behind Render proxy)."""
     xff = request.META.get('HTTP_X_FORWARDED_FOR')
     if xff:
         # Format: "client, proxy1, proxy2" — first is client
-        return xff.split(',')[0].strip()
-    return request.META.get('REMOTE_ADDR') or ''
+        return normalize_client_ip(xff.split(',')[0])
+    return normalize_client_ip(request.META.get('REMOTE_ADDR') or '')
+
+
+def ips_match(current, registered):
+    """True when both IPs are present and equal after normalize_client_ip."""
+    a = normalize_client_ip(current)
+    b = normalize_client_ip(registered)
+    return bool(a) and bool(b) and a == b
 
 
 def is_bunny_video_id(value):

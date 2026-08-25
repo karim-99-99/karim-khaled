@@ -8,6 +8,7 @@ import {
 import { getFileAttachment } from "../services/fileStorage";
 import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
+import { formatDeviceRestrictedError } from "../utils/deviceAccess";
 import { hasCategoryAccess } from "../components/ProtectedRoute";
 import { isContentStaff } from "../utils/roles";
 import {
@@ -26,6 +27,7 @@ const FileViewer = () => {
   const [fileMetadata, setFileMetadata] = useState(null);
   const [fileUrl, setFileUrl] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const actualItemId = itemId || levelId;
   const [item, setItem] = useState(null);
 
@@ -57,6 +59,7 @@ const FileViewer = () => {
     let currentFileUrl = null;
     const loadFile = async () => {
       setLoading(true);
+      setLoadError("");
       try {
         let file = null;
         if (isBackendOn()) {
@@ -105,6 +108,12 @@ const FileViewer = () => {
         }
       } catch (e) {
         console.error("Error loading file:", e);
+        setLoadError(
+          formatDeviceRestrictedError(e, isArabicBrowser()) ||
+            (isArabicBrowser()
+              ? "تعذر تحميل الملف. حاول مرة أخرى."
+              : "Could not load the file. Please try again.")
+        );
       } finally {
         setLoading(false);
       }
@@ -169,9 +178,11 @@ const FileViewer = () => {
             </button>
             <div className="bg-white rounded-2xl shadow-lg p-8 text-center">
               <p className="text-xl text-gray-600">
-                {isArabicBrowser()
-                  ? "لا يوجد ملف مرفق متاح"
-                  : "No file attachment available"}
+                {loadError
+                  ? loadError
+                  : isArabicBrowser()
+                    ? "لا يوجد ملف مرفق متاح"
+                    : "No file attachment available"}
               </p>
             </div>
           </div>

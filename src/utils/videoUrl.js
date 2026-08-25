@@ -1,3 +1,5 @@
+import { DEVICE_RESTRICTED_AR, isDeviceRestrictedError } from "./deviceAccess";
+
 /**
  * Normalize video URL for storage: YouTube → embed, Google Drive view → preview.
  * Bunny Stream video IDs (UUID or numeric) are stored as-is (signed URL is fetched at runtime).
@@ -158,11 +160,8 @@ export function formatBunnyLoadError(err) {
   ) {
     return 'لم يُضبط Bunny على الخادم: عيّن BUNNY_LIBRARY_ID و BUNNY_SECURITY_KEY في Render (مفتاح Token Authentication من Stream → Security، وليس مفتاح API). في Bunny → Security أضف النطاق في Allowed Domains: www.qodrateman.com و qodrateman.com و karim-khaled.vercel.app و localhost.';
   }
-  if (
-    m.includes('registered device') ||
-    m.includes('Access allowed only from your registered device')
-  ) {
-    return 'تشغيل الفيديو مقيّد بجهاز التسجيل. سجّل الدخول من نفس الشبكة التي سجّلت منها أول مرة، أو اطلب من المدير تفعيل «السماح بعدة أجهزة» لحسابك.';
+  if (isDeviceRestrictedError(err) || m.includes('registered device')) {
+    return DEVICE_RESTRICTED_AR;
   }
   if (m.includes('Account access is not valid')) {
     return 'انتهت صلاحية اشتراكك أو فترة الحساب. تواصل مع المدير.';

@@ -10,6 +10,7 @@ import { scheduleIdlePrefetch } from "./utils/routePrefetch.js";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import AppErrorBoundary from "./components/AppErrorBoundary.jsx";
 import AvatarOnboarding from "./components/AvatarOnboarding.jsx";
+import DeviceRestrictedNotice from "./components/DeviceRestrictedNotice.jsx";
 import BottomNav from "./components/BottomNav.jsx";
 
 // Eager load only critical pages
@@ -142,6 +143,7 @@ function App() {
       <ErrorBoundaryReset>
         <div className="App" dir="rtl">
           <AvatarOnboarding />
+          <DeviceRestrictedNotice />
           <main className="min-h-screen">
             <Suspense fallback={<LoadingFallback />}>
               <Routes>

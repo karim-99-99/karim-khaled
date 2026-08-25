@@ -3,7 +3,7 @@
 from rest_framework import permissions
 from rest_framework.exceptions import PermissionDenied
 
-from .utils import get_client_ip
+from .utils import get_client_ip, ips_match
 
 DEVICE_RESTRICTED_MESSAGE = (
     'This account can only log in from one registered device. '
@@ -37,6 +37,6 @@ class IsAuthenticatedDeviceAllowed(permissions.IsAuthenticated):
         if not reg.strip():
             return True
         ip = get_client_ip(request) or ''
-        if ip.strip() and reg.strip() and ip.strip() == reg.strip():
+        if ips_match(ip, reg):
             return True
         raise PermissionDenied(detail=DEVICE_RESTRICTED_MESSAGE)

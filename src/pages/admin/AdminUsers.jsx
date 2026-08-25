@@ -28,6 +28,8 @@ const AdminUsers = () => {
   const [allowMultiDevice, setAllowMultiDevice] = useState(false);
   const [accountActiveFrom, setAccountActiveFrom] = useState("");
   const [accountActiveUntil, setAccountActiveUntil] = useState("");
+  const [studentName, setStudentName] = useState("");
+  const [savingPermissions, setSavingPermissions] = useState(false);
   const [showResetPasswordModal, setShowResetPasswordModal] = useState(false);
   const [resetPasswordUser, setResetPasswordUser] = useState(null);
   const [resetNewPassword, setResetNewPassword] = useState("");
@@ -300,12 +302,17 @@ const AdminUsers = () => {
     setAllowMultiDevice(!!user.allowMultiDevice);
     setAccountActiveFrom(user.accountActiveFrom ? String(user.accountActiveFrom).slice(0, 10) : "");
     setAccountActiveUntil(user.accountActiveUntil ? String(user.accountActiveUntil).slice(0, 10) : "");
+    setStudentName(
+      (user.name || user.first_name || "").trim() || user.username || ""
+    );
     setShowPermissionsModal(true);
   };
 
   const handleClosePermissions = () => {
     setShowPermissionsModal(false);
     setSelectedUser(null);
+    setStudentName("");
+    setSavingPermissions(false);
   };
 
   const handleSavePermissions = async () => {
@@ -340,10 +347,22 @@ const AdminUsers = () => {
       merged.hasAbilitiesAccess = true;
     }
 
+    const displayName = studentName.trim();
+    if (!displayName) {
+      alert(
+        isArabicBrowser()
+          ? "أدخل اسم الطالب."
+          : "Enter the student name."
+      );
+      return;
+    }
+
     try {
+      setSavingPermissions(true);
       if (useBackend) {
         await backendApi.updateUser(selectedUser.id, {
           isActive: true,
+          first_name: displayName.slice(0, 150),
           permissions: merged,
           allowMultiDevice,
           accountActiveFrom: accountActiveFrom.trim() || null,
@@ -352,6 +371,8 @@ const AdminUsers = () => {
       } else {
         updateUserLocal(selectedUser.id, {
           isActive: true,
+          name: displayName,
+          first_name: displayName,
           permissions: merged,
           accountActiveFrom: accountActiveFrom.trim() || null,
           accountActiveUntil: accountActiveUntil.trim() || null,
@@ -362,6 +383,8 @@ const AdminUsers = () => {
     } catch (error) {
       console.error("Error updating permissions:", error);
       alert(error.message || "حدث خطأ أثناء تحديث الصلاحيات");
+    } finally {
+      setSavingPermissions(false);
     }
   };
 
@@ -779,12 +802,27 @@ const AdminUsers = () => {
                 </button>
               </div>
 
-              <div className="mb-4">
-                <p className="text-dark-600 font-medium mb-2">
-                  {isArabicBrowser() ? "المستخدم:" : "User:"}{" "}
-                  {selectedUser.name ||
-                    selectedUser.username ||
-                    selectedUser.email}
+              <div className="mb-6 border-b pb-4">
+                <label className="block text-sm font-medium text-dark-600 mb-1">
+                  {isArabicBrowser() ? "اسم الطالب" : "Student name"}
+                </label>
+                <input
+                  type="text"
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  maxLength={150}
+                  dir="rtl"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  placeholder={
+                    isArabicBrowser()
+                      ? "الاسم الظاهر في الموقع"
+                      : "Name shown on the site"
+                  }
+                />
+                <p className="text-sm text-dark-500 mt-2">
+                  {isArabicBrowser()
+                    ? `اسم المستخدم: ${selectedUser.username || "—"}`
+                    : `Username: ${selectedUser.username || "—"}`}
                 </p>
               </div>
 
@@ -972,8 +1010,8 @@ const AdminUsers = () => {
                   </label>
                   <p className="text-sm text-dark-500 mt-2 pr-8">
                     {isArabicBrowser()
-                      ? "بدون هذا الخيار، الطالب يدخل فقط من الجهاز الذي سجّل منه."
-                      : "Without this, student can only log in from the device they registered on."}
+                      ? "بدون هذا الخيار يُربط الحساب بعنوان الإنترنت وقت التسجيل. شبكات الجوال تغيّر العنوان فيختفي الفيديو والملفات والأسئلة."
+                      : "Without this, the account is locked to the IP used at registration. Mobile networks rotate IPs, which can hide videos, files, and questions."}
                   </p>
                 </div>
                 </>
@@ -989,9 +1027,16 @@ const AdminUsers = () => {
                 </button>
                 <button
                   onClick={handleSavePermissions}
-                  className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition font-medium"
+                  disabled={savingPermissions}
+                  className="px-6 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition font-medium disabled:opacity-60"
                 >
-                  {isArabicBrowser() ? "حفظ" : "Save"}
+                  {savingPermissions
+                    ? isArabicBrowser()
+                      ? "جاري الحفظ..."
+                      : "Saving..."
+                    : isArabicBrowser()
+                      ? "حفظ"
+                      : "Save"}
                 </button>
               </div>
             </div>

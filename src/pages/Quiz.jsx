@@ -13,6 +13,7 @@ import Header from "../components/Header";
 import { isArabicBrowser } from "../utils/language";
 import MathRenderer from "../components/MathRenderer";
 import { parseVideoTimestamp } from "../utils/videoTimestamp";
+import { formatDeviceRestrictedError } from "../utils/deviceAccess";
 import {
   isBackendOn,
   getQuestionsByLevel as getQuestionsByLevelApi,
@@ -274,7 +275,8 @@ const Quiz = () => {
           console.error("Quiz load questions:", e);
           setQuestions([]);
           setQuestionsLoadError(
-            e?.message ||
+            formatDeviceRestrictedError(e, isArabicBrowser()) ||
+              e?.message ||
               (isArabicBrowser()
                 ? "تعذر تحميل الأسئلة. حاول مرة أخرى."
                 : "Could not load questions. Please try again.")
@@ -621,9 +623,13 @@ const Quiz = () => {
                 : "There are no questions in this lesson yet."}
           </p>
           <p className="text-sm text-dark-500 mb-6 max-w-md">
-            {isArabicBrowser()
-              ? "ستظهر فقط الأسئلة التي يضيفها المشرف. إن كان الدرس يحتوي أسئلة ولم تظهر، حدّث الصفحة أو تواصل مع الإدارة."
-              : "Only questions added by an admin will appear. If this lesson should have questions, refresh or contact support."}
+            {questionsLoadError
+              ? isArabicBrowser()
+                ? "هذا ليس درسًا فارغًا: الخادم رفض تحميل الأسئلة. حدّث الصفحة بعد أن تفعّل الإدارة عدة الأجهزة."
+                : "The lesson is not empty: the server blocked loading questions. Refresh after the admin enables multi-device access."
+              : isArabicBrowser()
+                ? "ستظهر فقط الأسئلة التي يضيفها المشرف. إن كان الدرس يحتوي أسئلة ولم تظهر، حدّث الصفحة أو تواصل مع الإدارة."
+                : "Only questions added by an admin will appear. If this lesson should have questions, refresh or contact support."}
           </p>
           <button
             type="button"

@@ -96,11 +96,12 @@ def _build_content(chapter_id: str):
     }
 
 
-def get_cached_content(chapter_id: str):
+def get_cached_content(chapter_id: str, force_refresh: bool = False):
     key = content_cache_key(chapter_id)
-    data = cache.get(key)
-    if data is not None:
-        return data
+    if not force_refresh:
+        data = cache.get(key)
+        if data is not None:
+            return data
     data = _build_content(chapter_id)
     if data is not None:
         cache.set(key, data, CONTENT_CACHE_TTL)
@@ -135,14 +136,17 @@ def build_lesson_status(user, chapter_id: str) -> dict:
     return status
 
 
-def build_chapter_dashboard(chapter_id: str, user=None):
-    content = get_cached_content(str(chapter_id))
+def build_chapter_dashboard(chapter_id: str, user=None, force_refresh: bool = False):
+    cid = str(chapter_id)
+    if force_refresh:
+        invalidate_chapter_dashboard_cache(cid)
+    content = get_cached_content(cid, force_refresh=force_refresh)
     if content is None:
         return None
     payload = {
         'chapter': content['chapter'],
         'videos': content['videos'],
         'files': content['files'],
-        'lessonStatus': build_lesson_status(user, str(chapter_id)),
+        'lessonStatus': build_lesson_status(user, cid),
     }
     return payload
