@@ -56,10 +56,15 @@ const TigerSimulatorBanner = () => {
       to="/tiger-test"
       {...prefetchTigerTestProps}
       className="tiger-sim-banner"
-      aria-label="فتح محاكي النمر"
+      aria-label="فتح محاكي النمر — المحاكي الشخصي للاختبار المحوسب"
     >
       <TigerComputerIcon className="tiger-sim-banner__icon" />
-      <span className="tiger-sim-banner__label">محاكي النمر</span>
+      <span className="tiger-sim-banner__text">
+        <span className="tiger-sim-banner__title">محاكي النمر</span>
+        <span className="tiger-sim-banner__subtitle">
+          المحاكي الشخصي للاختبار المحوسب
+        </span>
+      </span>
     </Link>
   );
 };
