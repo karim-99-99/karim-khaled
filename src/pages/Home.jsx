@@ -491,9 +491,6 @@ const Home = () => {
             الدورات
           </h1>
           <TigerSimulatorBanner />
-          <p className="text-sm md:text-base text-dark-500 font-medium">
-            اختر القسم ثم التصنيف (التأسيس / التجميعات)
-          </p>
         </div>
 
         <div className="max-w-4xl mx-auto">
