@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import Header from "../components/Header";
 import CourseScatteredBackground from "../components/CourseScatteredBackground";
 import CourseNavButton from "../components/CourseNavButton";
+import TigerSimulatorBanner from "../components/TigerSimulatorBanner";
 import { resolveCourseBackgroundVariant } from "../data/courseBackgroundWords";
 import {
   hasSectionAccess,
@@ -486,9 +487,10 @@ const Home = () => {
         className="relative max-w-6xl mx-auto px-4 py-8 md:py-12"
       >
         <div className="text-center mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-2 leading-tight">
+          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-3 leading-tight">
             الدورات
           </h1>
+          <TigerSimulatorBanner />
           <p className="text-sm md:text-base text-dark-500 font-medium">
             اختر القسم ثم التصنيف (التأسيس / التجميعات)
           </p>
