@@ -1010,8 +1010,8 @@ const AdminUsers = () => {
                   </label>
                   <p className="text-sm text-dark-500 mt-2 pr-8">
                     {isArabicBrowser()
-                      ? "بدون هذا الخيار يُربط الحساب بعنوان الإنترنت وقت التسجيل. شبكات الجوال تغيّر العنوان فيختفي الفيديو والملفات والأسئلة."
-                      : "Without this, the account is locked to the IP used at registration. Mobile networks rotate IPs, which can hide videos, files, and questions."}
+                      ? "مفعّل افتراضياً: الطالب يفتح الموقع من الجوال أو الواي‑فاي أو أي جهاز. إذا ألغيت التفعيل يُقفل الحساب على عنوان الإنترنت وقت التسجيل فقط — وعند تغيّر شبكة الجوال قد تختفي الدروس وتبطأ الصفحة."
+                      : "On by default: the student can use phone, Wi‑Fi, or any device. If you turn this off, the account is locked to the registration IP only — mobile IP changes can hide lessons and slow the site."}
                   </p>
                 </div>
                 </>

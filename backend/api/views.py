@@ -161,7 +161,8 @@ class RegisterView(APIView):
             ip = get_client_ip(request)
             if ip and user.role == 'student':
                 user.registered_ip = ip
-                user.save(update_fields=['registered_ip'])
+                user.allow_multi_device = True
+                user.save(update_fields=['registered_ip', 'allow_multi_device'])
             token, created = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
@@ -318,6 +319,7 @@ class TelegramAuthView(APIView):
                 last_name=(profile.get('last_name') or '')[:150],
                 role='student',
                 is_active_account=False,
+                allow_multi_device=True,
                 telegram_id=tid,
                 telegram_username=profile.get('telegram_username'),
                 phone=profile.get('phone') or '',

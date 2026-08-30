@@ -62,6 +62,9 @@ class UserCreateSerializer(serializers.ModelSerializer):
         validated_data.pop('password2')
         password = validated_data.pop('password')
         avatar_choice = (validated_data.pop('avatar_choice', None) or '').strip() or None
+        role = validated_data.get('role', 'student')
+        if role == 'student':
+            validated_data.setdefault('allow_multi_device', True)
         user = User.objects.create_user(**validated_data, password=password)
         if avatar_choice:
             user.avatar_choice = avatar_choice

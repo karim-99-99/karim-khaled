@@ -20,7 +20,7 @@ class UserAdmin(BaseUserAdmin):
         }),
         ('Device / IP access', {
             'fields': ('registered_ip', 'allow_multi_device'),
-            'description': 'Students can log in only from registered IP unless allow_multi_device is enabled.',
+            'description': 'By default students can use any device. Uncheck allow_multi_device to lock the account to registered_ip only.',
         }),
     )
     add_fieldsets = BaseUserAdmin.add_fieldsets + (

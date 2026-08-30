@@ -41,9 +41,9 @@ class User(AbstractUser):
     ]
     avatar_choice = models.CharField(max_length=20, choices=AVATAR_CHOICES, blank=True, null=True)
 
-    # Device / IP restriction (students): single device by default, multi-device only with admin permission
-    registered_ip = models.CharField(max_length=45, blank=True, null=True, help_text='IP at registration; access restricted to this IP unless allow_multi_device')
-    allow_multi_device = models.BooleanField(default=False, help_text='If True, student can access from any device; admin-controlled')
+    # Device / IP restriction (students): multi-device by default; admin can disable to lock one IP
+    registered_ip = models.CharField(max_length=45, blank=True, null=True, help_text='IP at registration; used only when allow_multi_device is False')
+    allow_multi_device = models.BooleanField(default=True, help_text='If False, student can access only from registered_ip')
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

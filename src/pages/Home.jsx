@@ -26,6 +26,7 @@ import {
   reorderChaptersForCategory,
   pingHealth,
 } from "../services/backendApi";
+import { isDeviceRestrictedError, DEVICE_RESTRICTED_AR } from "../utils/deviceAccess";
 import { isContentStaff } from "../utils/roles";
 
 const COURSES_SS_SUBJECT = "courses:lastSubjectId";
@@ -113,6 +114,7 @@ const Home = () => {
   const [editingChapterId, setEditingChapterId] = useState("");
   const [editingChapterName, setEditingChapterName] = useState("");
   const [pressedCardId, setPressedCardId] = useState(null);
+  const [deviceRestricted, setDeviceRestricted] = useState(false);
 
   const useBackend = !!import.meta.env.VITE_API_URL;
 
@@ -172,11 +174,14 @@ const Home = () => {
         }
       } catch (e) {
         if (!cancelled) {
-          setSection(null);
-          setSubjects([]);
-          setSelectedSubjectId("");
-          setSelectedCategoryId("");
-          setCurrentUser(null);
+          if (isDeviceRestrictedError(e)) {
+            setDeviceRestricted(true);
+          } else {
+            setSection(null);
+            setSubjects([]);
+            setSelectedSubjectId("");
+            setSelectedCategoryId("");
+          }
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -490,6 +495,11 @@ const Home = () => {
         </div>
 
         <div className="max-w-4xl mx-auto">
+          {deviceRestricted && currentUser && !isAdmin && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
+              <p className="text-dark-700 font-medium">{DEVICE_RESTRICTED_AR}</p>
+            </div>
+          )}
           {loading ? (
             <div className="text-center py-12">
               <p className="text-xl text-gray-600">جاري التحميل...</p>
