@@ -258,6 +258,11 @@ else:
 
 CORS_ALLOW_CREDENTIALS = True
 
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'x-device-id',
+]
+
 # If you ever switch to cookie-based auth, CSRF must trust the frontend origin.
 # Even with Token auth, this is harmless and prevents CSRF issues if SessionAuth is used.
 CSRF_TRUSTED_ORIGINS = list(set(

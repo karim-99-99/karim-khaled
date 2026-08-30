@@ -3,18 +3,13 @@
 from rest_framework import permissions
 from rest_framework.exceptions import PermissionDenied
 
-from .utils import get_client_ip, ips_match
-
-DEVICE_RESTRICTED_MESSAGE = (
-    'This account can only log in from one registered device. '
-    'Contact the administrator to allow multi-device access.'
-)
+from .device_lock import DEVICE_RESTRICTED_MESSAGE, assert_student_device_allowed
 
 
 class IsAuthenticatedDeviceAllowed(permissions.IsAuthenticated):
     """
-    IsAuthenticated + for students: allow only from registered IP unless allow_multi_device.
-    Admins always allowed. Students with allow_multi_device can access from any IP.
+    IsAuthenticated + for students: one registered device unless allow_multi_device.
+    Same phone on Wi‑Fi or mobile data is allowed; another browser/device is not.
     """
 
     def has_permission(self, request, view):
@@ -33,10 +28,5 @@ class IsAuthenticatedDeviceAllowed(permissions.IsAuthenticated):
             )
         if getattr(user, 'allow_multi_device', False):
             return True
-        reg = getattr(user, 'registered_ip', None) or ''
-        if not reg.strip():
-            return True
-        ip = get_client_ip(request) or ''
-        if ips_match(ip, reg):
-            return True
-        raise PermissionDenied(detail=DEVICE_RESTRICTED_MESSAGE)
+        assert_student_device_allowed(user, request)
+        return True

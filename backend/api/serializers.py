@@ -105,7 +105,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             if until is not None and until < today:
                 validated_data['account_active_until'] = None
 
-        return super().update(instance, validated_data)
+        prev_multi = instance.allow_multi_device
+        new_multi = validated_data.get('allow_multi_device', prev_multi)
+        user = super().update(instance, validated_data)
+        if prev_multi != new_multi:
+            user.registered_device_id = None
+            user.save(update_fields=['registered_device_id'])
+        return user
 
 
 class LoginSerializer(serializers.Serializer):

@@ -18,9 +18,9 @@ class UserAdmin(BaseUserAdmin):
                        'abilities_subjects_verbal', 'abilities_subjects_quantitative',
                        'abilities_categories_foundation', 'abilities_categories_collections')
         }),
-        ('Device / IP access', {
-            'fields': ('registered_ip', 'allow_multi_device'),
-            'description': 'By default students can use any device. Uncheck allow_multi_device to lock the account to registered_ip only.',
+        ('Device access', {
+            'fields': ('registered_device_id', 'registered_ip', 'allow_multi_device'),
+            'description': 'Uncheck allow_multi_device to lock one browser/device (Wi‑Fi and mobile data on that device are OK).',
         }),
     )
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
@@ -31,7 +31,7 @@ class UserAdmin(BaseUserAdmin):
                       'abilities_categories_foundation', 'abilities_categories_collections')
         }),
     )
-    readonly_fields = ['registered_ip']
+    readonly_fields = ['registered_ip', 'registered_device_id']
 
 
 @admin.register(Section)

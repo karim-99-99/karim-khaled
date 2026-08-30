@@ -5,6 +5,7 @@
  */
 
 import { parseVideoTimestamp } from "../utils/videoTimestamp";
+import { getDeviceId } from "../utils/deviceId";
 import {
   isDeviceRestrictedError,
   notifyDeviceRestricted,
@@ -44,6 +45,8 @@ const request = async (path, options = {}) => {
     : `${base}${path.startsWith("/") ? path : "/" + path}`;
   const { timeoutMs, headers: optHeaders, ...fetchOptions } = options;
   const headers = { ...(optHeaders || {}) };
+  const deviceId = getDeviceId();
+  if (deviceId) headers["X-Device-Id"] = deviceId;
 
   // Don't add token for auth endpoints (login/register)
   const isAuthEndpoint =

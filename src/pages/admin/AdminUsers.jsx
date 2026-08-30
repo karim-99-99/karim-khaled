@@ -1010,8 +1010,8 @@ const AdminUsers = () => {
                   </label>
                   <p className="text-sm text-dark-500 mt-2 pr-8">
                     {isArabicBrowser()
-                      ? "مفعّل افتراضياً: الطالب يفتح الموقع من الجوال أو الواي‑فاي أو أي جهاز. إذا ألغيت التفعيل يُقفل الحساب على عنوان الإنترنت وقت التسجيل فقط — وعند تغيّر شبكة الجوال قد تختفي الدروس وتبطأ الصفحة."
-                      : "On by default: the student can use phone, Wi‑Fi, or any device. If you turn this off, the account is locked to the registration IP only — mobile IP changes can hide lessons and slow the site."}
+                      ? "مفعّل افتراضياً: الطالب يفتح من أي جهاز. إذا ألغيت التفعيل يُربط الحساب بأول جهاز/متصفح يسجّل الدخول — الواي‑فاي وبيانات الجوال على نفس الجوال مسموح، جهاز ثاني أو متصفح آخر ممنوع."
+                      : "On by default: any device works. If off, the account binds to the first browser/device at login — Wi‑Fi and mobile data on the same phone are OK; a second device or browser is blocked."}
                   </p>
                 </div>
                 </>

@@ -28,7 +28,8 @@ from .models import (
 _CHAPTER_SHALLOW_QS = Chapter.objects.annotate(
     lesson_count=Count('items')
 ).order_by('order')
-from .utils import get_client_ip, ips_match, extract_bunny_video_id, extract_bunny_library_id
+from .utils import get_client_ip, extract_bunny_video_id, extract_bunny_library_id
+from .device_lock import student_device_denied_response
 from .bunny_config import get_bunny_library_configs, get_bunny_config_for_library
 from .bunny_stream import bunny_create_and_upload, bunny_video_exists, BunnyStreamError
 from .permissions import IsAuthenticatedDeviceAllowed
@@ -159,10 +160,17 @@ class RegisterView(APIView):
         if serializer.is_valid():
             user = serializer.save()
             ip = get_client_ip(request)
-            if ip and user.role == 'student':
-                user.registered_ip = ip
-                user.allow_multi_device = True
-                user.save(update_fields=['registered_ip', 'allow_multi_device'])
+            if user.role == 'student':
+                update_fields = []
+                if ip:
+                    user.registered_ip = ip
+                    update_fields.append('registered_ip')
+                if not user.allow_multi_device:
+                    from .device_lock import bind_student_device, get_request_device_id
+                    bind_student_device(user, get_request_device_id(request))
+                    update_fields.append('registered_device_id')
+                if update_fields:
+                    user.save(update_fields=update_fields)
             token, created = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
@@ -243,17 +251,9 @@ def _student_access_denied_response(user, request):
             status=status.HTTP_403_FORBIDDEN,
         )
     if user.role == 'student' and not getattr(user, 'allow_multi_device', False):
-        reg = getattr(user, 'registered_ip', None) or ''
-        if reg.strip():
-            ip = get_client_ip(request) or ''
-            if not ips_match(ip, reg):
-                return Response(
-                    {
-                        'error': 'This account can only log in from one registered device. Contact the administrator to allow multi-device access.',
-                        'code': 'device_restricted',
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+        denied = student_device_denied_response(user, request)
+        if denied is not None:
+            return denied
     return None
 
 

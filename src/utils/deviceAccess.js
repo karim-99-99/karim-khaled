@@ -1,10 +1,10 @@
 /** Student device/IP lock: API 403 that the UI used to treat as "empty content". */
 
 export const DEVICE_RESTRICTED_AR =
-  "هذا الحساب مسموح له باستخدام جهاز واحد فقط على الموقع. إذا كنت تحتاج استخدام الحساب من أكثر من جهاز، تواصل مع الإدارة.";
+  "هذا الحساب مسجّل على جهاز واحد فقط. يمكنك استخدام الواي‑فاي أو بيانات الجوال على نفس الجهاز، لكن لا يمكن فتح الحساب من جهاز أو متصفح آخر. تواصل مع الإدارة لتفعيل «السماح بالوصول من أجهزة متعددة».";
 
 export const DEVICE_RESTRICTED_EN =
-  "This account is allowed to use only one device on this website. If you need to use this account on multiple devices, contact the admin.";
+  "This account is registered on one device only. You can use Wi‑Fi or mobile data on the same device, but not another device or browser. Contact the admin to enable multi-device access.";
 
 export const DEVICE_RESTRICTED_EVENT = "qodrat:device-restricted";
 const FLAG_KEY = "device_restricted_notice";
