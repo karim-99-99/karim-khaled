@@ -33,6 +33,11 @@ from .device_lock import student_device_denied_response
 from .bunny_config import get_bunny_library_configs, get_bunny_config_for_library
 from .bunny_stream import bunny_create_and_upload, bunny_video_exists, BunnyStreamError
 from .permissions import IsAuthenticatedDeviceAllowed
+from .word_question_import import (
+    parse_docx_file,
+    parsed_items_to_api_payloads,
+    build_template_bytes,
+)
 from . import tiger_test
 from . import trial as trial_content
 from .serializers import (
@@ -1038,7 +1043,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'set_order', 'reorder']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'set_order', 'reorder', 'import_word', 'word_template']:
             return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
     
@@ -1074,6 +1079,93 @@ class QuestionViewSet(viewsets.ModelViewSet):
                 id_to_question[qid].save(update_fields=['order_index'])
         invalidate_chapter_dashboard_for_lesson(lesson_id)
         return Response({'updated': len(order_ids)})
+
+    @action(detail=False, methods=['get'], url_path='word-template')
+    def word_template(self, request):
+        """Download the official Arabic Word template for bulk question import."""
+        try:
+            data = build_template_bytes()
+        except Exception as exc:
+            return Response(
+                {'detail': f'تعذر إنشاء ملف المثال: {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        response = HttpResponse(
+            data,
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        )
+        response['Content-Disposition'] = (
+            "attachment; filename=\"question-import-template.docx\"; "
+            "filename*=UTF-8''%D9%85%D8%AB%D8%A7%D9%84-%D8%B1%D9%81%D8%B9-%D8%A7%D9%84%D8%A7%D8%B3%D8%A6%D9%84%D8%A9.docx"
+        )
+        return response
+
+    @action(detail=False, methods=['post'], url_path='import-word')
+    def import_word(self, request):
+        """
+        Preview or import questions from a .docx file.
+        multipart: file, lesson_id, commit=true|false
+        """
+        upload = request.FILES.get('file') or request.FILES.get('docx')
+        if not upload:
+            return Response(
+                {'detail': 'ارفع ملف وورد بصيغة .docx'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        name = (getattr(upload, 'name', '') or '').lower()
+        if name and not name.endswith('.docx'):
+            return Response(
+                {'detail': 'الملف يجب أن يكون بصيغة .docx (وورد).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if upload.size and upload.size > 8 * 1024 * 1024:
+            return Response(
+                {'detail': 'حجم الملف أكبر من 8 ميغابايت.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        parsed = parse_docx_file(upload)
+        commit_raw = request.data.get('commit', request.query_params.get('commit', ''))
+        commit = str(commit_raw).lower() in ('1', 'true', 'yes', 'on')
+        lesson_id = (request.data.get('lesson_id') or request.data.get('lesson') or '').strip()
+
+        payload = {
+            'items': parsed.get('items') or [],
+            'errors': parsed.get('errors') or [],
+            'warnings': parsed.get('warnings') or [],
+            'summary': parsed.get('summary') or {},
+            'imported': 0,
+            'created_ids': [],
+        }
+
+        if not commit:
+            return Response(payload)
+
+        if parsed.get('errors'):
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+        if not lesson_id:
+            payload['errors'] = ['اختر الدرس / الواجب / البنك أولاً ثم ارفع الملف.']
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+        if not Lesson.objects.filter(id=lesson_id).exists():
+            payload['errors'] = ['الدرس المحدد غير موجود.']
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        bodies = parsed_items_to_api_payloads(parsed.get('items') or [], lesson_id)
+        created = []
+        try:
+            with transaction.atomic():
+                for body in bodies:
+                    ser = QuestionCreateUpdateSerializer(data=body, context={'request': request})
+                    ser.is_valid(raise_exception=True)
+                    self.perform_create(ser)
+                    created.append(ser.instance.id)
+        except Exception as exc:
+            payload['errors'] = [f'تعذر حفظ الأسئلة: {exc}']
+            return Response(payload, status=status.HTTP_400_BAD_REQUEST)
+
+        payload['imported'] = len(created)
+        payload['created_ids'] = created
+        return Response(payload, status=status.HTTP_201_CREATED)
     
     def perform_create(self, serializer):
         qid = self.request.data.get('id') or f"q_{int(timezone.now().timestamp())}_{uuid.uuid4().hex[:8]}"

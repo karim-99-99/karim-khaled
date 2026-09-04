@@ -1045,6 +1045,70 @@ export const deleteQuestion = async (questionId) => {
   _lessonQuestionsCache.clear();
 };
 
+const WORD_TEMPLATE_PUBLIC_PATH = "/question-import-template.docx";
+
+/** Download the official Word example used for bulk question import. */
+export const downloadWordQuestionTemplate = async () => {
+  const base = getBase();
+  if (base) {
+    try {
+      const headers = {};
+      const token = getToken();
+      if (token) headers["Authorization"] = `Token ${token}`;
+      const deviceId = getDeviceId();
+      if (deviceId) headers["X-Device-Id"] = deviceId;
+      const res = await fetch(`${base}/questions/word-template/`, { headers });
+      if (res.ok) {
+        const blob = await res.blob();
+        triggerBlobDownload(blob, "مثال-رفع-الاسئلة.docx");
+        return;
+      }
+    } catch {
+      // fall through to public file
+    }
+  }
+  const res = await fetch(WORD_TEMPLATE_PUBLIC_PATH);
+  if (!res.ok) {
+    throw new Error("تعذر تحميل ملف المثال.");
+  }
+  const blob = await res.blob();
+  triggerBlobDownload(blob, "مثال-رفع-الاسئلة.docx");
+};
+
+function triggerBlobDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+/**
+ * Preview (commit=false) or import (commit=true) questions from a .docx file.
+ */
+export const importQuestionsFromWord = async (
+  lessonId,
+  file,
+  { commit = false } = {}
+) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  if (lessonId) fd.append("lesson_id", lessonId);
+  fd.append("commit", commit ? "true" : "false");
+  const data = await request("/questions/import-word/", {
+    method: "POST",
+    body: fd,
+    timeoutMs: 60000,
+  });
+  if (commit) {
+    _lessonQuestionsCache.delete(lessonId);
+  }
+  return data;
+};
+
 // Add passage (special type of question with passage_text and nested questions)
 export const addPassage = async (lessonId, { passageText, questions }) => {
   const body = {

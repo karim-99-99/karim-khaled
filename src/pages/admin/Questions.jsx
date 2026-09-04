@@ -19,6 +19,7 @@ import * as backendApi from "../../services/backendApi";
 const { sortQuestionsBySequence, updateQuestionOrder, reorderQuestionsForLesson } = backendApi;
 import Header from "../../components/Header";
 import ErrorBoundary from "../../components/ErrorBoundary";
+import WordQuestionImport from "../../components/WordQuestionImport";
 import { isArabicBrowser } from "../../utils/language";
 import {
   formatVideoTimestamp,
@@ -1537,6 +1538,11 @@ const Questions = () => {
               <p className="text-lg text-gray-500 mb-4">
                 يرجى اختيار المادة، التصنيف، الفصل، والمستوى لعرض الأسئلة
               </p>
+              {useBackend && (
+                <div className="max-w-xl mx-auto">
+                  <WordQuestionImport lessonId="" disabled />
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-white rounded-lg shadow p-4 sm:p-6">
@@ -1559,6 +1565,17 @@ const Questions = () => {
                   </button>
                 </div>
               </div>
+              {useBackend && (
+                <div className="mb-4">
+                  <WordQuestionImport
+                    lessonId={selectedLevel}
+                    disabled={!selectedLevel}
+                    onImported={async () => {
+                      await refetchQuestionsForLevel(selectedLevel);
+                    }}
+                  />
+                </div>
+              )}
 
               <div className="space-y-4">
                 {questions.length === 0 ? (
