@@ -1151,6 +1151,11 @@ class QuestionViewSet(viewsets.ModelViewSet):
             return Response(payload, status=status.HTTP_400_BAD_REQUEST)
 
         bodies = parsed_items_to_api_payloads(parsed.get('items') or [], lesson_id)
+        max_order = Question.objects.filter(lesson_id=lesson_id).aggregate(
+            max_order=Max('order_index')
+        )['max_order'] or 0
+        for i, body in enumerate(bodies):
+            body['order_index'] = max_order + i + 1
         created = []
         try:
             with transaction.atomic():
@@ -1175,7 +1180,8 @@ class QuestionViewSet(viewsets.ModelViewSet):
         # Set order_index if not provided: use max + 1 for same lesson, or 1 if first
         from django.db.models import Max
         lesson_id = validated_data.get('lesson_id') or (validated_data.get('lesson') and validated_data['lesson'].id)
-        if lesson_id and 'order_index' not in validated_data:
+        existing_order = validated_data.get('order_index')
+        if lesson_id and not existing_order:
             max_order = Question.objects.filter(lesson_id=lesson_id).aggregate(
                 max_order=Max('order_index')
             )['max_order']

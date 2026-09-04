@@ -874,9 +874,13 @@ export const getQuestions = async (filters = {}) => {
 /** Sort questions by sequence: 1, 2, 3... (orderIndex or createdAt oldest-first, then by id). */
 export const sortQuestionsBySequence = (questions) => {
   if (!Array.isArray(questions)) return [];
+  const rank = (q) => {
+    const n = Number(q.orderIndex ?? q.order_index);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
   return [...questions].sort((a, b) => {
-    const orderA = a.orderIndex ?? a.order_index;
-    const orderB = b.orderIndex ?? b.order_index;
+    const orderA = rank(a);
+    const orderB = rank(b);
     if (orderA != null && orderB != null) return orderA - orderB;
     if (orderA != null) return -1;
     if (orderB != null) return 1;
