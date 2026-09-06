@@ -797,6 +797,7 @@ const mapQuestionFromBackend = (q) => {
         itemId: lessonId,
         levelId: lessonId,
         createdAt: q.created_at || null,
+        orderIndex: q.order_index ?? q.order ?? null,
       };
     }
 
