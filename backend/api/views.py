@@ -38,6 +38,7 @@ from .word_question_import import (
     parsed_items_to_api_payloads,
     build_template_bytes,
 )
+from .question_typography import normalize_all_stored_questions
 from . import tiger_test
 from . import trial as trial_content
 from .serializers import (
@@ -1046,6 +1047,7 @@ class QuestionViewSet(viewsets.ModelViewSet):
         if self.action in [
             'create', 'update', 'partial_update', 'destroy',
             'set_order', 'reorder', 'import_word', 'word_template', 'clear_lesson',
+            'normalize_typography',
         ]:
             return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
@@ -1102,6 +1104,12 @@ class QuestionViewSet(viewsets.ModelViewSet):
         qs.delete()
         invalidate_chapter_dashboard_for_lesson(lesson_id)
         return Response({'deleted': question_count, 'lesson_id': lesson_id})
+
+    @action(detail=False, methods=['post'], url_path='normalize-typography')
+    def normalize_typography(self, request):
+        """Flatten mixed font sizes in every stored question, passage, and answer."""
+        summary = normalize_all_stored_questions(apply=True)
+        return Response(summary)
 
     @action(detail=False, methods=['get'], url_path='word-template')
     def word_template(self, request):

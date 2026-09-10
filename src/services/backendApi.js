@@ -1060,6 +1060,16 @@ export const clearLessonQuestions = async (lessonId) => {
   return data;
 };
 
+/** Flatten mixed font sizes across every stored question and answer. */
+export const normalizeQuestionTypography = async () => {
+  const data = await request("/questions/normalize-typography/", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+  _lessonQuestionsCache.clear();
+  return data;
+};
+
 const WORD_TEMPLATE_PUBLIC_PATH = "/question-import-template.docx";
 
 /** Download the official Word example used for bulk question import. */

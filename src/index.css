@@ -793,14 +793,20 @@ p, span, div, h1, h2, h3, h4, h5, h6, li {
   font-family: Arial, sans-serif;
 }
 
-.math-renderer-root .ql-size-small {
-  font-size: 0.75em;
-}
-.math-renderer-root .ql-size-large {
-  font-size: 1.5em;
-}
-.math-renderer-root .ql-size-huge {
-  font-size: 2.5em;
+.math-renderer-root h1,
+.math-renderer-root h2,
+.math-renderer-root h3,
+.math-renderer-root h4,
+.math-renderer-root h5,
+.math-renderer-root h6,
+.math-renderer-root .ql-size-small,
+.math-renderer-root .ql-size-large,
+.math-renderer-root .ql-size-huge,
+.math-renderer-root big,
+.math-renderer-root small {
+  font-size: 1em !important;
+  font-weight: inherit;
+  line-height: inherit;
 }
 
 .math-renderer-root .katex-arabic,

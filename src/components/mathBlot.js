@@ -116,7 +116,7 @@ const createMathBlotClass = () => {
         node.style.cursor = "pointer";
 
         try {
-          applyArabicMathHtml(node, latexValue, { rtl: isRTL });
+          applyArabicMathHtml(node, latexValue, { rtl: isRTL, displayMode: false });
         } catch (e) {
           console.error("KaTeX render error:", e);
           node.innerHTML = latexValue || "";

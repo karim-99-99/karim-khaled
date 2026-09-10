@@ -14,14 +14,53 @@
 .ake-preview .katex-arabic {
   overflow: visible;
   font-weight: 400;
+}
+
+/* Modal preview stays large so the teacher can inspect the formula. */
+.ake-preview .katex-arabic {
   --ka-size-multiplier: 1.35;
 }
 
-.arabic-katex-host .katex-arabic.size-xl,
-.math-renderer-root .katex-arabic.size-xl,
-.ql-editor .katex-arabic.size-xl,
 .ake-preview .katex-arabic.size-xl {
   --ka-size-multiplier: 1.35;
+}
+
+/* After insert, equation digits/symbols follow the surrounding question text. */
+.ql-editor .math-equation,
+.math-renderer-root .math-equation {
+  font-family: inherit;
+  font-size: 1em;
+  line-height: inherit;
+  vertical-align: baseline;
+}
+
+.ql-editor .math-equation .katex-arabic,
+.math-renderer-root .math-equation .katex-arabic {
+  --ka-size-multiplier: 1 !important;
+  --ka-font-family: inherit !important;
+  --ka-line-height: inherit;
+  font-family: inherit !important;
+  font-size: 1em !important;
+  line-height: inherit;
+  text-align: inherit;
+  vertical-align: baseline;
+  margin: 0;
+}
+
+.ql-editor .math-equation .katex-arabic .katex,
+.math-renderer-root .math-equation .katex-arabic .katex {
+  font-size: 1em;
+  font-family: inherit;
+  vertical-align: baseline;
+}
+
+.ql-editor .math-equation .katex-arabic.is-display,
+.ql-editor .math-equation .katex-arabic.is-inline,
+.math-renderer-root .math-equation .katex-arabic.is-display,
+.math-renderer-root .math-equation .katex-arabic.is-inline {
+  display: inline-block;
+  margin: 0 0.12em;
+  vertical-align: baseline;
 }
 
 .arabic-katex-host .katex-arabic .katex .sqrt,
@@ -52,15 +91,6 @@
 .ake-preview .katex-arabic .katex .sqrt .mfrac .frac-line {
   position: relative;
   z-index: 1;
-}
-
-/* Same display-mode formula as the tester, sitting in the question text */
-.math-renderer-root .katex-arabic.is-display,
-.ql-editor .katex-arabic.is-display,
-.arabic-katex-host .katex-arabic.is-display {
-  display: inline-block;
-  margin: 0.15em 0.35em;
-  vertical-align: middle;
 }
 
 .ake-preview .katex-arabic.is-display {

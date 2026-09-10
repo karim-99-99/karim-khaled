@@ -102,16 +102,46 @@ export function renderArabicMath(latex, { rtl = true, displayMode = true } = {})
   }
 }
 
-/** Same HTML + classes as the tester Arabic preview. */
-export function applyArabicMathHtml(element, latex, { rtl = true } = {}) {
+function inheritSurroundingTextLook(host) {
+  if (!host || typeof window === "undefined") return;
+  const probe =
+    host.previousElementSibling || host.nextElementSibling || host.parentElement;
+  if (!probe) return;
+  const cs = window.getComputedStyle(probe);
+  if (cs.fontFamily) host.style.fontFamily = cs.fontFamily;
+  if (cs.fontSize) host.style.fontSize = cs.fontSize;
+  const root = host.querySelector(".katex-arabic");
+  if (!root) return;
+  root.style.setProperty("--ka-size-multiplier", "1");
+  if (cs.fontFamily) {
+    root.style.setProperty("--ka-font-family", cs.fontFamily);
+    root.style.fontFamily = cs.fontFamily;
+  } else {
+    root.style.setProperty("--ka-font-family", "inherit");
+    root.style.fontFamily = "inherit";
+  }
+  root.style.fontSize = "1em";
+}
+
+/** Inline question math: inherit nearby text font/size. Modal preview stays larger. */
+export function applyArabicMathHtml(
+  element,
+  latex,
+  { rtl = true, displayMode = false, matchSurroundingText = true } = {},
+) {
   if (!element) return null;
   element.classList.remove("math-rtl", "math-ltr");
   element.classList.add("arabic-katex-host");
-  element.innerHTML = renderArabicMath(latex, { rtl, displayMode: true });
+  element.innerHTML = renderArabicMath(latex, { rtl, displayMode });
   const root = element.querySelector(".katex-arabic");
   if (root) {
-    root.classList.add("size-xl");
+    root.classList.remove("size-xl");
     root.style.overflow = "visible";
+    if (matchSurroundingText) {
+      inheritSurroundingTextLook(element);
+    } else {
+      root.classList.add("size-xl");
+    }
   }
   return root;
 }

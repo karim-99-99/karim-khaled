@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { isArabicBrowser } from '../utils/language';
+import { hasConvertibleDigits, toArabicIndicDigits } from '../utils/arabicNumerals';
 import 'katex/dist/katex.min.css';
 import ArabicKatexEditor from './ArabicKatexEditor';
 // Don't import mathBlot at module level - import it dynamically to avoid initialization issues
@@ -377,6 +378,101 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     }
   }, [onChange, isEditorReady]);
 
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  // Show Arabic-Indic digits (٠-٩) while typing/pasting in the main editor.
+  // Leave math embeds / LaTeX source as Latin so KaTeX still parses them.
+  useEffect(() => {
+    if (!quillRef.current || !isEditorReady) return;
+    const editor = quillRef.current.getEditor();
+    if (!editor?.root) return;
+
+    const convertDeltaDigits = (delta) => {
+      if (!delta?.ops) return delta;
+      let changed = false;
+      const ops = delta.ops.map((op) => {
+        if (typeof op.insert !== "string" || !hasConvertibleDigits(op.insert)) return op;
+        const insert = toArabicIndicDigits(op.insert);
+        if (insert === op.insert) return op;
+        changed = true;
+        return { ...op, insert };
+      });
+      return changed ? { ops } : delta;
+    };
+
+    let insertedFromKey = false;
+
+    const insertConverted = (raw) => {
+      const converted = toArabicIndicDigits(raw);
+      if (!converted) return;
+      const range = editor.getSelection(true) || { index: Math.max(0, editor.getLength() - 1), length: 0 };
+      const formats = editor.getFormat(range.index) || {};
+      if (range.length) editor.deleteText(range.index, range.length, "user");
+      editor.insertText(range.index, converted, formats, "user");
+      editor.setSelection(range.index + converted.length, 0, "silent");
+    };
+
+    const onBeforeInput = (e) => {
+      if (insertedFromKey) {
+        e.preventDefault();
+        return;
+      }
+      if (e.inputType !== "insertText" || !e.data) return;
+      if (!hasConvertibleDigits(e.data)) return;
+      if (toArabicIndicDigits(e.data) === e.data) return;
+      e.preventDefault();
+      insertConverted(e.data);
+    };
+
+    const onKeyDown = (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.isComposing) return;
+      if (e.key.length !== 1 || e.key < "0" || e.key > "9") return;
+      e.preventDefault();
+      e.stopPropagation();
+      insertedFromKey = true;
+      insertConverted(e.key);
+      requestAnimationFrame(() => {
+        insertedFromKey = false;
+      });
+    };
+
+    if (!editor.__arabicDigitMatcher) {
+      editor.clipboard.addMatcher(Node.TEXT_NODE, (_node, delta) => convertDeltaDigits(delta));
+      editor.__arabicDigitMatcher = true;
+    }
+
+    editor.root.addEventListener("beforeinput", onBeforeInput, true);
+    editor.root.addEventListener("keydown", onKeyDown, true);
+
+    return () => {
+      editor.root.removeEventListener("beforeinput", onBeforeInput, true);
+      editor.root.removeEventListener("keydown", onKeyDown, true);
+    };
+  }, [isEditorReady]);
+
+  useEffect(() => {
+    if (!quillRef.current || !isEditorReady) return;
+    const editor = quillRef.current.getEditor();
+    if (!editor) return;
+    const contents = editor.getContents();
+    if (!contents?.ops) return;
+    let changed = false;
+    const ops = contents.ops.map((op) => {
+      if (typeof op.insert !== "string" || !hasConvertibleDigits(op.insert)) return op;
+      const insert = toArabicIndicDigits(op.insert);
+      if (insert === op.insert) return op;
+      changed = true;
+      return { ...op, insert };
+    });
+    if (!changed) return;
+    const sel = editor.getSelection();
+    editor.setContents({ ops }, "silent");
+    if (sel) editor.setSelection(sel);
+    onChangeRef.current?.(editor.root.innerHTML);
+  }, [isEditorReady, value]);
+
   // Insert or update math equation as Quill Embed (Math Blot)
   const insertMath = () => {
     const currentMathValue = (mathValue || '').trim();
@@ -397,6 +493,58 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     // Update state with final value
     setMathValue(currentMathValue);
 
+    const applyTextLookToMathAt = (editor, index, formats = {}) => {
+      const paint = () => {
+        let node = null;
+        try {
+          const [leaf] = editor.getLeaf(index);
+          node = leaf?.domNode?.closest?.(".math-equation") || leaf?.domNode;
+        } catch {
+          /* ignore */
+        }
+        if (!node?.classList?.contains("math-equation")) {
+          const matches = Array.from(
+            editor.root.querySelectorAll("span.math-equation[data-latex]")
+          );
+          node = matches.find((el) => {
+            try {
+              const blot = Quill.find(el, true);
+              return blot && editor.getIndex(blot) === index;
+            } catch {
+              return false;
+            }
+          });
+        }
+        if (!node) return;
+        node.classList.remove(
+          "ql-font-cairo",
+          "ql-font-tajawal",
+          "ql-font-amiri",
+          "ql-font-arial",
+          "ql-size-small",
+          "ql-size-large",
+          "ql-size-huge"
+        );
+        if (formats.font) node.classList.add(`ql-font-${formats.font}`);
+        if (formats.size) node.classList.add(`ql-size-${formats.size}`);
+        if (formats.color) {
+          node.style.color = formats.color;
+          node.style.setProperty("--ka-color", formats.color);
+        }
+        const inner = node.querySelector(".katex-arabic");
+        const cs = window.getComputedStyle(node);
+        if (inner) {
+          inner.style.setProperty("--ka-size-multiplier", "1");
+          inner.style.setProperty("--ka-font-family", cs.fontFamily);
+          inner.style.fontFamily = cs.fontFamily;
+          inner.style.fontSize = "1em";
+          if (formats.color) inner.style.setProperty("--ka-color", formats.color);
+        }
+      };
+      requestAnimationFrame(paint);
+      setTimeout(paint, 30);
+    };
+
     try {
       const editor = quillRef.current.getEditor();
       
@@ -415,9 +563,10 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
             const blot = Quill.find(blotNode, true);
             if (blot) {
               const index = editor.getIndex(blot);
-              // Delete old equation and insert new one with RTL flag
+              const formats = editor.getFormat(index) || {};
               editor.deleteText(index, blot.length(), 'user');
               editor.insertEmbed(index, 'math', mathData, 'user');
+              applyTextLookToMathAt(editor, index, formats);
               editor.setSelection(index + 1);
             }
           } catch (error) {
@@ -425,8 +574,10 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
             // Fallback: remove old node and insert at same position
             const range = editor.getSelection();
             if (range) {
+              const formats = editor.getFormat(range.index) || {};
               blotNode.remove();
               editor.insertEmbed(range.index, 'math', mathData, 'user');
+              applyTextLookToMathAt(editor, range.index, formats);
               editor.setSelection(range.index + 1);
             }
           }
@@ -435,7 +586,9 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
       } else {
         // Inserting new equation with RTL flag
         const range = editor.getSelection(true) || { index: editor.getLength() };
+        const formats = editor.getFormat(range.index) || {};
         editor.insertEmbed(range.index, 'math', mathData, 'user');
+        applyTextLookToMathAt(editor, range.index, formats);
         editor.setSelection(range.index + 1);
       }
       
@@ -882,10 +1035,13 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
         /* Math equations styling */
         .simple-professional-math-editor .ql-editor .math-equation {
           display: inline-block;
-          vertical-align: middle;
-          margin: 0 4px;
-          padding: 2px 4px;
+          vertical-align: baseline;
+          margin: 0 0.12em;
+          padding: 0;
           cursor: pointer;
+          font-family: inherit;
+          font-size: 1em;
+          line-height: inherit;
           transition: background-color 0.2s;
         }
         

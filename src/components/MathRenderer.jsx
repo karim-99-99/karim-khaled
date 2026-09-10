@@ -1,6 +1,7 @@
 import "katex/dist/katex.min.css";
 import { useEffect, useRef, memo } from "react";
 import { applyArabicMathHtml } from "../utils/arabicKatex";
+import { normalizeQuestionTypography } from "../utils/normalizeQuestionTypography";
 
 const MathRenderer = memo(({ html, content }) => {
   const containerRef = useRef(null);
@@ -14,7 +15,7 @@ const MathRenderer = memo(({ html, content }) => {
     }
 
     try {
-      containerRef.current.innerHTML = source;
+      containerRef.current.innerHTML = normalizeQuestionTypography(source);
 
       const images = containerRef.current.querySelectorAll("img");
       images.forEach((img) => {
@@ -40,10 +41,11 @@ const MathRenderer = memo(({ html, content }) => {
         const rtl = rtlAttr !== "false";
 
         try {
-          applyArabicMathHtml(element, latex, { rtl });
+          applyArabicMathHtml(element, latex, { rtl, displayMode: false });
           element.style.display = "inline-block";
-          element.style.verticalAlign = "middle";
+          element.style.verticalAlign = "baseline";
           element.style.overflow = "visible";
+          element.style.fontSize = "1em";
         } catch (e) {
           console.error(e);
         }

@@ -531,6 +531,28 @@ const Questions = () => {
   };
 
   useEffect(() => {
+    if (!useBackend || !backendApi.isBackendOn()) return;
+    const key = "question_typography_normalized_v1";
+    try {
+      if (sessionStorage.getItem(key)) return;
+    } catch {
+      /* ignore */
+    }
+    backendApi
+      .normalizeQuestionTypography()
+      .then(() => {
+        try {
+          sessionStorage.setItem(key, "1");
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch((err) => {
+        console.error("Error normalizing question typography:", err);
+      });
+  }, [useBackend]);
+
+  useEffect(() => {
     try {
       const allSubjects = getSubjects();
       const allowed = (allSubjects || []).filter(
