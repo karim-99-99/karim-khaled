@@ -19,7 +19,7 @@
    ======================================== */
 
 /* Force RTL natural for Arabic ONLY when inside math-rtl container */
-.math-rtl .katex {
+.math-rtl:not(:has(.katex-arabic)) .katex {
   direction: rtl !important;
   text-align: right !important;
   unicode-bidi: embed !important;
@@ -32,9 +32,9 @@
 /* For Arabic RTL, superscripts (like 2³) should show as ³2 (power on the LEFT) */
 /* Apply ONLY in RTL mode */
 /* Wrap base + superscript in flex container - ONLY in RTL mode */
-.math-rtl .katex .mord + .msupsub,
-.math-rtl .katex .minner + .msupsub,
-.math-rtl .katex .mop + .msupsub:not(.op-limits .msupsub) {
+.math-rtl:not(:has(.katex-arabic)) .katex .mord + .msupsub,
+.math-rtl:not(:has(.katex-arabic)) .katex .minner + .msupsub,
+.math-rtl:not(:has(.katex-arabic)) .katex .mop + .msupsub:not(.op-limits .msupsub) {
   display: inline-flex !important;
   flex-direction: row-reverse !important;
   vertical-align: baseline !important;
@@ -42,14 +42,14 @@
 
 /* Force the parent .base to be flex too - ONLY in RTL mode */
 /* Note: Using direct descendant selectors for better browser compatibility */
-.math-rtl .katex .base {
+.math-rtl:not(:has(.katex-arabic)) .katex .base {
   display: inline-flex !important;
   flex-direction: row-reverse !important;
 }
 
 /* RTL mode: Flip ALL superscripts (msup) - power on LEFT */
-.math-rtl .katex .msup,
-.math-rtl .katex .msupsub {
+.math-rtl:not(:has(.katex-arabic)) .katex .msup,
+.math-rtl:not(:has(.katex-arabic)) .katex .msupsub {
   display: inline-flex !important;
   flex-direction: row-reverse !important;
   flex-wrap: nowrap !important;
@@ -60,39 +60,39 @@
 }
 
 /* RTL mode: Reverse order of base and superscript using CSS order */
-.math-rtl .katex .msup > *:first-child,
-.math-rtl .katex .msupsub > *:first-child {
+.math-rtl:not(:has(.katex-arabic)) .katex .msup > *:first-child,
+.math-rtl:not(:has(.katex-arabic)) .katex .msupsub > *:first-child {
   order: 2 !important;
 }
 
-.math-rtl .katex .msup > *:last-child,
-.math-rtl .katex .msupsub > *:last-child {
+.math-rtl:not(:has(.katex-arabic)) .katex .msup > *:last-child,
+.math-rtl:not(:has(.katex-arabic)) .katex .msupsub > *:last-child {
   order: 1 !important;
 }
 
 /* Skip operator limits in RTL */
-.math-rtl .katex .mop.op-limits .msup,
-.math-rtl .katex .mop.op-limits .msupsub {
+.math-rtl:not(:has(.katex-arabic)) .katex .mop.op-limits .msup,
+.math-rtl:not(:has(.katex-arabic)) .katex .mop.op-limits .msupsub {
   flex-direction: row !important;
 }
 
 /* LTR mode: Normal order (2³) - powers stay on right */
-.math-ltr .katex .mord + .msupsub,
-.math-ltr .katex .minner + .msupsub,
-.math-ltr .katex .mop + .msupsub {
+.math-ltr:not(:has(.katex-arabic)) .katex .mord + .msupsub,
+.math-ltr:not(:has(.katex-arabic)) .katex .minner + .msupsub,
+.math-ltr:not(:has(.katex-arabic)) .katex .mop + .msupsub {
   display: inline !important;
   flex-direction: initial !important;
   vertical-align: baseline !important;
 }
 
-.math-ltr .katex .base {
+.math-ltr:not(:has(.katex-arabic)) .katex .base {
   display: inline !important;
   flex-direction: initial !important;
 }
 
 /* LTR mode: Normal order for msup */
-.math-ltr .katex .msup,
-.math-ltr .katex .msupsub {
+.math-ltr:not(:has(.katex-arabic)) .katex .msup,
+.math-ltr:not(:has(.katex-arabic)) .katex .msupsub {
   display: inline !important;
   flex-direction: row !important;
   align-items: initial !important;
@@ -101,7 +101,7 @@
 }
 
 /* Exception for ∑ and ∫ operators - keep them in normal LTR to avoid flipping */
-.katex .mop.op-limits {
+*:not(.katex-arabic) > .katex .mop.op-limits {
   direction: ltr !important;
   unicode-bidi: normal !important;
   display: inline-block !important;
@@ -109,20 +109,20 @@
 }
 
 /* All content inside op-limits should stay LTR */
-.katex .mop.op-limits * {
+*:not(.katex-arabic) > .katex .mop.op-limits * {
   direction: ltr !important;
   unicode-bidi: normal !important;
 }
 
 /* Force RTL natural for react-katex components */
-.katex-display,
-.katex-display > .katex {
+*:not(.katex-arabic) > .katex-display,
+*:not(.katex-arabic) > .katex-display > .katex {
   direction: rtl !important;
   text-align: right !important;
   unicode-bidi: embed !important;
 }
 
-span > .katex {
+span:not(.katex-arabic) > .katex {
   direction: rtl !important;
   text-align: right !important;
   unicode-bidi: embed !important;
@@ -133,7 +133,7 @@ span > .katex {
    ======================================== */
 
 /* Ensure the fraction structure is correctly styled in RTL */
-.katex .frac {
+*:not(.katex-arabic) > .katex .frac {
   display: inline-block !important;
   vertical-align: middle !important;
   text-align: center !important;
@@ -141,12 +141,12 @@ span > .katex {
   margin: 0 2px !important;
 }
 
-.katex .frac > span {
+*:not(.katex-arabic) > .katex .frac > span {
   display: block !important;
 }
 
 /* Fraction numerator (top number) - centered alignment */
-.katex .frac-num {
+*:not(.katex-arabic) > .katex .frac-num {
   display: block !important;
   text-align: center !important;
   line-height: 1.2 !important;
@@ -156,7 +156,7 @@ span > .katex {
 }
 
 /* Fraction line (horizontal bar) - ensure visibility */
-.katex .frac-line {
+*:not(.katex-arabic) > .katex .frac-line {
   border-bottom: 0.04em solid currentColor !important;
   border-top: none !important;
   display: block !important;
@@ -170,7 +170,7 @@ span > .katex {
 
 
 /* Fraction denominator (bottom number) - centered alignment */
-.katex .frac-den {
+*:not(.katex-arabic) > .katex .frac-den {
   display: block !important;
   text-align: center !important;
   line-height: 1.2 !important;
@@ -180,8 +180,8 @@ span > .katex {
 }
 
 /* Additional adjustments for text alignment and legibility in RTL */
-.katex .frac-num,
-.katex .frac-den {
+*:not(.katex-arabic) > .katex .frac-num,
+*:not(.katex-arabic) > .katex .frac-den {
   text-align: center;
 }
 
@@ -382,19 +382,19 @@ button[class*="px-10 py-6"] {
    ======================================== */
 
 /* RTL Mode based on data-rtl attribute */
-.math-equation[data-rtl="true"] .katex {
+.math-equation[data-rtl="true"]:not(:has(.katex-arabic)) .katex {
   direction: rtl !important;
   text-align: right !important;
   unicode-bidi: embed !important;
 }
 
 /* RTL Mode: Flip superscripts using flexbox */
-.math-equation[data-rtl="true"] .katex .msup,
-.math-equation[data-rtl="true"] .katex .msupsub,
-.math-equation.math-rtl .katex .msup,
-.math-equation.math-rtl .katex .msupsub,
-.math-rtl .katex .msup,
-.math-rtl .katex .msupsub {
+.math-equation[data-rtl="true"]:not(:has(.katex-arabic)) .katex .msup,
+.math-equation[data-rtl="true"]:not(:has(.katex-arabic)) .katex .msupsub,
+.math-equation.math-rtl:not(:has(.katex-arabic)) .katex .msup,
+.math-equation.math-rtl:not(:has(.katex-arabic)) .katex .msupsub,
+.math-rtl:not(:has(.katex-arabic)) .katex .msup,
+.math-rtl:not(:has(.katex-arabic)) .katex .msupsub {
   display: inline-flex !important;
   flex-direction: row-reverse !important;
   flex-wrap: nowrap !important;
@@ -405,94 +405,94 @@ button[class*="px-10 py-6"] {
 }
 
 /* RTL Mode: Reverse order of base and superscript */
-.math-equation[data-rtl="true"] .katex .msup > *:first-child,
-.math-equation[data-rtl="true"] .katex .msupsub > *:first-child,
-.math-equation.math-rtl .katex .msup > *:first-child,
-.math-equation.math-rtl .katex .msupsub > *:first-child,
-.math-rtl .katex .msup > *:first-child,
-.math-rtl .katex .msupsub > *:first-child {
+.math-equation[data-rtl="true"]:not(:has(.katex-arabic)) .katex .msup > *:first-child,
+.math-equation[data-rtl="true"]:not(:has(.katex-arabic)) .katex .msupsub > *:first-child,
+.math-equation.math-rtl:not(:has(.katex-arabic)) .katex .msup > *:first-child,
+.math-equation.math-rtl:not(:has(.katex-arabic)) .katex .msupsub > *:first-child,
+.math-rtl:not(:has(.katex-arabic)) .katex .msup > *:first-child,
+.math-rtl:not(:has(.katex-arabic)) .katex .msupsub > *:first-child {
   order: 2 !important;
 }
 
-.math-equation[data-rtl="true"] .katex .msup > *:last-child,
-.math-equation[data-rtl="true"] .katex .msupsub > *:last-child,
-.math-equation.math-rtl .katex .msup > *:last-child,
-.math-equation.math-rtl .katex .msupsub > *:last-child,
-.math-rtl .katex .msup > *:last-child,
-.math-rtl .katex .msupsub > *:last-child {
+.math-equation[data-rtl="true"]:not(:has(.katex-arabic)) .katex .msup > *:last-child,
+.math-equation[data-rtl="true"]:not(:has(.katex-arabic)) .katex .msupsub > *:last-child,
+.math-equation.math-rtl:not(:has(.katex-arabic)) .katex .msup > *:last-child,
+.math-equation.math-rtl:not(:has(.katex-arabic)) .katex .msupsub > *:last-child,
+.math-rtl:not(:has(.katex-arabic)) .katex .msup > *:last-child,
+.math-rtl:not(:has(.katex-arabic)) .katex .msupsub > *:last-child {
   order: 1 !important;
 }
 
 /* Skip operator limits in RTL */
-.math-equation[data-rtl="true"] .katex .mop.op-limits .msup,
-.math-equation[data-rtl="true"] .katex .mop.op-limits .msupsub,
-.math-rtl .katex .mop.op-limits .msup,
-.math-rtl .katex .mop.op-limits .msupsub {
+.math-equation[data-rtl="true"]:not(:has(.katex-arabic)) .katex .mop.op-limits .msup,
+.math-equation[data-rtl="true"]:not(:has(.katex-arabic)) .katex .mop.op-limits .msupsub,
+.math-rtl:not(:has(.katex-arabic)) .katex .mop.op-limits .msup,
+.math-rtl:not(:has(.katex-arabic)) .katex .mop.op-limits .msupsub {
   flex-direction: row !important; /* Keep normal order for limits */
 }
 
 /* LTR Mode based on data-rtl attribute */
-.math-equation[data-rtl="false"] .katex {
+.math-equation[data-rtl="false"]:not(:has(.katex-arabic)) .katex {
   direction: ltr !important;
   text-align: left !important;
   unicode-bidi: normal !important;
 }
 
 /* LTR Mode: Normal display */
-.math-equation[data-rtl="false"] .katex .msup,
-.math-equation[data-rtl="false"] .katex .msupsub {
+.math-equation[data-rtl="false"]:not(:has(.katex-arabic)) .katex .msup,
+.math-equation[data-rtl="false"]:not(:has(.katex-arabic)) .katex .msupsub {
   display: inline !important;
   flex-direction: initial !important;
 }
 
 /* RTL Mode (Arabic): Keep current RTL behavior with flipped superscripts */
-.math-rtl-mode .katex {
+.math-rtl-mode:not(:has(.katex-arabic)) .katex {
   direction: rtl !important;
   text-align: right !important;
   unicode-bidi: embed !important;
 }
 
-.math-rtl-mode .katex-display,
-.math-rtl-mode .katex-display > .katex {
+.math-rtl-mode:not(:has(.katex-arabic)) .katex-display,
+.math-rtl-mode:not(:has(.katex-arabic)) .katex-display > .katex {
   direction: rtl !important;
   text-align: right !important;
   unicode-bidi: embed !important;
 }
 
 /* LTR Mode (English): Standard LTR display without any flipping */
-.math-ltr-mode .katex {
+.math-ltr-mode:not(:has(.katex-arabic)) .katex {
   direction: ltr !important;
   text-align: left !important;
   unicode-bidi: normal !important;
 }
 
-.math-ltr-mode .katex-display,
-.math-ltr-mode .katex-display > .katex {
+.math-ltr-mode:not(:has(.katex-arabic)) .katex-display,
+.math-ltr-mode:not(:has(.katex-arabic)) .katex-display > .katex {
   direction: ltr !important;
   text-align: left !important;
   unicode-bidi: normal !important;
 }
 
 /* LTR Mode: Disable all RTL customizations */
-.math-ltr-mode .katex .base {
+.math-ltr-mode:not(:has(.katex-arabic)) .katex .base {
   display: inline !important;
   flex-direction: initial !important;
 }
 
-.math-ltr-mode .katex .mord + .msupsub,
-.math-ltr-mode .katex .minner + .msupsub,
-.math-ltr-mode .katex .mop + .msupsub {
+.math-ltr-mode:not(:has(.katex-arabic)) .katex .mord + .msupsub,
+.math-ltr-mode:not(:has(.katex-arabic)) .katex .minner + .msupsub,
+.math-ltr-mode:not(:has(.katex-arabic)) .katex .mop + .msupsub {
   display: inline !important;
   flex-direction: initial !important;
 }
 
-.math-ltr-mode .katex .sqrt {
+.math-ltr-mode:not(:has(.katex-arabic)) .katex .sqrt {
   display: inline-flex !important;
   flex-direction: initial !important;
   direction: ltr !important;
 }
 
-.math-ltr-mode .katex .sqrt > .root {
+.math-ltr-mode:not(:has(.katex-arabic)) .katex .sqrt > .root {
   order: initial !important;
   margin-left: 0 !important;
   margin-right: 0.15em !important;
@@ -503,7 +503,7 @@ button[class*="px-10 py-6"] {
    ======================================== */
 /* Mirror/flip roots using CSS transform scaleX(-1) - ONLY in RTL mode */
 /* RTL mode: Mirrored roots */
-.math-rtl .katex .sqrt {
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt {
   transform: scaleX(-1) !important;
   display: inline-flex !important;
   flex-wrap: nowrap !important;
@@ -513,18 +513,18 @@ button[class*="px-10 py-6"] {
 }
 
 /* Flip text/numbers back so they're readable in RTL mode */
-.math-rtl .katex .sqrt .vlist-r,
-/* .math-rtl .katex .sqrt .mord,
-.math-rtl .katex .sqrt .mnum, */
-.math-rtl .katex .sqrt .root,
-.math-rtl .katex .sqrt .vlist-t {
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt .vlist-r,
+/* .math-rtl:not(:has(.katex-arabic)) .katex .sqrt .mord,
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt .mnum, */
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt .root,
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt .vlist-t {
   transform: scaleX(-1) !important;
   display: inline-block !important;
 }
-.math-rtl .katex .sqrt .vlist-t,
-.math-rtl .katex .sqrt .mord,
-.math-rtl .katex .sqrt .mnum,
-.math-rtl .katex .sqrt .vlist-r
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt .vlist-t,
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt .mord,
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt .mnum,
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt .vlist-r
 {
 
   transform: scaleX(-1) translateX(-1.5rem) !important;
@@ -532,24 +532,24 @@ button[class*="px-10 py-6"] {
 }
 
 /* Flip wrapped text nodes in RTL mode */
-.math-rtl .katex .sqrt .root-flipped-text {
+.math-rtl:not(:has(.katex-arabic)) .katex .sqrt .root-flipped-text {
   transform: scaleX(-1)  !important;
   display: inline-block !important;
 }
 
 /* LTR mode: Normal roots (no mirror) */
-.math-ltr .katex .sqrt {
+.math-ltr:not(:has(.katex-arabic)) .katex .sqrt {
   transform: none !important;
   display: inline-block !important;
   direction: ltr !important;
 }
 
 /* Normal text/numbers in LTR mode */
-.math-ltr .katex .sqrt .vlist-r,
-.math-ltr .katex .sqrt .mord,
-.math-ltr .katex .sqrt .mnum,
-.math-ltr .katex .sqrt .root,
-.math-ltr .katex .sqrt .vlist-t {
+.math-ltr:not(:has(.katex-arabic)) .katex .sqrt .vlist-r,
+.math-ltr:not(:has(.katex-arabic)) .katex .sqrt .mord,
+.math-ltr:not(:has(.katex-arabic)) .katex .sqrt .mnum,
+.math-ltr:not(:has(.katex-arabic)) .katex .sqrt .root,
+.math-ltr:not(:has(.katex-arabic)) .katex .sqrt .vlist-t {
   transform: none !important;
   display: inline-block !important;
 }
@@ -755,4 +755,55 @@ p, span, div, h1, h2, h3, h4, h5, h6, li {
   border-color: #66bcb4 !important;
   background-color: rgba(102, 188, 180, 0.18) !important;
   box-shadow: 0 8px 24px rgba(102, 188, 180, 0.2);
+}
+
+/* ========================================
+   KaTeX4Arabic — layout + student text styles
+   ======================================== */
+
+/* KaTeX layout is computed against content-box. Tailwind's global
+   border-box reset clips radicals, superscripts, and fraction bars. */
+.katex,
+.katex *,
+.katex *::before,
+.katex *::after {
+  box-sizing: content-box;
+}
+
+.katex .fbox,
+.katex .fcolorbox {
+  box-sizing: border-box;
+}
+
+/* Quill font/size classes must also work on student pages */
+.math-renderer-root .ql-font-cairo,
+.ql-editor .ql-font-cairo {
+  font-family: Cairo, sans-serif;
+}
+.math-renderer-root .ql-font-tajawal,
+.ql-editor .ql-font-tajawal {
+  font-family: Tajawal, sans-serif;
+}
+.math-renderer-root .ql-font-amiri,
+.ql-editor .ql-font-amiri {
+  font-family: Amiri, serif;
+}
+.math-renderer-root .ql-font-arial,
+.ql-editor .ql-font-arial {
+  font-family: Arial, sans-serif;
+}
+
+.math-renderer-root .ql-size-small {
+  font-size: 0.75em;
+}
+.math-renderer-root .ql-size-large {
+  font-size: 1.5em;
+}
+.math-renderer-root .ql-size-huge {
+  font-size: 2.5em;
+}
+
+.math-renderer-root .katex-arabic,
+.ql-editor .katex-arabic {
+  --ka-color: currentColor;
 }

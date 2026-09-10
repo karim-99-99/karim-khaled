@@ -292,7 +292,7 @@ const TryFreeLesson = () => {
                       سؤال {qIndex + 1} من {quiz.length}
                     </p>
                     <div className="prose max-w-none mb-4 text-right">
-                      <MathRenderer content={current.question || ""} />
+                      <MathRenderer html={current.question || ""} />
                     </div>
                     {current.image && (
                       <img
@@ -319,7 +319,7 @@ const TryFreeLesson = () => {
                             <span className="font-black text-primary-600 ml-2">
                               {CHOICE_AR[id] || id}
                             </span>
-                            <MathRenderer content={ans.text || ""} />
+                            <MathRenderer html={ans.text || ""} />
                           </button>
                         );
                       })}

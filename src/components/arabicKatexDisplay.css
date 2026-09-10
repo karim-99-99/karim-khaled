@@ -1,0 +1,69 @@
+/* Same host styles as katex-arabic-tester .preview — used in
+   the math modal, the question editor, and student question text. */
+
+.arabic-katex-host,
+.math-renderer-root,
+.ql-editor .math-equation,
+.ake-preview {
+  overflow: visible;
+}
+
+.arabic-katex-host .katex-arabic,
+.math-renderer-root .katex-arabic,
+.ql-editor .katex-arabic,
+.ake-preview .katex-arabic {
+  overflow: visible;
+  font-weight: 400;
+  --ka-size-multiplier: 1.35;
+}
+
+.arabic-katex-host .katex-arabic.size-xl,
+.math-renderer-root .katex-arabic.size-xl,
+.ql-editor .katex-arabic.size-xl,
+.ake-preview .katex-arabic.size-xl {
+  --ka-size-multiplier: 1.35;
+}
+
+.arabic-katex-host .katex-arabic .katex .sqrt,
+.math-renderer-root .katex-arabic .katex .sqrt,
+.ql-editor .katex-arabic .katex .sqrt,
+.ake-preview .katex-arabic .katex .sqrt {
+  isolation: isolate;
+  overflow: visible;
+}
+
+.arabic-katex-host .katex-arabic .katex .mfrac,
+.math-renderer-root .katex-arabic .katex .mfrac,
+.ql-editor .katex-arabic .katex .mfrac,
+.ake-preview .katex-arabic .katex .mfrac {
+  vertical-align: baseline;
+}
+
+.arabic-katex-host .katex-arabic .katex .sqrt .mfrac,
+.math-renderer-root .katex-arabic .katex .sqrt .mfrac,
+.ql-editor .katex-arabic .katex .sqrt .mfrac,
+.ake-preview .katex-arabic .katex .sqrt .mfrac {
+  vertical-align: baseline;
+}
+
+.arabic-katex-host .katex-arabic .katex .sqrt .mfrac .frac-line,
+.math-renderer-root .katex-arabic .katex .sqrt .mfrac .frac-line,
+.ql-editor .katex-arabic .katex .sqrt .mfrac .frac-line,
+.ake-preview .katex-arabic .katex .sqrt .mfrac .frac-line {
+  position: relative;
+  z-index: 1;
+}
+
+/* Same display-mode formula as the tester, sitting in the question text */
+.math-renderer-root .katex-arabic.is-display,
+.ql-editor .katex-arabic.is-display,
+.arabic-katex-host .katex-arabic.is-display {
+  display: inline-block;
+  margin: 0.15em 0.35em;
+  vertical-align: middle;
+}
+
+.ake-preview .katex-arabic.is-display {
+  display: block;
+  margin: 0.75em 0;
+}

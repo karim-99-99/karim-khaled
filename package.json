@@ -23,6 +23,7 @@
     "@wiris/mathtype-ckeditor5": "^8.15.0",
     "better-react-mathjax": "^2.4.0-beta-1",
     "katex": "^0.16.27",
+    "katex4arabic": "^1.1.8",
     "mathjax": "^3.2.2",
     "mathlive": "^0.108.2",
     "mathquill": "^0.10.1-a",

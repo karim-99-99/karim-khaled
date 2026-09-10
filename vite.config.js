@@ -65,6 +65,8 @@ export default defineConfig({
       'prop-types',
       'quill',
       'react-quill',
+      'katex',
+      'katex4arabic',
     ],
     // Exclude packages that have initialization issues
     exclude: [

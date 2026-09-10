@@ -3,6 +3,7 @@ import * as ReactQuillNamespace from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { isArabicBrowser } from '../utils/language';
 import 'katex/dist/katex.min.css';
+import ArabicKatexEditor from './ArabicKatexEditor';
 // Don't import mathBlot at module level - import it dynamically to avoid initialization issues
 
 // Get ReactQuill and Quill from namespace (react-quill v2.0.0)
@@ -65,10 +66,8 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
   const [showMathModal, setShowMathModal] = useState(false);
   const [mathValue, setMathValue] = useState('');
   const [editingMathIndex, setEditingMathIndex] = useState(null); // Track which equation is being edited
-  const [MathfieldElement, setMathfieldElement] = useState(null);
   const [isEditorReady, setIsEditorReady] = useState(false); // Track editor readiness
   const quillRef = useRef(null);
-  const mathfieldRef = useRef(null);
   const [isRTL, setIsRTL] = useState(() => {
     try {
       const saved = localStorage.getItem('mathEditorRTL');
@@ -93,8 +92,15 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           return;
         }
         
-        // Register Quill modules
+        // Register Quill modules + Arabic font/size whitelist
         await registerQuillModules();
+        try {
+          const FontAttributor = Quill.import('formats/font');
+          FontAttributor.whitelist = ['cairo', 'tajawal', 'amiri', 'arial'];
+          Quill.register(FontAttributor, true);
+        } catch (fontErr) {
+          console.warn('Could not register Quill fonts:', fontErr);
+        }
         
         // Wait for modules to be ready
         await new Promise(resolve => setTimeout(resolve, 150));
@@ -143,59 +149,22 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     };
   }, []);
 
-  // Load MathLive dynamically
-  useEffect(() => {
-    Promise.all([
-      import('mathlive/fonts.css'),
-      import('mathlive/static.css')
-    ]).catch(() => {});
-
-    import('mathlive').then((mathlive) => {
-      setMathfieldElement(() => mathlive.MathfieldElement);
-    }).catch((error) => {
-      console.error('Failed to load MathLive:', error);
-    });
-  }, []);
-
-  // Math templates
-  const mathTemplates = [
-    { icon: '½', latex: '\\frac{1}{2}', label: isArabicBrowser() ? 'نصف' : 'Half' },
-    { icon: '⅓', latex: '\\frac{1}{3}', label: isArabicBrowser() ? 'ثلث' : 'Third' },
-    { icon: '¼', latex: '\\frac{1}{4}', label: isArabicBrowser() ? 'ربع' : 'Quarter' },
-    { icon: '⅔', latex: '\\frac{2}{3}', label: isArabicBrowser() ? 'ثلثان' : 'Two thirds' },
-    { icon: '¾', latex: '\\frac{3}{4}', label: isArabicBrowser() ? 'ثلاثة أرباع' : '3/4' },
-    { icon: '𝑎/𝑏', latex: '\\frac{#@}{#?}', label: isArabicBrowser() ? 'كسر عام' : 'Fraction' },
-    { icon: '√', latex: '\\sqrt{#0}', label: isArabicBrowser() ? 'جذر تربيعي' : 'Square root' },
-    { icon: '∛', latex: '\\sqrt[3]{#0}', label: isArabicBrowser() ? 'جذر تكعيبي' : 'Cube root' },
-    { icon: '𝑥²', latex: '#0^{2}', label: isArabicBrowser() ? 'تربيع' : 'Square' },
-    { icon: '𝑥³', latex: '#0^{3}', label: isArabicBrowser() ? 'تكعيب' : 'Cube' },
-    { icon: '𝑥ⁿ', latex: '#0^{#?}', label: isArabicBrowser() ? 'أس' : 'Power' },
-    { icon: '𝑥₁', latex: '#0_{1}', label: isArabicBrowser() ? 'منخفض' : 'Subscript' },
-    { icon: '∑', latex: '\\sum_{#0}^{#?}', label: isArabicBrowser() ? 'مجموع' : 'Sum' },
-    { icon: '∫', latex: '\\int_{#0}^{#?}', label: isArabicBrowser() ? 'تكامل' : 'Integral' },
-    { icon: '()', latex: '\\left(#0\\right)', label: isArabicBrowser() ? 'أقواس' : 'Parentheses' },
-    { icon: '[]', latex: '\\left[#0\\right]', label: isArabicBrowser() ? 'أقواس مربعة' : 'Brackets' },
-    { icon: '÷', latex: '\\div', label: isArabicBrowser() ? 'قسمة' : 'Division' },
-    { icon: '×', latex: '\\times', label: isArabicBrowser() ? 'ضرب' : 'Multiplication' },
-    { icon: '+', latex: '+', label: isArabicBrowser() ? 'جمع' : 'Addition' },
-    { icon: '−', latex: '-', label: isArabicBrowser() ? 'طرح' : 'Subtraction' },
-    { icon: '=', latex: '=', label: isArabicBrowser() ? 'يساوي' : 'Equals' },
-    { icon: '≠', latex: '\\neq', label: isArabicBrowser() ? 'لا يساوي' : 'Not equal' },
-    { icon: '≤', latex: '\\leq', label: isArabicBrowser() ? 'أقل أو يساوي' : 'Less or equal' },
-    { icon: '≥', latex: '\\geq', label: isArabicBrowser() ? 'أكبر أو يساوي' : 'Greater or equal' },
-    { icon: 'π', latex: '\\pi', label: isArabicBrowser() ? 'باي' : 'Pi' },
-    { icon: '±', latex: '\\pm', label: isArabicBrowser() ? 'زائد/ناقص' : 'Plus/minus' },
-    { icon: '∞', latex: '\\infty', label: isArabicBrowser() ? 'لا نهاية' : 'Infinity' },
-  ];
-
   // Quill toolbar with image support
   // Build modules config dynamically based on available features
   const modules = React.useMemo(() => {
     const config = {
       toolbar: [
         [{ 'header': [1, 2, 3, false] }],
+        [{ 'font': ['cairo', 'tajawal', 'amiri', 'arial'] }],
+        [{ 'size': ['small', false, 'large', 'huge'] }],
         ['bold', 'italic', 'underline', 'strike'],
-        [{ 'color': [] }, { 'background': [] }],
+        [{ 'color': [
+          '#14212b', '#dc2626', '#ea580c', '#ca8a04', '#16a34a',
+          '#0f766e', '#2563eb', '#7c3aed', '#db2777', '#4b5563',
+        ] }, { 'background': [
+          '#ffffff', '#fee2e2', '#ffedd5', '#fef9c3', '#dcfce7',
+          '#ccfbf1', '#dbeafe', '#ede9fe', '#fce7f3', '#f3f4f6',
+        ] }],
         [{ 'list': 'ordered'}, { 'list': 'bullet' }],
         [{ 'align': [] }],
         [{ 'direction': 'rtl' }],
@@ -249,7 +218,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
   }, []);
 
   const formats = [
-    'header', 'bold', 'italic', 'underline', 'strike',
+    'header', 'font', 'size', 'bold', 'italic', 'underline', 'strike',
     'color', 'background', 'list', 'bullet', 'align',
     'direction', 'link', 'image', 'math'
   ];
@@ -410,19 +379,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
 
   // Insert or update math equation as Quill Embed (Math Blot)
   const insertMath = () => {
-    // Get the current value from MathLive field
-    let currentMathValue = '';
-    if (mathfieldRef.current) {
-      const mf = mathfieldRef.current.querySelector('math-field');
-      if (mf) {
-        currentMathValue = mf.value || mf.getValue?.() || '';
-      }
-    }
-    
-    // If no value from field, try state
-    if (!currentMathValue && mathValue) {
-      currentMathValue = mathValue;
-    }
+    const currentMathValue = (mathValue || '').trim();
     
     // Check if we have a valid value
     if (!currentMathValue || !currentMathValue.trim()) {
@@ -554,45 +511,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
     }
   }, [value, isEditorReady]);
 
-  // Initialize MathLive field
-  useEffect(() => {
-    if (showMathModal && mathfieldRef.current && MathfieldElement) {
-      mathfieldRef.current.innerHTML = '';
-      const mf = new MathfieldElement();
-      if (mathValue) {
-        mf.value = mathValue; // Load existing LaTeX when editing
-      }
-      
-      // Don't update state on every input - only when inserting
-      // This prevents cursor jumping and allows smooth editing
-      mf.addEventListener('input', (evt) => {
-        // Store value in the element itself, don't trigger re-render
-        // We'll read it when user clicks "Insert"
-      });
-      
-      mathfieldRef.current.appendChild(mf);
-      
-      // Focus the math field
-      setTimeout(() => {
-        mf.focus();
-      }, 100);
-    }
-  }, [showMathModal, MathfieldElement, mathValue]);
-
-  // Insert template
-  const insertTemplate = (latex) => {
-    if (mathfieldRef.current) {
-      const mf = mathfieldRef.current.querySelector('math-field');
-      if (mf) {
-        mf.executeCommand(['insert', latex]);
-        // Don't update state - just let user continue editing
-        // Value will be read when user clicks "Insert"
-        mf.focus();
-      }
-    }
-  };
-
-  // Toggle RTL/LTR and re-render all equations
+  // Toggle RTL/LTR and re-render all equations with KaTeX4Arabic
   const toggleRTL = () => {
     const newRTL = !isRTL;
     setIsRTL(newRTL);
@@ -633,190 +552,64 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           console.error('Error updating equation RTL:', error);
         }
       });
-      
-      // Force re-apply styling after re-render
-      setTimeout(() => {
-        const updatedMathBlots = Array.from(editor.root.querySelectorAll('span.math-equation[data-latex]'));
-        updatedMathBlots.forEach((blotNode) => {
-          // Update data-rtl attribute
-          blotNode.setAttribute('data-rtl', newRTL ? 'true' : 'false');
-          blotNode.setAttribute('dir', newRTL ? 'rtl' : 'ltr');
-          if (newRTL) {
-            blotNode.classList.add('math-rtl');
-            blotNode.classList.remove('math-ltr');
-          } else {
-            blotNode.classList.add('math-ltr');
-            blotNode.classList.remove('math-rtl');
-          }
-          // Re-apply superscript styling - swap DOM order (including inside roots)
-          const msupElements = blotNode.querySelectorAll('.msup, .msupsub');
-          msupElements.forEach((msup) => {
-            if (!msup.closest('.mop.op-limits') && !msup.closest('.op-limits')) {
-              // Check if inside a root - we still want to process it
-              const isInsideRoot = msup.closest('.sqrt') !== null;
-              
-              const wasRTL = msup.dataset.rtlReversed === 'true';
-              
-              if (newRTL && !wasRTL) {
-                // RTL mode: Move superscript to LEFT (4² → ²4)
-                msup.dataset.rtlReversed = 'true';
-                
-                const children = Array.from(msup.children);
-                if (children.length >= 2) {
-                  const base = children[0];
-                  const sup = children[1];
-                  
-                  if (!isInsideRoot) {
-                    // Outside root: swap DOM order
-                    msup.insertBefore(sup, base);
-                    msup.style.setProperty('display', 'inline-flex', 'important');
-                    msup.style.setProperty('flex-direction', 'row', 'important');
-                    msup.style.setProperty('align-items', 'baseline', 'important');
-                    msup.style.setProperty('direction', 'ltr', 'important');
-                  } else {
-                    // Inside root: swap DOM order + use row-reverse
-                    // This combination will put superscript on LEFT visually
-                    // Swap: move superscript before base in DOM
-                    msup.insertBefore(sup, base);
-                    
-                    // Use row-reverse to reverse the visual order
-                    msup.style.setProperty('display', 'inline-flex', 'important');
-                    msup.style.setProperty('flex-direction', 'row-reverse', 'important');
-                    msup.style.setProperty('align-items', 'baseline', 'important');
-                    msup.style.setProperty('direction', 'ltr', 'important');
-                    
-                    // Flip children back so they're readable
-                    base.style.setProperty('transform', 'scaleX(-1)', 'important');
-                    base.style.setProperty('display', 'inline-block', 'important');
-                    sup.style.setProperty('transform', 'scaleX(-1)', 'important');
-                    sup.style.setProperty('display', 'inline-block', 'important');
-                  }
-                }
-                
-              } else if (!newRTL && wasRTL) {
-                // LTR mode: Restore normal order (²4 → 4²)
-                msup.dataset.rtlReversed = 'false';
-                
-                const children = Array.from(msup.children);
-                if (children.length >= 2) {
-                  const first = children[0];
-                  const second = children[1];
-                  
-                  // Restore DOM order (swap back)
-                  msup.insertBefore(second, first);
-                  
-                  if (isInsideRoot) {
-                    // Inside root: remove transforms
-                    first.style.setProperty('transform', 'none', 'important');
-                    second.style.setProperty('transform', 'none', 'important');
-                  }
-                }
-                
-                msup.style.setProperty('display', 'inline', 'important');
-                msup.style.setProperty('flex-direction', 'initial', 'important');
-                msup.style.setProperty('align-items', 'initial', 'important');
-                msup.style.setProperty('direction', 'initial', 'important');
-              }
-            }
-          });
-          
-          // Re-apply root mirror styling based on RTL/LTR
-          const sqrtElements = blotNode.querySelectorAll('.sqrt');
-          sqrtElements.forEach((sqrt) => {
-            // Remove previous mirror state
-            sqrt.dataset.mirrored = 'false';
-            
-            if (newRTL) {
-              // RTL mode: Apply horizontal mirror
-              sqrt.style.setProperty('transform', 'scaleX(-1)', 'important');
-              sqrt.style.setProperty('display', 'inline-flex', 'important');
-              sqrt.style.setProperty('flex-wrap', 'nowrap', 'important');
-              sqrt.style.setProperty('align-items', 'baseline', 'important');
-              sqrt.style.setProperty('direction', 'ltr', 'important');
-              sqrt.style.setProperty('white-space', 'nowrap', 'important');
-              sqrt.dataset.mirrored = 'true';
-              
-              // Flip text/numbers back - but NOT msup children (we'll handle that separately)
-              const textElements = sqrt.querySelectorAll('.vlist-r, .mord, .mnum, .root, .vlist-t');
-              textElements.forEach((el) => {
-                // Skip if inside msup
-                if (el.closest('.msup, .msupsub')) {
-                  return;
-                }
-                el.style.setProperty('transform', 'scaleX(-1)', 'important');
-                el.style.setProperty('display', 'inline-block', 'important');
-              });
-              
-              // Handle msup inside root: apply styles (swapping will be done in applyRTLSuperscriptStyling)
-              const msupInsideRoot = sqrt.querySelectorAll('.msup, .msupsub');
-              msupInsideRoot.forEach((msup) => {
-                // Just set the display properties, don't swap here
-                msup.style.setProperty('display', 'inline-flex', 'important');
-                msup.style.setProperty('flex-direction', 'row-reverse', 'important');
-                msup.style.setProperty('flex-wrap', 'nowrap', 'important');
-                msup.style.setProperty('align-items', 'baseline', 'important');
-                msup.style.setProperty('direction', 'ltr', 'important');
-                msup.style.setProperty('white-space', 'nowrap', 'important');
-                
-                // Flip children back so they're readable
-                const children = Array.from(msup.children);
-                children.forEach((child) => {
-                  child.style.setProperty('transform', 'scaleX(-1)', 'important');
-                  child.style.setProperty('display', 'inline-block', 'important');
-                });
-              });
-            } else {
-              // LTR mode: Remove mirror (normal display)
-              sqrt.style.setProperty('transform', 'none', 'important');
-              sqrt.style.setProperty('display', 'inline-block', 'important');
-              sqrt.style.setProperty('direction', 'ltr', 'important');
-              
-              // Remove flip from text/numbers
-              const textElements = sqrt.querySelectorAll('.vlist-r, .mord, .mnum, .root, .vlist-t, .root-flipped-text');
-              textElements.forEach((el) => {
-                el.style.setProperty('transform', 'none', 'important');
-                el.style.setProperty('display', 'inline-block', 'important');
-              });
-              
-              // Reset msup inside root: remove transforms
-              const msupInsideRoot = sqrt.querySelectorAll('.msup, .msupsub');
-              msupInsideRoot.forEach((msup) => {
-                // Remove transforms from children
-                Array.from(msup.children).forEach((child) => {
-                  child.style.setProperty('transform', 'none', 'important');
-                });
-                
-                msup.style.setProperty('display', 'inline', 'important');
-                msup.style.setProperty('flex-direction', 'initial', 'important');
-                msup.style.setProperty('align-items', 'initial', 'important');
-                msup.style.setProperty('direction', 'initial', 'important');
-              });
-              
-              // Remove wrapped text nodes
-              const wrappedTexts = sqrt.querySelectorAll('.root-flipped-text');
-              wrappedTexts.forEach((wrapper) => {
-                const parent = wrapper.parentNode;
-                while (wrapper.firstChild) {
-                  parent.insertBefore(wrapper.firstChild, wrapper);
-                }
-                parent.removeChild(wrapper);
-              });
-            }
-          });
-          
-        });
-      }, 300);
-      
-      // Update onChange after all updates
+
       setTimeout(() => {
         if (onChange && quillRef.current) {
           const newContent = quillRef.current.getEditor().root.innerHTML;
           onChange(newContent);
         }
-      }, 400);
+      }, 50);
     }
   };
 
+  const TEXT_COLORS = [
+    { label: isArabicBrowser() ? 'أسود' : 'Black', value: '#14212b' },
+    { label: isArabicBrowser() ? 'أحمر' : 'Red', value: '#dc2626' },
+    { label: isArabicBrowser() ? 'برتقالي' : 'Orange', value: '#ea580c' },
+    { label: isArabicBrowser() ? 'أخضر' : 'Green', value: '#16a34a' },
+    { label: isArabicBrowser() ? 'أزرق' : 'Blue', value: '#2563eb' },
+    { label: isArabicBrowser() ? 'بنفسجي' : 'Purple', value: '#7c3aed' },
+  ];
+
+  const applyEditorColor = (color, kind = 'color') => {
+    if (!quillRef.current) return;
+    try {
+      const editor = quillRef.current.getEditor();
+      editor.focus();
+      editor.format(kind, color || false);
+
+      const range = editor.getSelection(true);
+      if (range) {
+        const selected = Array.from(
+          editor.root.querySelectorAll('.math-equation, .katex-arabic')
+        ).filter((el) => {
+          try {
+            const sel = editor.getSelection();
+            if (!sel) return false;
+            const blot = Quill.find(el, true);
+            if (!blot) return false;
+            const index = editor.getIndex(blot);
+            return index >= sel.index && index < sel.index + Math.max(sel.length, 1);
+          } catch {
+            return false;
+          }
+        });
+        selected.forEach((el) => {
+          const host = el.closest('.math-equation') || el;
+          if (kind === 'color') {
+            host.style.color = color || '';
+            host.style.setProperty('--ka-color', color || 'inherit');
+          } else {
+            host.style.backgroundColor = color || '';
+          }
+        });
+      }
+
+      if (onChange) onChange(editor.root.innerHTML);
+    } catch (err) {
+      console.error('Error applying color:', err);
+    }
+  };
 
   return (
     <div className="simple-professional-math-editor">
@@ -862,6 +655,58 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
               : (isArabicBrowser() ? '(عرض طبيعي)' : '(Normal display)')
             }
           </span>
+        </button>
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-gray-200 bg-white p-3">
+        <span className="text-sm font-bold text-gray-700">
+          {isArabicBrowser() ? 'لون الخط' : 'Text color'}
+        </span>
+        {TEXT_COLORS.map((c) => (
+          <button
+            key={c.value}
+            type="button"
+            title={c.label}
+            onClick={() => applyEditorColor(c.value, 'color')}
+            className="h-7 w-7 rounded-full border border-gray-300 shadow-sm hover:scale-110 transition"
+            style={{ backgroundColor: c.value }}
+            aria-label={c.label}
+          />
+        ))}
+        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+          <span>{isArabicBrowser() ? 'مخصص' : 'Custom'}</span>
+          <input
+            type="color"
+            defaultValue="#14212b"
+            onChange={(e) => applyEditorColor(e.target.value, 'color')}
+            className="h-8 w-10 cursor-pointer rounded border border-gray-300 bg-white p-0"
+            title={isArabicBrowser() ? 'اختر لون الخط' : 'Choose text color'}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={() => applyEditorColor(false, 'color')}
+          className="text-xs font-semibold text-gray-600 border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50"
+        >
+          {isArabicBrowser() ? 'إلغاء اللون' : 'Clear color'}
+        </button>
+        <span className="w-px h-6 bg-gray-200 hidden sm:block" />
+        <span className="text-sm font-bold text-gray-700">
+          {isArabicBrowser() ? 'تمييز' : 'Highlight'}
+        </span>
+        <input
+          type="color"
+          defaultValue="#fef9c3"
+          onChange={(e) => applyEditorColor(e.target.value, 'background')}
+          className="h-8 w-10 cursor-pointer rounded border border-gray-300 bg-white p-0"
+          title={isArabicBrowser() ? 'لون الخلفية' : 'Highlight color'}
+        />
+        <button
+          type="button"
+          onClick={() => applyEditorColor(false, 'background')}
+          className="text-xs font-semibold text-gray-600 border border-gray-300 rounded-lg px-2 py-1 hover:bg-gray-50"
+        >
+          {isArabicBrowser() ? 'إلغاء التمييز' : 'Clear highlight'}
         </button>
       </div>
 
@@ -956,54 +801,11 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
             </div>
 
             <div className="p-6">
-              <div className="mb-6">
-                <h4 className="font-bold text-xl mb-4 text-gray-800 flex items-center gap-2">
-                  <span className="text-2xl">🎯</span>
-                  {isArabicBrowser() ? 'قوالب سريعة:' : 'Quick Templates:'}
-                </h4>
-                <div className="grid grid-cols-5 md:grid-cols-9 gap-3">
-                  {mathTemplates.map((template, index) => (
-                    <button
-                      key={index}
-                      type="button"
-                      onClick={() => insertTemplate(template.latex)}
-                      className="group relative px-3 py-4 bg-gradient-to-br from-blue-50 to-indigo-100 hover:from-blue-100 hover:to-indigo-200 rounded-xl text-center border-2 border-blue-200 hover:border-blue-500 transition-all transform hover:scale-105 shadow-sm hover:shadow-md"
-                      title={template.label}
-                    >
-                      <span className="text-2xl font-bold text-blue-700">{template.icon}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {MathfieldElement && (
-                <div className="mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="font-bold text-xl text-gray-800 flex items-center gap-2">
-                      <span className="text-2xl">✏️</span>
-                      {isArabicBrowser() ? 'المحرر المرئي:' : 'Visual Editor:'}
-                    </h4>
-                    <span className={`px-4 py-2 rounded-lg text-sm font-bold shadow-md ${
-                      isRTL 
-                        ? 'bg-blue-500 text-white' 
-                        : 'bg-green-500 text-white'
-                    }`}>
-                      {isRTL ? '🇸🇦 عربي RTL' : '🇬🇧 English LTR'}
-                    </span>
-                  </div>
-                  <div 
-                    ref={mathfieldRef}
-                    className={`border-4 border-blue-300 rounded-xl p-6 min-h-[120px] bg-gradient-to-br from-white to-blue-50 shadow-inner ${
-                      isRTL ? 'math-rtl-mode' : 'math-ltr-mode'
-                    }`}
-                  />
-                  <p className="text-sm text-gray-600 mt-3 bg-blue-50 p-3 rounded-lg border border-blue-200">
-                    💡 {isArabicBrowser() 
-                      ? 'استخدم القوالب السريعة أعلاه، أو اكتب مباشرة في المحرر' 
-                      : 'Use quick templates above, or type directly in the editor'}
-                  </p>
-                </div>
-              )}
+              <ArabicKatexEditor
+                value={mathValue}
+                onChange={setMathValue}
+                rtl={isRTL}
+              />
 
               <div className="flex gap-4 justify-end pt-6 border-t-2 border-gray-200">
                 <button
@@ -1077,7 +879,7 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           z-index: 10;
         }
         
-        /* Math equations styling - RTL for Arabic layout */
+        /* Math equations styling */
         .simple-professional-math-editor .ql-editor .math-equation {
           display: inline-block;
           vertical-align: middle;
@@ -1085,61 +887,70 @@ const SimpleProfessionalMathEditor = ({ value, onChange, placeholder }) => {
           padding: 2px 4px;
           cursor: pointer;
           transition: background-color 0.2s;
-          direction: rtl;
-          text-align: right;
         }
         
         .simple-professional-math-editor .ql-editor .math-equation:hover {
           background-color: rgba(59, 130, 246, 0.1);
           border-radius: 4px;
         }
-        
-        /* KaTeX fraction styling - CRITICAL for proper display - RTL */
-        .simple-professional-math-editor .ql-editor .math-equation .katex {
-          font-size: 1.1em !important;
-          direction: rtl !important;
-          text-align: right !important;
-        }
-        
-        /* CRITICAL: Proper fraction display */
-        .simple-professional-math-editor .ql-editor .math-equation .katex .frac {
-          display: inline-block !important;
-          vertical-align: middle !important;
-          text-align: center !important;
-          position: relative !important;
-        }
-        
-        .simple-professional-math-editor .ql-editor .math-equation .katex .frac > span {
-          display: block !important;
-        }
-        
-        .simple-professional-math-editor .ql-editor .math-equation .katex .frac-num {
-          display: block !important;
-          text-align: center !important;
-          line-height: 1.2 !important;
-        }
-        
-        .simple-professional-math-editor .ql-editor .math-equation .katex .frac-line {
-          border-bottom: 0.04em solid currentColor !important;
-          display: block !important;
-          width: 100% !important;
-          height: 0 !important;
-          margin: 0.1em 0 !important;
-        }
-        
-        .simple-professional-math-editor .ql-editor .math-equation .katex .frac-den {
-          display: block !important;
-          text-align: center !important;
-          line-height: 1.2 !important;
-        }
-        
-        math-field {
-          font-family: inherit;
+
+        .simple-professional-math-editor .ql-editor .katex-arabic {
+          overflow: visible;
         }
 
-        math-field::part(container) {
-          border: none;
-          padding: 0;
+        .simple-professional-math-editor .ql-font-cairo {
+          font-family: Cairo, sans-serif;
+        }
+        .simple-professional-math-editor .ql-font-tajawal {
+          font-family: Tajawal, sans-serif;
+        }
+        .simple-professional-math-editor .ql-font-amiri {
+          font-family: Amiri, serif;
+        }
+        .simple-professional-math-editor .ql-font-arial {
+          font-family: Arial, sans-serif;
+        }
+
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-label::before,
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-item::before {
+          content: 'خط';
+        }
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="cairo"]::before,
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="cairo"]::before {
+          content: 'Cairo';
+          font-family: Cairo, sans-serif;
+        }
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="tajawal"]::before,
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="tajawal"]::before {
+          content: 'Tajawal';
+          font-family: Tajawal, sans-serif;
+        }
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="amiri"]::before,
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="amiri"]::before {
+          content: 'Amiri';
+          font-family: Amiri, serif;
+        }
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="arial"]::before {
+          content: 'Arial';
+          font-family: Arial, sans-serif;
+        }
+
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-size .ql-picker-label::before,
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-size .ql-picker-item::before {
+          content: 'عادي';
+        }
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="small"]::before,
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="small"]::before {
+          content: 'صغير';
+        }
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="large"]::before,
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="large"]::before {
+          content: 'كبير';
+        }
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-size .ql-picker-label[data-value="huge"]::before,
+        .simple-professional-math-editor .ql-snow .ql-picker.ql-size .ql-picker-item[data-value="huge"]::before {
+          content: 'أكبر';
         }
       `}</style>
     </div>
