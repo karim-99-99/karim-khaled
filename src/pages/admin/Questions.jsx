@@ -7,6 +7,7 @@ import {
   addQuestion,
   updateQuestion,
   deleteQuestion,
+  deleteQuestionsByLevel,
   getLevelsByChapter,
   getCategoriesBySubject,
   getChaptersByCategory,
@@ -19,6 +20,7 @@ import * as backendApi from "../../services/backendApi";
 const { sortQuestionsBySequence, updateQuestionOrder, reorderQuestionsForLesson } = backendApi;
 import Header from "../../components/Header";
 import ErrorBoundary from "../../components/ErrorBoundary";
+import ConfirmDialog from "../../components/ConfirmDialog";
 import WordQuestionImport from "../../components/WordQuestionImport";
 import { isArabicBrowser } from "../../utils/language";
 import {
@@ -68,6 +70,8 @@ const Questions = () => {
   const [showMathEditor, setShowMathEditor] = useState(false);
   const [isLoadingForm, setIsLoadingForm] = useState(false);
   const [showPassageForm, setShowPassageForm] = useState(false);
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [clearingAllQuestions, setClearingAllQuestions] = useState(false);
   const [editingPassage, setEditingPassage] = useState(null);
   const [addingQuestionToPassage, setAddingQuestionToPassage] = useState(null);
   const [newPassageQuestionForm, setNewPassageQuestionForm] = useState({
@@ -1240,6 +1244,31 @@ const Questions = () => {
     }
   };
 
+  const handleClearAllQuestions = async () => {
+    if (!selectedLevel || questions.length === 0 || clearingAllQuestions) return;
+    setClearingAllQuestions(true);
+    try {
+      if (useBackend && backendApi.isBackendOn()) {
+        await backendApi.clearLessonQuestions(selectedLevel);
+        await refetchQuestionsForLevel(selectedLevel);
+      } else {
+        deleteQuestionsByLevel(selectedLevel);
+        setQuestions(getQuestionsByLevel(selectedLevel));
+      }
+      setShowClearAllConfirm(false);
+      setShowForm(false);
+      setShowPassageForm(false);
+      setEditingQuestion(null);
+      setEditingPassage(null);
+      setAddingQuestionToPassage(null);
+    } catch (error) {
+      console.error("Error clearing questions:", error);
+      alert("حدث خطأ أثناء مسح الأسئلة. يرجى المحاولة مرة أخرى.");
+    } finally {
+      setClearingAllQuestions(false);
+    }
+  };
+
   const handleMoveQuestion = async (questionId, direction) => {
     if (!selectedLevel) return;
     const currentIndex = questions.findIndex((q) => q.id === questionId);
@@ -1425,6 +1454,17 @@ const Questions = () => {
     ? getLevelsByChapter(selectedChapter) || []
     : [];
 
+  const getSelectedUnitLabel = () => {
+    const categoryName =
+      selectedSubjectObj?.categories?.find((c) => c.id === selectedCategory)
+        ?.name || "";
+    const levelName = levels.find((l) => l.id === selectedLevel)?.name || "";
+    const haystack = `${categoryName} ${levelName}`;
+    if (/بنك|تجميع/.test(haystack)) return "البنك";
+    if (/واجب|تأسيس/.test(haystack)) return "الواجب";
+    return levelName ? `«${levelName}»` : "هذا المستوى";
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -1562,6 +1602,14 @@ const Questions = () => {
                     className="bg-green-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-green-600 transition font-medium text-sm sm:text-base w-full sm:w-auto"
                   >
                     + إضافة قطعة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowClearAllConfirm(true)}
+                    disabled={questions.length === 0 || clearingAllQuestions}
+                    className="bg-red-600 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-lg hover:bg-red-700 transition font-medium text-sm sm:text-base w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    مسح كل الأسئلة
                   </button>
                 </div>
               </div>
@@ -2583,6 +2631,16 @@ const Questions = () => {
           )}
         </div>
       </div>
+      {showClearAllConfirm && (
+        <ConfirmDialog
+          title="مسح كل الأسئلة"
+          message={`سيتم حذف جميع الأسئلة (${questions.length}) من ${getSelectedUnitLabel()} نهائياً. الفيديوهات والملفات لن تُحذف. لا يمكن التراجع. هل أنت متأكد؟`}
+          onCancel={() => {
+            if (!clearingAllQuestions) setShowClearAllConfirm(false);
+          }}
+          onConfirm={handleClearAllQuestions}
+        />
+      )}
     </div>
   );
 };

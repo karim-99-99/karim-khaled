@@ -820,6 +820,20 @@ export const deleteQuestion = (questionId) => {
     console.error('Error deleting question:', error);
   }
 };
+
+export const deleteQuestionsByLevel = (levelId) => {
+  try {
+    const questions = getQuestions();
+    const filtered = questions.filter(
+      (q) => q.itemId !== levelId && q.levelId !== levelId && q.lessonId !== levelId
+    );
+    localStorage.setItem(STORAGE_KEYS.QUESTIONS, JSON.stringify(filtered));
+    memoryCache.invalidate(STORAGE_KEYS.QUESTIONS);
+  } catch (error) {
+    console.error('Error deleting questions by level:', error);
+  }
+};
+
 // Get all videos
 export const getVideos = () => {
   try {

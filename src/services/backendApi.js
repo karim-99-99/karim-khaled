@@ -1050,6 +1050,16 @@ export const deleteQuestion = async (questionId) => {
   _lessonQuestionsCache.clear();
 };
 
+/** Delete every question in a lesson / homework / bank. */
+export const clearLessonQuestions = async (lessonId) => {
+  const data = await request("/questions/clear-lesson/", {
+    method: "POST",
+    body: JSON.stringify({ lesson_id: lessonId }),
+  });
+  _lessonQuestionsCache.delete(lessonId);
+  return data;
+};
+
 const WORD_TEMPLATE_PUBLIC_PATH = "/question-import-template.docx";
 
 /** Download the official Word example used for bulk question import. */

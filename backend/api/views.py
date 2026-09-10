@@ -1043,7 +1043,10 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return queryset
     
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'set_order', 'reorder', 'import_word', 'word_template']:
+        if self.action in [
+            'create', 'update', 'partial_update', 'destroy',
+            'set_order', 'reorder', 'import_word', 'word_template', 'clear_lesson',
+        ]:
             return [IsStaffUser()]
         return [IsAuthenticatedDeviceAllowed()]
     
@@ -1079,6 +1082,26 @@ class QuestionViewSet(viewsets.ModelViewSet):
                 id_to_question[qid].save(update_fields=['order_index'])
         invalidate_chapter_dashboard_for_lesson(lesson_id)
         return Response({'updated': len(order_ids)})
+
+    @action(detail=False, methods=['post'], url_path='clear-lesson')
+    def clear_lesson(self, request):
+        """Delete every question (and nested passage questions) for one lesson/bank/homework."""
+        lesson_id = (request.data.get('lesson_id') or request.data.get('lesson') or '').strip()
+        if not lesson_id:
+            return Response(
+                {'detail': 'اختر الدرس / الواجب / البنك أولاً.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not Lesson.objects.filter(id=lesson_id).exists():
+            return Response(
+                {'detail': 'الدرس المحدد غير موجود.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        qs = Question.objects.filter(lesson_id=lesson_id)
+        question_count = qs.count()
+        qs.delete()
+        invalidate_chapter_dashboard_for_lesson(lesson_id)
+        return Response({'deleted': question_count, 'lesson_id': lesson_id})
 
     @action(detail=False, methods=['get'], url_path='word-template')
     def word_template(self, request):
