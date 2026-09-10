@@ -377,8 +377,8 @@ const AdminTracker = () => {
                         <td className="px-2 py-2">{r.first_name} {r.last_name}</td>
                         <td className="px-2 py-2">{r.email}</td>
                         <td className="px-2 py-2">{r.status}</td>
-                        <td className="px-2 py-2 text-xs">{r.started_at ? new Date(r.started_at).toLocaleString("ar-SA") : "—"}</td>
-                        <td className="px-2 py-2 text-xs">{r.completed_at ? new Date(r.completed_at).toLocaleString("ar-SA") : "—"}</td>
+                        <td className="px-2 py-2 text-xs">{r.started_at ? new Date(r.started_at).toLocaleString("ar-SA-u-nu-arab") : "—"}</td>
+                        <td className="px-2 py-2 text-xs">{r.completed_at ? new Date(r.completed_at).toLocaleString("ar-SA-u-nu-arab") : "—"}</td>
                         <td className="px-2 py-2">{r.duration_seconds ? `${Math.floor(r.duration_seconds / 60)} د` : "—"}</td>
                         <td className="px-2 py-2 font-bold">{r.score_total != null ? `${r.score_total} / ${r.score_max}` : "—"}</td>
                         {(byLessonData.questions || []).map((q) => {
@@ -571,7 +571,7 @@ const AdminTracker = () => {
                                   <td className="px-3 py-2 font-mono text-xs">{e.video_id?.slice(0, 12)}…</td>
                                   <td className="px-3 py-2 font-mono text-xs">{e.ip}</td>
                                   <td className="px-3 py-2 text-gray-500 text-xs">
-                                    {new Date(e.at).toLocaleString("ar-SA")}
+                                    {new Date(e.at).toLocaleString("ar-SA-u-nu-arab")}
                                   </td>
                                 </tr>
                               ))}
@@ -660,7 +660,7 @@ const AdminTracker = () => {
                     </div>
 
                     <div className="text-xs text-gray-400 text-left">
-                      آخر فحص: {new Date(abuseData.since).toLocaleString("ar-SA")} ← الآن
+                      آخر فحص: {new Date(abuseData.since).toLocaleString("ar-SA-u-nu-arab")} ← الآن
                     </div>
                   </div>
                 )}

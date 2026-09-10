@@ -125,8 +125,9 @@ const Questions = () => {
 
   // Convert Western numerals (0-9) to Arabic numerals (٠-٩)
   const convertToArabicNumerals = (text) => {
-    const arabicNumerals = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
-    return text.replace(/[0-9]/g, (digit) => arabicNumerals[parseInt(digit)]);
+    return String(text ?? "")
+      .replace(/[0-9]/g, (digit) => "٠١٢٣٤٥٦٧٨٩"[digit])
+      .replace(/[\u06F0-\u06F9]/g, (ch) => "٠١٢٣٤٥٦٧٨٩"[ch.charCodeAt(0) - 0x06f0]);
   };
 
   // Convert Arabic numerals (٠-٩) to Western numerals (0-9)
@@ -145,7 +146,10 @@ const Questions = () => {
     const t = html.trim();
     if (!t) return html;
     const ar = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];
-    const convertDigits = (s) => s.replace(/[0-9]/g, (d) => ar[parseInt(d)]);
+    const convertDigits = (s) =>
+      s
+        .replace(/[0-9]/g, (d) => ar[parseInt(d, 10)])
+        .replace(/[\u06F0-\u06F9]/g, (ch) => ar[ch.charCodeAt(0) - 0x06f0]);
     if (typeof document === "undefined" || !t.includes("<"))
       return convertDigits(html);
     const div = document.createElement("div");

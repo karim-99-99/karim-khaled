@@ -23,6 +23,8 @@ const TOOLBAR = [
     items: [
       { title: "تربيع", visual: "□²", snippet: "^{2}" },
       { title: "أس", visual: "□ⁿ", snippet: "^{#}" },
+      { title: "أس مركب", visual: "e^{r²}", snippet: "e^{x^{2} + y^{2}} = e^{r^{2}}" },
+      { title: "أس متداخل", visual: "□^{□ⁿ}", snippet: "#^{#^{#}}" },
       { title: "دليل", visual: "□ₙ", snippet: "_{#}" },
     ],
   },
@@ -44,16 +46,16 @@ const TOOLBAR = [
 ];
 
 const NUMBERS = [
-  ["0", "۰"],
-  ["1", "۱"],
-  ["2", "۲"],
-  ["3", "۳"],
-  ["4", "۴"],
-  ["5", "۵"],
-  ["6", "۶"],
-  ["7", "۷"],
-  ["8", "۸"],
-  ["9", "۹"],
+  ["0", "٠"],
+  ["1", "١"],
+  ["2", "٢"],
+  ["3", "٣"],
+  ["4", "٤"],
+  ["5", "٥"],
+  ["6", "٦"],
+  ["7", "٧"],
+  ["8", "٨"],
+  ["9", "٩"],
 ];
 
 const OPS = [
@@ -199,7 +201,7 @@ function ArabicKatexEditor({ value = "", onChange, rtl = true }) {
           {ar ? "معادلة LaTeX" : "LaTeX equation"}
         </h4>
         <span className="ake-hint">
-          {ar ? "اكتب الأرقام اللاتينية 0–9 — تُعرض فارسية تلقائياً" : "Type 0–9 — they display as Persian digits"}
+          {ar ? "اكتب الأرقام اللاتينية 0–9 — تُعرض عربية ٠١٢ تلقائياً" : "Type 0–9 — they display as Arabic-Indic digits"}
         </span>
       </div>
       <textarea
@@ -211,7 +213,7 @@ function ArabicKatexEditor({ value = "", onChange, rtl = true }) {
         onChange={(e) => onChange?.(e.target.value)}
       />
       <div className="ake-numpad">
-        {NUMBERS.map(([latin, persian]) => (
+        {NUMBERS.map(([latin, arabic]) => (
           <button
             key={latin}
             type="button"
@@ -219,7 +221,7 @@ function ArabicKatexEditor({ value = "", onChange, rtl = true }) {
             title={latin}
             onClick={() => insertAtCursor(latin)}
           >
-            {persian}
+            {arabic}
           </button>
         ))}
         {OPS.map(([latin, label]) => (

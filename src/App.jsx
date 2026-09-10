@@ -12,6 +12,7 @@ import AppErrorBoundary from "./components/AppErrorBoundary.jsx";
 import AvatarOnboarding from "./components/AvatarOnboarding.jsx";
 import DeviceRestrictedNotice from "./components/DeviceRestrictedNotice.jsx";
 import BottomNav from "./components/BottomNav.jsx";
+import ArabicDigitsRoot from "./components/ArabicDigitsRoot.jsx";
 
 // Eager load only critical pages
 import SinglePage from "./pages/SinglePage.jsx";
@@ -142,6 +143,7 @@ function App() {
     >
       <ErrorBoundaryReset>
         <div className="App" dir="rtl">
+          <ArabicDigitsRoot />
           <AvatarOnboarding />
           <DeviceRestrictedNotice />
           <main className="min-h-screen">

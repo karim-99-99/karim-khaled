@@ -625,7 +625,7 @@ const AdminUsers = () => {
                           <td className="px-4 py-3 text-center text-sm text-dark-600">
                             {user.createdAt
                               ? new Date(user.createdAt).toLocaleDateString(
-                                  "ar-SA",
+                                  "ar-SA-u-nu-arab",
                                   {
                                     year: "numeric",
                                     month: "short",

@@ -96,7 +96,7 @@ const StatBubble = ({
           className="mt-1 tabular-nums text-4xl md:text-5xl font-black tracking-tight drop-shadow-lg motion-safe:animate-[results-pop_0.5s_ease-out_1]"
           style={{ animationDelay: "0.05s" }}
         >
-          {n.toLocaleString("ar-EG")}
+          {n.toLocaleString("ar-SA-u-nu-arab")}
         </span>
       </div>
     </div>
@@ -484,7 +484,7 @@ export default function StudentResultsModal({ open, onClose }) {
                             {attempt.completed_at && (
                               <span>
                                 {new Date(attempt.completed_at).toLocaleString(
-                                  "ar-SA",
+                                  "ar-SA-u-nu-arab",
                                   { dateStyle: "medium", timeStyle: "short" }
                                 )}
                               </span>

@@ -807,3 +807,12 @@ p, span, div, h1, h2, h3, h4, h5, h6, li {
 .ql-editor .katex-arabic {
   --ka-color: currentColor;
 }
+
+@counter-style arabic-indic-digits {
+  system: numeric;
+  symbols: "٠" "١" "٢" "٣" "٤" "٥" "٦" "٧" "٨" "٩";
+}
+
+ol {
+  list-style: arabic-indic-digits;
+}

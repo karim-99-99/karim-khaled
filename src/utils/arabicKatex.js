@@ -68,7 +68,7 @@ export function getArabicKatexOptions({ rtl = true, displayMode = true } = {}) {
     };
   }
   return {
-    numerals: "extended",
+    numerals: "arabic",
     translateFuncs: true,
     translateVars: true,
     translateDiffs: true,

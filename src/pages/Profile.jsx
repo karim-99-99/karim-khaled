@@ -253,7 +253,7 @@ const Profile = () => {
                   <dd className="font-medium text-dark-800">
                     {user.createdAt
                       ? new Date(user.createdAt).toLocaleDateString(
-                          ar ? "ar-SA" : "en-GB",
+                          ar ? "ar-SA-u-nu-arab" : "en-GB",
                           { year: "numeric", month: "short", day: "numeric" }
                         )
                       : "—"}
