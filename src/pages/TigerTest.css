@@ -341,9 +341,23 @@
 
 .tiger-test-question-text {
   font-size: calc(18px * var(--tt, 1));
+  font-weight: 700;
   line-height: 1.85;
   color: #222;
   margin-bottom: 24px;
+}
+
+.tiger-test-question-text,
+.tiger-test-question-text p,
+.tiger-test-question-text div,
+.tiger-test-question-text li,
+.tiger-test-question-text .math-renderer-root {
+  font-weight: 700 !important;
+}
+
+.tiger-test-question-text .katex-arabic,
+.tiger-test-question-text .katex {
+  font-weight: 400 !important;
 }
 
 .tiger-test-passage {
