@@ -306,6 +306,16 @@ const Header = () => {
                           إدارة الواجب
                         </Link>
                         <Link
+                          to="/admin/tiger-banks"
+                          className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                          onClick={() => {
+                            setIsUserMenuOpen(false);
+                            setIsMenuOpen(false);
+                          }}
+                        >
+                          بنوك محاكي النمر
+                        </Link>
+                        <Link
                           to="/admin/videos"
                           className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
                           onClick={() => {
@@ -542,6 +552,16 @@ const Header = () => {
                             }}
                           >
                             إدارة الواجب
+                          </Link>
+                          <Link
+                            to="/admin/tiger-banks"
+                            className="block px-4 py-2 text-dark-600 hover:bg-gray-100 transition-colors text-right"
+                            onClick={() => {
+                              setIsUserMenuOpen(false);
+                              setIsMenuOpen(false);
+                            }}
+                          >
+                            بنوك محاكي النمر
                           </Link>
                           <Link
                             to="/admin/videos"

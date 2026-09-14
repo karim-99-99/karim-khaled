@@ -25,7 +25,7 @@ def content_cache_key(chapter_id: str) -> str:
     return f'{CONTENT_CACHE_PREFIX}{chapter_id}'
 
 
-TIGER_SLOT_CACHE_KEY = 'tiger_slots_v2'
+TIGER_SLOT_CACHE_KEY = 'tiger_slots_v3'
 TIGER_SLOT_CACHE_TTL = 60 * 10
 
 

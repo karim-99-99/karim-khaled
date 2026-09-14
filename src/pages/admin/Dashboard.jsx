@@ -43,6 +43,14 @@ const Dashboard = () => {
           </button>
 
           <button
+            onClick={() => navigate("/admin/tiger-banks")}
+            className="bg-rose-600 hover:bg-rose-700 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
+          >
+            <span className="text-2xl">🐯</span>
+            <span>بنوك محاكي النمر</span>
+          </button>
+
+          <button
             onClick={() => navigate("/admin/videos")}
             className="bg-red-500 hover:bg-red-600 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >

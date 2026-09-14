@@ -97,3 +97,36 @@
   display: block;
   margin: 0.75em 0;
 }
+
+/*
+ * KaTeX scriptstyle is 0.7em (and scriptscript 0.5em), which made
+ * exponents and nested root indices too small after matching text size.
+ * Restore a readable, textbook-like script size everywhere — questions,
+ * answers, banks, editor, and already-saved HTML.
+ */
+.katex .sizing.reset-size6.size3,
+.katex .fontsize-ensurer.reset-size6.size3 {
+  font-size: 0.88em !important;
+}
+
+.katex .sizing.reset-size6.size2,
+.katex .fontsize-ensurer.reset-size6.size2 {
+  font-size: 0.78em !important;
+}
+
+.katex .sizing.reset-size6.size1,
+.katex .fontsize-ensurer.reset-size6.size1 {
+  font-size: 0.72em !important;
+}
+
+.math-renderer-root sup,
+.ql-editor sup,
+.arabic-katex-host sup {
+  font-size: 0.88em;
+}
+
+.katex .sqrt,
+.katex .sqrt > .vlist-t,
+.katex .hide-tail {
+  overflow: visible;
+}

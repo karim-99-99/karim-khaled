@@ -48,6 +48,7 @@ urlpatterns = [
     path('tracker/incorrect-answers/<str:question_id>/', views.IncorrectAnswerDetailView.as_view(), name='incorrect-answers-detail'),
     path('tracker/admin-incorrect-answers/', views.AdminIncorrectAnswersView.as_view(), name='tracker-admin-incorrect-answers'),
     path('tracker/by-lesson/', views.TrackerByLessonView.as_view(), name='tracker-by-lesson'),
+    path('tiger-test/banks/', tiger_test_views.TigerTestBanksView.as_view(), name='tiger-test-banks'),
     path('tiger-test/active/', tiger_test_views.TigerTestActiveView.as_view(), name='tiger-test-active'),
     path('tiger-test/start/', tiger_test_views.TigerTestStartView.as_view(), name='tiger-test-start'),
     path('tiger-test/abandon/', tiger_test_views.TigerTestAbandonView.as_view(), name='tiger-test-abandon'),

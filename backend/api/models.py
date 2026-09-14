@@ -628,3 +628,19 @@ class TigerTestUsedQuestion(models.Model):
 
     def __str__(self):
         return f"{self.user.username} — {self.question_key}"
+
+
+class TigerTestSettings(models.Model):
+    """Singleton: which verbal/quant banks (lessons) feed محاكي النمر."""
+
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1)
+    verbal_bank_ids = models.JSONField(default=list, blank=True)
+    quant_bank_ids = models.JSONField(default=list, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        self.id = 1
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return "Tiger test bank settings"

@@ -13,6 +13,7 @@ from .models import (
     Answer,
     TigerTestSession,
     TigerTestUsedQuestion,
+    TigerTestSettings,
     Video,
     Lesson,
     IncorrectAnswer,
@@ -30,6 +31,7 @@ SECTION_SECONDS = 24 * 60
 VERBAL_TOTAL = VERBAL_PER_SECTION * SECTION_COUNT  # 65
 QUANT_TOTAL = QUANT_PER_SECTION * SECTION_COUNT  # 55
 TOTAL_QUESTIONS = SECTION_COUNT * QUESTIONS_PER_SECTION  # 120
+VERBAL_WINDOW_STARTS = (0, 13, 26, 39, 52)
 
 SECTION_TITLES = [
     "1 - القسم الأول",
@@ -87,6 +89,7 @@ def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         "subject_id",
         "chapter_id",
         "lesson_id",
+        "order_index",
         "passage_questions",
     )
 
@@ -125,6 +128,7 @@ def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                             "passage_index": idx,
                             "subject": kind,
                             "lesson_id": q.lesson_id,
+                            "order_index": q.order_index if q.order_index is not None else 0,
                         }
                     )
             else:
@@ -140,6 +144,7 @@ def flatten_all_slots() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
                         "passage_index": None,
                         "subject": kind,
                         "lesson_id": q.lesson_id,
+                        "order_index": q.order_index if q.order_index is not None else 0,
                     }
                 )
 
@@ -184,239 +189,453 @@ def _used_keys_for_user(user) -> set[str]:
     )
 
 
-def _available_from_pool(
-    pool: list[dict], used: set[str], user, exclude_ids: set[str] | None = None
-) -> list[dict]:
-    """Unused slots only — never repeat a question for the same student."""
-    exclude_ids = exclude_ids or set()
-    return [
-        s for s in pool if s["slot_id"] not in used and s["slot_id"] not in exclude_ids
-    ]
+def get_tiger_settings() -> TigerTestSettings:
+    obj, _ = TigerTestSettings.objects.get_or_create(pk=1)
+    return obj
 
 
-def _pick_from_pool(
-    pool: list[dict],
-    count: int,
-    used: set[str],
-    user,
-    exclude_ids: set[str] | None = None,
-) -> list[dict]:
-    """Pick unused slots across bank files (lessons). If one file is short, fill from another."""
-    if count <= 0:
-        return []
-    available = _available_from_pool(pool, used, user, exclude_ids)
-    if not available:
-        return []
-
-    by_bank: dict[str, list[dict]] = {}
-    for s in available:
-        bank = s.get("lesson_id") or s.get("parent_id") or "_none"
-        by_bank.setdefault(str(bank), []).append(s)
-
-    bank_keys = list(by_bank.keys())
-    random.shuffle(bank_keys)
-
-    picked: list[dict] = []
-    for key in bank_keys:
-        if len(picked) >= count:
-            break
-        bucket = list(by_bank[key])
-        random.shuffle(bucket)
-        need = count - len(picked)
-        picked.extend(bucket[:need])
-
-    for s in picked:
-        used.add(s["slot_id"])
-    return picked
+def _normalize_id_list(raw) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for item in raw or []:
+        sid = str(item).strip()
+        if sid and sid not in seen:
+            seen.add(sid)
+            out.append(sid)
+    return out
 
 
-def _pick_with_fallback(
-    primary: list[dict],
-    secondary: list[dict],
-    count: int,
-    used: set[str],
-    user,
-    subject_kind: str,
-    warnings: list[dict],
-    already_picked: set[str],
-) -> list[dict]:
-    """Pick up to `count` from primary, then fill shortfall from secondary."""
-    picked = _pick_from_pool(primary, count, used, user, exclude_ids=already_picked)
-    found_in_subject = len(picked)
-    shortfall = count - len(picked)
-    borrowed = 0
+def _is_bank_category_name(name: str) -> bool:
+    text = name or ""
+    return "تجميع" in text or "بنك" in text
 
-    if shortfall > 0:
-        exclude = already_picked | {s["slot_id"] for s in picked}
-        extra = _pick_from_pool(secondary, shortfall, used, user, exclude_ids=exclude)
-        # Keep original subject on borrowed slots (for correct scoring).
-        for s in extra:
-            copy = dict(s)
-            copy["borrowed_for"] = subject_kind
-            picked.append(copy)
-        borrowed = len(extra)
-        shortfall -= borrowed
 
-    if found_in_subject < count:
-        warnings.append(
-            {
-                "subject": subject_kind,
-                "subject_label": SUBJECT_LABELS.get(subject_kind, subject_kind),
-                "required": count,
-                "found_in_subject": found_in_subject,
-                "borrowed_from_other": borrowed,
-                "actual": len(picked),
-                "shortfall": max(0, count - len(picked)),
-            }
+def _lesson_ids_for_subject(subject_id: str) -> list[str]:
+    return list(
+        Lesson.objects.filter(chapter__category__subject_id=subject_id).values_list(
+            "id", flat=True
         )
+    )
 
-    return picked
+
+def _default_bank_ids(subject_id: str) -> list[str]:
+    """تجميعات/بنوك إن وُجدت، وإلا كل دروس المادة."""
+    lessons = (
+        Lesson.objects.filter(chapter__category__subject_id=subject_id)
+        .select_related("chapter__category")
+        .order_by("chapter__order", "order", "name")
+    )
+    bank_ids = [
+        lesson.id
+        for lesson in lessons
+        if _is_bank_category_name(getattr(lesson.chapter.category, "name", "") or "")
+    ]
+    if bank_ids:
+        return bank_ids
+    return [lesson.id for lesson in lessons]
+
+
+def resolve_bank_ids(subject_kind: str, selected: list[str] | None = None) -> list[str]:
+    subject_id = VERBAL_SUBJECT_ID if subject_kind == "verbal" else QUANT_SUBJECT_ID
+    chosen = _normalize_id_list(selected)
+    if chosen:
+        allowed = set(_lesson_ids_for_subject(subject_id))
+        return [sid for sid in chosen if sid in allowed]
+    return _default_bank_ids(subject_id)
+
+
+def _filter_pool_by_banks(pool: list[dict], bank_ids: list[str]) -> list[dict]:
+    if not bank_ids:
+        return list(pool)
+    allowed = set(str(x) for x in bank_ids)
+    return [s for s in pool if str(s.get("lesson_id") or "") in allowed]
+
+
+def _slot_sort_key(slot: dict) -> tuple:
+    order = slot.get("order_index")
+    if order is None:
+        order = 0
+    pidx = slot.get("passage_index")
+    return (
+        int(order),
+        str(slot.get("parent_id") or ""),
+        -1 if pidx is None else int(pidx),
+        str(slot.get("slot_id") or ""),
+    )
+
+
+def _ordered_bank_slots(pool: list[dict], lesson_id: str) -> list[dict]:
+    slots = [s for s in pool if str(s.get("lesson_id") or "") == str(lesson_id)]
+    slots.sort(key=_slot_sort_key)
+    return slots
+
+
+def _is_passage_slot(slot: dict) -> bool:
+    return slot.get("passage_index") is not None and bool(slot.get("parent_id"))
+
+
+def _passage_siblings(pool: list[dict], slot: dict) -> list[dict]:
+    if not _is_passage_slot(slot):
+        return [slot]
+    pid = str(slot["parent_id"])
+    sibs = [
+        s
+        for s in pool
+        if str(s.get("parent_id") or "") == pid and s.get("passage_index") is not None
+    ]
+    sibs.sort(key=lambda x: x.get("passage_index") or 0)
+    return sibs or [slot]
+
+
+def _expand_complete_passages(slots: list[dict], lookup_pool: list[dict]) -> list[dict]:
+    """If any sub-question of a passage is included, take the whole passage in order."""
+    seen_parents: set[str] = set()
+    seen_ids: set[str] = set()
+    out: list[dict] = []
+    for slot in slots:
+        if _is_passage_slot(slot):
+            pid = str(slot["parent_id"])
+            if pid in seen_parents:
+                continue
+            seen_parents.add(pid)
+            for sib in _passage_siblings(lookup_pool, slot):
+                if sib["slot_id"] not in seen_ids:
+                    seen_ids.add(sib["slot_id"])
+                    out.append(sib)
+        elif slot["slot_id"] not in seen_ids:
+            seen_ids.add(slot["slot_id"])
+            out.append(slot)
+    return out
 
 
 def _passage_groups(slots: list[dict]) -> list[list[dict]]:
     """Keep sub-questions of the same passage consecutive; each still counts as one slot."""
     groups: dict[str, list[dict]] = {}
-    order_keys: list[str] = []
-    singles: list[list[dict]] = []
-    for s in slots:
-        if s.get("passage_index") is not None and s.get("parent_id"):
-            pid = str(s["parent_id"])
+    singles: dict[str, list[dict]] = {}
+    order_keys: list[tuple[str, str]] = []
+    for slot in slots:
+        if _is_passage_slot(slot):
+            pid = str(slot["parent_id"])
             if pid not in groups:
                 groups[pid] = []
-                order_keys.append(pid)
-            groups[pid].append(s)
+                order_keys.append(("p", pid))
+            groups[pid].append(slot)
         else:
-            singles.append([s])
+            sid = str(slot["slot_id"])
+            singles[sid] = [slot]
+            order_keys.append(("s", sid))
     out: list[list[dict]] = []
-    for pid in order_keys:
-        g = groups[pid]
-        g.sort(key=lambda x: x.get("passage_index") or 0)
-        out.append(g)
-    out.extend(singles)
+    for kind, key in order_keys:
+        if kind == "p":
+            group = groups.pop(key, None)
+            if not group:
+                continue
+            group.sort(key=lambda x: x.get("passage_index") or 0)
+            out.append(group)
+        else:
+            out.append(singles[key])
     return out
 
 
-def _distribute_into_sections(verbal: list[dict], quant: list[dict]) -> list[list[dict]]:
-    """Always 5 sections of 24 questions: 13 verbal + 11 quantitative."""
-    verbal = list(verbal)
-    quant = list(quant)
-    if len(verbal) < VERBAL_TOTAL or len(quant) < QUANT_TOTAL:
+def _fit_to_count(slots: list[dict], count: int, lookup_pool: list[dict]) -> list[dict]:
+    """Keep at most `count` slots without splitting a passage."""
+    slots = _expand_complete_passages(slots, lookup_pool)
+    if len(slots) <= count:
+        return slots
+    groups = _passage_groups(slots)
+    while groups and sum(len(g) for g in groups) > count:
+        drop_at = next((i for i, g in enumerate(groups) if len(g) == 1), 0)
+        groups.pop(drop_at)
+    return [slot for group in groups for slot in group]
+
+
+def _append_fitting(
+    picked: list[dict],
+    candidates: list[dict],
+    count: int,
+    lookup_pool: list[dict],
+    blocked: set[str],
+) -> list[dict]:
+    picked_ids = {s["slot_id"] for s in picked}
+    for slot in candidates:
+        if len(picked) >= count:
+            break
+        if slot["slot_id"] in picked_ids or slot["slot_id"] in blocked:
+            continue
+        extra = _expand_complete_passages([slot], lookup_pool)
+        extra = [item for item in extra if item["slot_id"] not in picked_ids]
+        if not extra:
+            continue
+        if any(item["slot_id"] in blocked for item in extra):
+            continue
+        if len(picked) + len(extra) > count:
+            continue
+        picked.extend(extra)
+        picked_ids.update(item["slot_id"] for item in extra)
+    return picked
+
+
+def _pick_verbal_section(
+    verbal_pool: list[dict],
+    bank_ids: list[str],
+    previously_used: set[str],
+    already: set[str],
+    used_windows: set[tuple[str, int]],
+) -> list[dict]:
+    """13 questions from one random bank, using a 13-question window (1–13 … 53–65)."""
+    banks = [bid for bid in bank_ids if _ordered_bank_slots(verbal_pool, bid)]
+    if not banks:
+        banks = list(
+            {
+                str(s.get("lesson_id") or "")
+                for s in verbal_pool
+                if s.get("lesson_id")
+            }
+        )
+    if not banks:
         return []
-    sections: list[list[dict]] = []
-    for i in range(SECTION_COUNT):
-        v = verbal[i * VERBAL_PER_SECTION : (i + 1) * VERBAL_PER_SECTION]
-        q = quant[i * QUANT_PER_SECTION : (i + 1) * QUANT_PER_SECTION]
-        groups = _passage_groups(v) + _passage_groups(q)
-        random.shuffle(groups)
-        section = [slot for g in groups for slot in g]
-        if len(section) != QUESTIONS_PER_SECTION:
-            return []
-        sections.append(section)
-    return sections
+
+    random.shuffle(banks)
+    bank_id = banks[0]
+    ordered = _ordered_bank_slots(verbal_pool, bank_id)
+    unused_windows = [
+        start
+        for start in VERBAL_WINDOW_STARTS
+        if (bank_id, start) not in used_windows
+    ]
+    start = random.choice(unused_windows or list(VERBAL_WINDOW_STARTS))
+    used_windows.add((bank_id, start))
+    window = ordered[start : start + VERBAL_PER_SECTION]
+    unused_in_window = [
+        s for s in window if s["slot_id"] not in previously_used
+    ]
+    used_in_window = [s for s in window if s["slot_id"] in previously_used]
+    picked = _append_fitting(
+        [], unused_in_window, VERBAL_PER_SECTION, ordered, already
+    )
+    picked = _append_fitting(
+        picked, used_in_window, VERBAL_PER_SECTION, ordered, already
+    )
+
+    unused_rest = [
+        s
+        for s in ordered
+        if s["slot_id"] not in previously_used and s["slot_id"] not in already
+    ]
+    random.shuffle(unused_rest)
+    picked = _append_fitting(
+        picked, unused_rest, VERBAL_PER_SECTION, ordered, already
+    )
+
+    unused_any = [
+        s
+        for s in verbal_pool
+        if s["slot_id"] not in previously_used and s["slot_id"] not in already
+    ]
+    random.shuffle(unused_any)
+    picked = _append_fitting(
+        picked, unused_any, VERBAL_PER_SECTION, verbal_pool, already
+    )
+
+    used_fill = [
+        s
+        for s in verbal_pool
+        if s["slot_id"] in previously_used and s["slot_id"] not in already
+    ]
+    random.shuffle(used_fill)
+    picked = _append_fitting(
+        picked, used_fill, VERBAL_PER_SECTION, verbal_pool, already
+    )
+    return _fit_to_count(picked, VERBAL_PER_SECTION, verbal_pool)
+
+
+def _pick_quant_section(
+    quant_pool: list[dict],
+    previously_used: set[str],
+    already: set[str],
+) -> list[dict]:
+    """11 random questions from any selected quantitative bank."""
+    unused = [
+        s
+        for s in quant_pool
+        if s["slot_id"] not in previously_used and s["slot_id"] not in already
+    ]
+    random.shuffle(unused)
+    picked = _append_fitting([], unused, QUANT_PER_SECTION, quant_pool, already)
+
+    used_fill = [
+        s
+        for s in quant_pool
+        if s["slot_id"] in previously_used and s["slot_id"] not in already
+    ]
+    random.shuffle(used_fill)
+    picked = _append_fitting(
+        picked, used_fill, QUANT_PER_SECTION, quant_pool, already
+    )
+    return _fit_to_count(picked, QUANT_PER_SECTION, quant_pool)
+
+
+def _shuffle_section(verbal: list[dict], quant: list[dict]) -> list[dict]:
+    """Mix verbal + quant, but never split a passage or insert another question inside it."""
+    groups = _passage_groups(list(verbal) + list(quant))
+    random.shuffle(groups)
+    return [slot for group in groups for slot in group]
+
+
+def _pad_subject_slots(
+    slots: list[dict],
+    subject_kind: str,
+    count: int,
+    start_index: int,
+    warnings: list[dict],
+) -> list[dict]:
+    fitted = _fit_to_count(list(slots), count, list(slots))
+    if len(fitted) >= count:
+        return fitted
+    need = count - len(fitted)
+    extra = make_demo_slots(subject_kind, need, start_index=start_index)
+    warnings.append(
+        {
+            "subject": subject_kind,
+            "subject_label": SUBJECT_LABELS.get(subject_kind, subject_kind),
+            "required": count,
+            "found_in_subject": len(fitted),
+            "borrowed_from_other": 0,
+            "actual": count,
+            "shortfall": 0,
+            "demo_added": need,
+        }
+    )
+    return fitted + extra
+
+
+def serialize_tiger_banks() -> dict[str, Any]:
+    settings = get_tiger_settings()
+    verbal_pool, quant_pool = flatten_all_slots()
+    return {
+        "verbal": _serialize_bank_side(
+            "verbal", settings.verbal_bank_ids, verbal_pool
+        ),
+        "quant": _serialize_bank_side("quant", settings.quant_bank_ids, quant_pool),
+    }
+
+
+def _serialize_bank_side(
+    subject_kind: str, selected_raw, pool: list[dict]
+) -> dict[str, Any]:
+    subject_id = VERBAL_SUBJECT_ID if subject_kind == "verbal" else QUANT_SUBJECT_ID
+    selected_ids = _normalize_id_list(selected_raw)
+    counts: dict[str, int] = {}
+    for slot in pool:
+        lid = str(slot.get("lesson_id") or "")
+        if lid:
+            counts[lid] = counts.get(lid, 0) + 1
+    lessons = (
+        Lesson.objects.filter(chapter__category__subject_id=subject_id)
+        .select_related("chapter__category")
+        .order_by("chapter__category__name", "chapter__order", "order", "name")
+    )
+    items_by_id: dict[str, dict[str, Any]] = {}
+    available: list[dict[str, Any]] = []
+    for lesson in lessons:
+        item = {
+            "id": lesson.id,
+            "name": lesson.name,
+            "chapter_name": lesson.chapter.name,
+            "category_name": lesson.chapter.category.name,
+            "subject_id": subject_id,
+            "category_id": lesson.chapter.category_id,
+            "chapter_id": lesson.chapter_id,
+            "slot_count": counts.get(str(lesson.id), 0),
+        }
+        items_by_id[str(lesson.id)] = item
+        if str(lesson.id) not in selected_ids:
+            available.append(item)
+    selected = [
+        items_by_id[sid]
+        for sid in selected_ids
+        if sid in items_by_id
+    ]
+    return {
+        "selected": selected,
+        "available": available,
+        "selected_ids": [item["id"] for item in selected],
+    }
+
+
+def update_tiger_banks(verbal_ids, quant_ids) -> dict[str, Any]:
+    settings = get_tiger_settings()
+    verbal_allowed = set(_lesson_ids_for_subject(VERBAL_SUBJECT_ID))
+    quant_allowed = set(_lesson_ids_for_subject(QUANT_SUBJECT_ID))
+    settings.verbal_bank_ids = [
+        sid for sid in _normalize_id_list(verbal_ids) if sid in verbal_allowed
+    ]
+    settings.quant_bank_ids = [
+        sid for sid in _normalize_id_list(quant_ids) if sid in quant_allowed
+    ]
+    settings.save()
+    return serialize_tiger_banks()
 
 
 def _intended_subject(slot: dict) -> str:
     return slot.get("borrowed_for") or slot.get("subject") or "quant"
 
 
-def _fill_to_full_test(merged: list[dict], warnings: list[dict]) -> list[dict]:
-    """Pad with demo questions so the test is always 5 × 24 (13 verbal + 11 quant)."""
-    verbal_have = sum(1 for s in merged if _intended_subject(s) == "verbal")
-    quant_have = len(merged) - verbal_have
-    v_need = max(0, VERBAL_TOTAL - verbal_have)
-    q_need = max(0, QUANT_TOTAL - quant_have)
-    leftover = TOTAL_QUESTIONS - (len(merged) + v_need + q_need)
-    if leftover > 0:
-        q_need += leftover
-
-    demo_verbal = 0
-    demo_quant = 0
-    if v_need:
-        extra = make_demo_slots("verbal", v_need, start_index=verbal_have)
-        merged.extend(extra)
-        demo_verbal = len(extra)
-    if q_need:
-        extra = make_demo_slots("quant", q_need, start_index=quant_have)
-        merged.extend(extra)
-        demo_quant = len(extra)
-
-    if demo_verbal or demo_quant:
-        warnings.append(
-            {
-                "subject": "demo",
-                "subject_label": "أسئلة تجريبية",
-                "required": TOTAL_QUESTIONS,
-                "found_in_subject": verbal_have + quant_have,
-                "borrowed_from_other": 0,
-                "actual": len(merged),
-                "shortfall": 0,
-                "demo_added": demo_verbal + demo_quant,
-                "demo_verbal": demo_verbal,
-                "demo_quant": demo_quant,
-            }
-        )
-    return merged[:TOTAL_QUESTIONS]
-
-
 def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
     """
     Build exactly 5 sections of 24 questions (13 verbal + 11 quant, 120 total).
-    Picks unused bank questions first (no repeats for the student), then other
-    bank files, then demo questions only if the banks are exhausted.
+
+    Verbal: each section picks one admin-selected bank, then a 13-question window
+    (1–13, 14–26, 27–39, 40–52, 53–65). Short models fill from previously seen
+    questions. Passages stay as one consecutive block.
+
+    Quant: 11 unused questions from any selected bank (not tied to one file).
     """
     warnings: list[dict] = []
-    used = _used_keys_for_user(user)
-    verbal_pool, quant_pool = flatten_all_slots()
+    previously_used = _used_keys_for_user(user)
+    verbal_all, quant_all = flatten_all_slots()
+    settings = get_tiger_settings()
+
+    verbal_banks = resolve_bank_ids("verbal", settings.verbal_bank_ids)
+    quant_banks = resolve_bank_ids("quant", settings.quant_bank_ids)
+    verbal_pool = _filter_pool_by_banks(verbal_all, verbal_banks) or list(verbal_all)
+    quant_pool = _filter_pool_by_banks(quant_all, quant_banks) or list(quant_all)
 
     already: set[str] = set()
-    verbal_picked = _pick_with_fallback(
-        verbal_pool,
-        quant_pool,
-        VERBAL_TOTAL,
-        used,
-        user,
-        "verbal",
-        warnings,
-        already,
-    )
-    already |= {s["slot_id"] for s in verbal_picked}
+    used_windows: set[tuple[str, int]] = set()
+    sections: list[list[dict]] = []
 
-    quant_picked = _pick_with_fallback(
-        quant_pool,
-        verbal_pool,
-        QUANT_TOTAL,
-        used,
-        user,
-        "quant",
-        warnings,
-        already,
-    )
+    for section_index in range(SECTION_COUNT):
+        verbal = _pick_verbal_section(
+            verbal_pool,
+            verbal_banks,
+            previously_used,
+            already,
+            used_windows,
+        )
+        already.update(s["slot_id"] for s in verbal)
+        quant = _pick_quant_section(quant_pool, previously_used, already)
+        already.update(s["slot_id"] for s in quant)
 
-    merged: list[dict] = []
-    seen: set[str] = set()
-    for s in verbal_picked + quant_picked:
-        if s["slot_id"] in seen:
-            continue
-        seen.add(s["slot_id"])
-        merged.append(s)
+        verbal = _pad_subject_slots(
+            verbal,
+            "verbal",
+            VERBAL_PER_SECTION,
+            start_index=section_index * VERBAL_PER_SECTION,
+            warnings=warnings,
+        )
+        quant = _pad_subject_slots(
+            quant,
+            "quant",
+            QUANT_PER_SECTION,
+            start_index=section_index * QUANT_PER_SECTION,
+            warnings=warnings,
+        )
 
-    merged = _fill_to_full_test(merged, warnings)
-    verbal_final = [s for s in merged if _intended_subject(s) == "verbal"]
-    quant_final = [s for s in merged if _intended_subject(s) != "verbal"]
-    if len(verbal_final) < VERBAL_TOTAL:
-        need = VERBAL_TOTAL - len(verbal_final)
-        verbal_final.extend(quant_final[:need])
-        quant_final = quant_final[need:]
-    if len(quant_final) < QUANT_TOTAL:
-        need = QUANT_TOTAL - len(quant_final)
-        quant_final.extend(verbal_final[:need])
-        verbal_final = verbal_final[need:]
-
-    sections = _distribute_into_sections(
-        verbal_final[:VERBAL_TOTAL], quant_final[:QUANT_TOTAL]
-    )
-    if len(sections) != SECTION_COUNT:
-        raise ValueError("تعذر تجهيز أقسام اختبار النمر.")
+        section = _shuffle_section(verbal, quant)
+        if len(section) != QUESTIONS_PER_SECTION:
+            raise ValueError("تعذر تجهيز أقسام اختبار النمر.")
+        sections.append(section)
 
     return sections, warnings
 

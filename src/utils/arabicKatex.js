@@ -84,8 +84,27 @@ export function getArabicKatexOptions({ rtl = true, displayMode = true } = {}) {
   };
 }
 
+/** Keep roots and exponents at textbook (displaystyle) size while staying inline. */
+export function withNaturalMathStyle(latex) {
+  const trimmed = String(latex || "").trim();
+  if (!trimmed) return trimmed;
+  if (
+    /\\displaystyle\b/.test(trimmed) ||
+    /\\textstyle\b/.test(trimmed) ||
+    /\\scriptstyle\b/.test(trimmed)
+  ) {
+    return trimmed;
+  }
+  if (!/[\^_]|\\sqrt|\\frac|\\overset|\\stackrel/.test(trimmed)) {
+    return trimmed;
+  }
+  return `\\displaystyle{${trimmed}}`;
+}
+
 export function renderArabicMath(latex, { rtl = true, displayMode = true } = {}) {
-  const trimmed = arabicToWesternDigits(String(latex || "")).trim();
+  const trimmed = withNaturalMathStyle(
+    arabicToWesternDigits(String(latex || "")).trim(),
+  );
   if (!trimmed) return "";
   const options = getArabicKatexOptions({ rtl, displayMode });
   try {

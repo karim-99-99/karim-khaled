@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from django.utils import timezone
 
 from .models import TigerTestSession
-from .permissions import IsAuthenticatedDeviceAllowed
+from .permissions import IsAuthenticatedDeviceAllowed, IsStaffUser
 from . import tiger_test as tt
 
 
@@ -438,3 +438,30 @@ class TigerTestResultsView(APIView):
                 "session": tt.session_to_payload(session, include_review=False),
             }
         )
+
+
+class TigerTestBanksView(APIView):
+    """Staff: choose which verbal/quant banks feed محاكي النمر."""
+
+    permission_classes = [IsStaffUser]
+
+    def get(self, request):
+        return Response(tt.serialize_tiger_banks())
+
+    def patch(self, request):
+        data = request.data or {}
+        if "verbal_bank_ids" not in data and "quant_bank_ids" not in data:
+            return Response(
+                {"detail": "verbal_bank_ids or quant_bank_ids required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        current = tt.serialize_tiger_banks()
+        verbal_ids = data.get(
+            "verbal_bank_ids",
+            current["verbal"]["selected_ids"],
+        )
+        quant_ids = data.get(
+            "quant_bank_ids",
+            current["quant"]["selected_ids"],
+        )
+        return Response(tt.update_tiger_banks(verbal_ids, quant_ids))

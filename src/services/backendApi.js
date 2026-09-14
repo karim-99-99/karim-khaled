@@ -1827,3 +1827,18 @@ export const nextTigerTestSection = async (sessionId) => {
 export const getTigerTestResults = async (sessionId) => {
   return request(`/tiger-test/${encodeURIComponent(sessionId)}/results/`);
 };
+
+export const getTigerBanks = async () => {
+  return request("/tiger-test/banks/", { timeoutMs: 25000 });
+};
+
+export const updateTigerBanks = async (verbalBankIds, quantBankIds) => {
+  return request("/tiger-test/banks/", {
+    method: "PATCH",
+    timeoutMs: 20000,
+    body: JSON.stringify({
+      verbal_bank_ids: verbalBankIds,
+      quant_bank_ids: quantBankIds,
+    }),
+  });
+};

@@ -6,6 +6,18 @@ from rest_framework.exceptions import PermissionDenied
 from .device_lock import DEVICE_RESTRICTED_MESSAGE, assert_student_device_allowed
 
 
+class IsStaffUser(permissions.BasePermission):
+    """مدير كامل أو مساعد محتوى."""
+
+    def has_permission(self, request, view):
+        user = getattr(request, "user", None)
+        return (
+            bool(user)
+            and user.is_authenticated
+            and getattr(user, "role", None) in ("admin", "content_admin")
+        )
+
+
 class IsAuthenticatedDeviceAllowed(permissions.IsAuthenticated):
     """
     IsAuthenticated + for students: one registered device unless allow_multi_device.

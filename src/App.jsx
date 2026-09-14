@@ -54,6 +54,7 @@ const FilesManagement = lazy(() => import("./pages/admin/FilesManagement.jsx"));
 const TryFreeManagement = lazy(() =>
   import("./pages/admin/TryFreeManagement.jsx")
 );
+const TigerBanks = lazy(() => import("./pages/admin/TigerBanks.jsx"));
 const StudentTracker = lazy(() => import("./pages/StudentTracker.jsx"));
 const IncorrectAnswers = lazy(() => import("./pages/IncorrectAnswers.jsx"));
 const Profile = lazy(() => import("./pages/Profile.jsx"));
@@ -383,6 +384,17 @@ function App() {
                       checkActive={false}
                     >
                       <TryFreeManagement />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/tiger-banks"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["admin", "content_admin"]}
+                      checkActive={false}
+                    >
+                      <TigerBanks />
                     </ProtectedRoute>
                   }
                 />
