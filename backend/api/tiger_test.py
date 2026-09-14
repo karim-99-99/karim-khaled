@@ -287,8 +287,18 @@ def _passage_siblings(pool: list[dict], slot: dict) -> list[dict]:
     return sibs or [slot]
 
 
-def _expand_complete_passages(slots: list[dict], lookup_pool: list[dict]) -> list[dict]:
-    """If any sub-question of a passage is included, take the whole passage in order."""
+def _expand_complete_passages(
+    slots: list[dict],
+    lookup_pool: list[dict],
+    blocked: set[str] | None = None,
+) -> list[dict]:
+    """If any sub-question of a passage is included, take the whole passage in order.
+
+    Skip a passage when some of its sub-questions were already used in this test
+    or a previous Tiger attempt (never show the same question twice).
+    """
+    blocked = blocked or set()
+    current_ids = {s["slot_id"] for s in slots}
     seen_parents: set[str] = set()
     seen_ids: set[str] = set()
     out: list[dict] = []
@@ -298,11 +308,20 @@ def _expand_complete_passages(slots: list[dict], lookup_pool: list[dict]) -> lis
             if pid in seen_parents:
                 continue
             seen_parents.add(pid)
-            for sib in _passage_siblings(lookup_pool, slot):
-                if sib["slot_id"] not in seen_ids:
-                    seen_ids.add(sib["slot_id"])
-                    out.append(sib)
+            sibs = _passage_siblings(lookup_pool, slot)
+            if any(
+                sib["slot_id"] in blocked and sib["slot_id"] not in current_ids
+                for sib in sibs
+            ):
+                continue
+            for sib in sibs:
+                if sib["slot_id"] in seen_ids:
+                    continue
+                seen_ids.add(sib["slot_id"])
+                out.append(sib)
         elif slot["slot_id"] not in seen_ids:
+            if slot["slot_id"] in blocked and slot["slot_id"] not in current_ids:
+                continue
             seen_ids.add(slot["slot_id"])
             out.append(slot)
     return out
@@ -337,9 +356,32 @@ def _passage_groups(slots: list[dict]) -> list[list[dict]]:
     return out
 
 
-def _fit_to_count(slots: list[dict], count: int, lookup_pool: list[dict]) -> list[dict]:
-    """Keep at most `count` slots without splitting a passage."""
-    slots = _expand_complete_passages(slots, lookup_pool)
+def _unique_slots(slots: list[dict]) -> list[dict]:
+    seen: set[str] = set()
+    out: list[dict] = []
+    for slot in slots:
+        sid = slot.get("slot_id")
+        if not sid or sid in seen:
+            continue
+        seen.add(sid)
+        out.append(slot)
+    return out
+
+
+def _fit_to_count(
+    slots: list[dict],
+    count: int,
+    lookup_pool: list[dict],
+    blocked: set[str] | None = None,
+) -> list[dict]:
+    """Keep at most `count` slots without splitting a passage or repeating ids."""
+    blocked = blocked or set()
+    current_ids = {s["slot_id"] for s in slots}
+    extra_blocked = blocked - current_ids
+    slots = _expand_complete_passages(slots, lookup_pool, extra_blocked)
+    slots = _unique_slots(
+        [s for s in slots if s["slot_id"] not in extra_blocked]
+    )
     if len(slots) <= count:
         return slots
     groups = _passage_groups(slots)
@@ -362,7 +404,7 @@ def _append_fitting(
             break
         if slot["slot_id"] in picked_ids or slot["slot_id"] in blocked:
             continue
-        extra = _expand_complete_passages([slot], lookup_pool)
+        extra = _expand_complete_passages([slot], lookup_pool, blocked)
         extra = [item for item in extra if item["slot_id"] not in picked_ids]
         if not extra:
             continue
@@ -372,17 +414,16 @@ def _append_fitting(
             continue
         picked.extend(extra)
         picked_ids.update(item["slot_id"] for item in extra)
-    return picked
+    return _unique_slots(picked)
 
 
 def _pick_verbal_section(
     verbal_pool: list[dict],
     bank_ids: list[str],
-    previously_used: set[str],
-    already: set[str],
+    blocked: set[str],
     used_windows: set[tuple[str, int]],
 ) -> list[dict]:
-    """13 questions from one random bank, using a 13-question window (1–13 … 53–65)."""
+    """13 unused questions from one random bank, using a 13-question window."""
     banks = [bid for bid in bank_ids if _ordered_bank_slots(verbal_pool, bid)]
     if not banks:
         banks = list(
@@ -396,83 +437,69 @@ def _pick_verbal_section(
         return []
 
     random.shuffle(banks)
-    bank_id = banks[0]
-    ordered = _ordered_bank_slots(verbal_pool, bank_id)
-    unused_windows = [
-        start
-        for start in VERBAL_WINDOW_STARTS
-        if (bank_id, start) not in used_windows
-    ]
-    start = random.choice(unused_windows or list(VERBAL_WINDOW_STARTS))
-    used_windows.add((bank_id, start))
-    window = ordered[start : start + VERBAL_PER_SECTION]
-    unused_in_window = [
-        s for s in window if s["slot_id"] not in previously_used
-    ]
-    used_in_window = [s for s in window if s["slot_id"] in previously_used]
+    chosen_bank = None
+    chosen_start = None
+    ordered: list[dict] = []
+    window: list[dict] = []
+    for bank_id in banks:
+        ordered = _ordered_bank_slots(verbal_pool, bank_id)
+        if not ordered:
+            continue
+        unused_windows = [
+            start
+            for start in VERBAL_WINDOW_STARTS
+            if (bank_id, start) not in used_windows
+        ]
+        random.shuffle(unused_windows)
+        for start in unused_windows or list(VERBAL_WINDOW_STARTS):
+            candidate = ordered[start : start + VERBAL_PER_SECTION]
+            unused = [s for s in candidate if s["slot_id"] not in blocked]
+            if unused:
+                chosen_bank = bank_id
+                chosen_start = start
+                window = candidate
+                break
+        if chosen_bank:
+            break
+
+    if chosen_bank is None:
+        random.shuffle(banks)
+        chosen_bank = banks[0]
+        ordered = _ordered_bank_slots(verbal_pool, chosen_bank)
+        chosen_start = random.choice(list(VERBAL_WINDOW_STARTS))
+        window = ordered[chosen_start : chosen_start + VERBAL_PER_SECTION]
+
+    used_windows.add((chosen_bank, chosen_start))
+    unused_in_window = [s for s in window if s["slot_id"] not in blocked]
     picked = _append_fitting(
-        [], unused_in_window, VERBAL_PER_SECTION, ordered, already
-    )
-    picked = _append_fitting(
-        picked, used_in_window, VERBAL_PER_SECTION, ordered, already
+        [], unused_in_window, VERBAL_PER_SECTION, ordered, blocked
     )
 
     unused_rest = [
-        s
-        for s in ordered
-        if s["slot_id"] not in previously_used and s["slot_id"] not in already
+        s for s in ordered if s["slot_id"] not in blocked
     ]
     random.shuffle(unused_rest)
     picked = _append_fitting(
-        picked, unused_rest, VERBAL_PER_SECTION, ordered, already
+        picked, unused_rest, VERBAL_PER_SECTION, ordered, blocked
     )
 
-    unused_any = [
-        s
-        for s in verbal_pool
-        if s["slot_id"] not in previously_used and s["slot_id"] not in already
-    ]
+    unused_any = [s for s in verbal_pool if s["slot_id"] not in blocked]
     random.shuffle(unused_any)
     picked = _append_fitting(
-        picked, unused_any, VERBAL_PER_SECTION, verbal_pool, already
+        picked, unused_any, VERBAL_PER_SECTION, verbal_pool, blocked
     )
-
-    used_fill = [
-        s
-        for s in verbal_pool
-        if s["slot_id"] in previously_used and s["slot_id"] not in already
-    ]
-    random.shuffle(used_fill)
-    picked = _append_fitting(
-        picked, used_fill, VERBAL_PER_SECTION, verbal_pool, already
-    )
-    return _fit_to_count(picked, VERBAL_PER_SECTION, verbal_pool)
+    return _fit_to_count(picked, VERBAL_PER_SECTION, verbal_pool, blocked)
 
 
 def _pick_quant_section(
     quant_pool: list[dict],
-    previously_used: set[str],
-    already: set[str],
+    blocked: set[str],
 ) -> list[dict]:
-    """11 random questions from any selected quantitative bank."""
-    unused = [
-        s
-        for s in quant_pool
-        if s["slot_id"] not in previously_used and s["slot_id"] not in already
-    ]
+    """11 unused questions from any selected quantitative bank. Never repeats."""
+    unused = [s for s in quant_pool if s["slot_id"] not in blocked]
     random.shuffle(unused)
-    picked = _append_fitting([], unused, QUANT_PER_SECTION, quant_pool, already)
-
-    used_fill = [
-        s
-        for s in quant_pool
-        if s["slot_id"] in previously_used and s["slot_id"] not in already
-    ]
-    random.shuffle(used_fill)
-    picked = _append_fitting(
-        picked, used_fill, QUANT_PER_SECTION, quant_pool, already
-    )
-    return _fit_to_count(picked, QUANT_PER_SECTION, quant_pool)
+    picked = _append_fitting([], unused, QUANT_PER_SECTION, quant_pool, blocked)
+    return _fit_to_count(picked, QUANT_PER_SECTION, quant_pool, blocked)
 
 
 def _shuffle_section(verbal: list[dict], quant: list[dict]) -> list[dict]:
@@ -488,8 +515,10 @@ def _pad_subject_slots(
     count: int,
     start_index: int,
     warnings: list[dict],
+    blocked: set[str] | None = None,
 ) -> list[dict]:
-    fitted = _fit_to_count(list(slots), count, list(slots))
+    fitted = _fit_to_count(list(slots), count, list(slots), blocked)
+    fitted = _unique_slots(fitted)
     if len(fitted) >= count:
         return fitted
     need = count - len(fitted)
@@ -586,8 +615,8 @@ def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
     Build exactly 5 sections of 24 questions (13 verbal + 11 quant, 120 total).
 
     Verbal: each section picks one admin-selected bank, then a 13-question window
-    (1–13, 14–26, 27–39, 40–52, 53–65). Short models fill from previously seen
-    questions. Passages stay as one consecutive block.
+    (1–13, 14–26, 27–39, 40–52, 53–65). Never repeats a question the student
+    already saw in this test or a previous Tiger attempt.
 
     Quant: 11 unused questions from any selected bank (not tied to one file).
     """
@@ -601,7 +630,7 @@ def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
     verbal_pool = _filter_pool_by_banks(verbal_all, verbal_banks) or list(verbal_all)
     quant_pool = _filter_pool_by_banks(quant_all, quant_banks) or list(quant_all)
 
-    already: set[str] = set()
+    blocked: set[str] = set(previously_used)
     used_windows: set[tuple[str, int]] = set()
     sections: list[list[dict]] = []
 
@@ -609,13 +638,12 @@ def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
         verbal = _pick_verbal_section(
             verbal_pool,
             verbal_banks,
-            previously_used,
-            already,
+            blocked,
             used_windows,
         )
-        already.update(s["slot_id"] for s in verbal)
-        quant = _pick_quant_section(quant_pool, previously_used, already)
-        already.update(s["slot_id"] for s in quant)
+        blocked.update(s["slot_id"] for s in verbal)
+        quant = _pick_quant_section(quant_pool, blocked)
+        blocked.update(s["slot_id"] for s in quant)
 
         verbal = _pad_subject_slots(
             verbal,
@@ -623,6 +651,7 @@ def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
             VERBAL_PER_SECTION,
             start_index=section_index * VERBAL_PER_SECTION,
             warnings=warnings,
+            blocked=blocked - {s["slot_id"] for s in verbal},
         )
         quant = _pad_subject_slots(
             quant,
@@ -630,14 +659,50 @@ def build_sections_for_user(user) -> tuple[list[list[dict]], list[dict]]:
             QUANT_PER_SECTION,
             start_index=section_index * QUANT_PER_SECTION,
             warnings=warnings,
+            blocked=blocked - {s["slot_id"] for s in quant},
         )
+        blocked.update(s["slot_id"] for s in verbal + quant)
 
-        section = _shuffle_section(verbal, quant)
+        section = _unique_slots(_shuffle_section(verbal, quant))
+        if len(section) < QUESTIONS_PER_SECTION:
+            section.extend(
+                make_demo_slots(
+                    "quant",
+                    QUESTIONS_PER_SECTION - len(section),
+                    start_index=800 + section_index * QUESTIONS_PER_SECTION,
+                )
+            )
         if len(section) != QUESTIONS_PER_SECTION:
             raise ValueError("تعذر تجهيز أقسام اختبار النمر.")
         sections.append(section)
 
+    _ensure_no_duplicate_slots(sections)
     return sections, warnings
+
+
+def _ensure_no_duplicate_slots(sections: list[list[dict]]) -> None:
+    """Drop any accidental repeat so a student never sees the same slot twice."""
+    seen: set[str] = set()
+    for idx, section in enumerate(sections):
+        kept: list[dict] = []
+        for slot in section:
+            sid = slot.get("slot_id")
+            if not sid or (sid in seen and not slot.get("is_demo")):
+                continue
+            seen.add(sid)
+            kept.append(slot)
+        if len(kept) != len(section):
+            # Replacements are demo pads so the section stays 24 questions.
+            need = QUESTIONS_PER_SECTION - len(kept)
+            if need > 0:
+                kept.extend(
+                    make_demo_slots(
+                        "quant",
+                        need,
+                        start_index=900 + idx * QUESTIONS_PER_SECTION,
+                    )
+                )
+            sections[idx] = kept[:QUESTIONS_PER_SECTION]
 
 
 def _answer_id_from_dict(a: dict, index: int) -> str:
