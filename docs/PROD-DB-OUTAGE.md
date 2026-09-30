@@ -50,12 +50,12 @@ The previous keepalive cron pinged Neon every **4 minutes** for ~12 hours/day. T
 
 | Window | Behavior |
 |--------|----------|
-| **09:00–13:00** | Keep awake (WSGI `SELECT 1` every 4 min + GitHub cron `*/4` at 06–09 UTC) |
-| **13:00–09:00** | No keepalive — Neon Free may autosuspend (saves CU hours) |
+| **09:00 → 01:00** (next day) | Keep awake (WSGI every 4 min + GitHub cron `*/4` at 06–21 UTC) |
+| **01:00 → 09:00** | No keepalive — Neon Free may autosuspend overnight |
 
-Override on Render with `NEON_KEEPALIVE_START_HOUR` / `NEON_KEEPALIVE_END_HOUR` (end exclusive), or `NEON_KEEPALIVE_DISABLED=1`.
+Override on Render with `NEON_KEEPALIVE_START_HOUR=9` / `NEON_KEEPALIVE_END_HOUR=1` (end exclusive), or `NEON_KEEPALIVE_DISABLED=1`.
 
-~4h/day worst case ≈ 120 CU-hours/month — close to Free’s ~100; if you still hit the cap, shorten the morning window or upgrade Neon.
+~16h/day worst case ≈ 480 CU-hours/month — **still far above Neon Free (~100)**. Prefer upgrading Neon, or shorten the window, if the monthly limit hits again.
 
 ## Code changes in this branch
 

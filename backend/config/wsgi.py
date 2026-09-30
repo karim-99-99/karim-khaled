@@ -13,15 +13,27 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 application = get_wsgi_application()
 
 
+def _hour_in_keepalive_window(hour: int, start: int, end: int) -> bool:
+    """
+    True if local `hour` is in [start, end) on a 24h clock.
+    If start > end the window wraps past midnight (e.g. 9 → 1).
+    """
+    if start == end:
+        return True  # 24h window
+    if start < end:
+        return start <= hour < end
+    return hour >= start or hour < end
+
+
 def _neon_keepalive_loop():
     """
-    Keep Neon awake only during the morning study window (Asia/Riyadh).
+    Keep Neon awake during the study window (Asia/Riyadh).
 
-    Default: 09:00–13:00 Riyadh. Outside that window Neon can autosuspend so
-    Free-tier compute hours are not burned overnight / afternoon.
+    Default: 09:00 → 01:00 (next day). Sleep 01:00 → 09:00 so Neon Free
+    can autosuspend overnight.
 
-    Override with NEON_KEEPALIVE_START_HOUR / NEON_KEEPALIVE_END_HOUR (local hour,
-    end exclusive). Set NEON_KEEPALIVE_DISABLED=1 to turn the loop off entirely.
+    Override with NEON_KEEPALIVE_START_HOUR / NEON_KEEPALIVE_END_HOUR
+    (local hour, end exclusive). Set NEON_KEEPALIVE_DISABLED=1 to turn off.
     """
     time.sleep(20)
     while True:
@@ -38,9 +50,9 @@ def _neon_keepalive_loop():
             from django.db import connection
 
             start = int(os.environ.get("NEON_KEEPALIVE_START_HOUR", "9"))
-            end = int(os.environ.get("NEON_KEEPALIVE_END_HOUR", "13"))
+            end = int(os.environ.get("NEON_KEEPALIVE_END_HOUR", "1"))
             hour = timezone.localtime().hour
-            if start <= hour < end:
+            if _hour_in_keepalive_window(hour, start, end):
                 connection.close_if_unusable_or_obsolete()
                 with connection.cursor() as cursor:
                     cursor.execute("SELECT 1")
