@@ -1,10 +1,14 @@
-# Pings the API so Neon Free does not sit idle for 5+ minutes during study hours.
-# Window is 11:00–23:00 Riyadh (08:00–20:00 UTC) to stay near the 100 CU-hour Free cap.
+# Light ping so Render stays warm. Do NOT keep Neon compute awake all day —
+# Neon Free (~100 CU-hours/month) will suspend when the quota is exhausted,
+# which makes every API call return 500 / empty data on the site.
+#
+# Schedule: every 12 minutes during study hours (11:00–23:00 Riyadh = 08:00–20:00 UTC).
+# Fail the job when db != ok so GitHub alerts when Neon/Render DB is broken.
 name: Keep Neon awake
 
 on:
   schedule:
-    - cron: "*/4 8-20 * * *"
+    - cron: "*/12 8-20 * * *"
   workflow_dispatch:
 
 jobs:
@@ -12,7 +16,26 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Wake Render + Neon
+      - name: Wake Render + check Neon
         run: |
-          curl -fsS --max-time 90 \
-            "https://kareem-khalid-backend.onrender.com/api/health/?db=1"
+          set -euo pipefail
+          BODY=$(curl -fsS --max-time 90 \
+            "https://kareem-khalid-backend.onrender.com/api/health/?db=1&detail=1")
+          echo "$BODY"
+          echo "$BODY" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+db = data.get("db")
+if db != "ok":
+    err = data.get("db_error") or {}
+    meta = data.get("database") or {}
+    print("DB unhealthy:", db, file=sys.stderr)
+    print("db_error:", err, file=sys.stderr)
+    print("database:", meta, file=sys.stderr)
+    print(
+        "Fix: Neon console (suspended / CU exhausted / password) → update Render DATABASE_URL → redeploy.",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+print("db ok; host=", (data.get("database") or {}).get("host"))
+'

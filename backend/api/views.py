@@ -113,47 +113,89 @@ class HealthView(APIView):
     def get(self, request):
         payload = {"status": "ok"}
         want_db = request.query_params.get("db") in ("1", "true", "yes")
+        want_detail = request.query_params.get("detail") in ("1", "true", "yes")
+        if want_db or want_detail:
+            db_settings = django_settings.DATABASES.get("default") or {}
+            engine = str(db_settings.get("ENGINE") or "")
+            host = str(db_settings.get("HOST") or "")
+            name = str(db_settings.get("NAME") or "")
+            # Safe metadata only — never expose credentials.
+            payload["database"] = {
+                "configured": bool((os.environ.get("DATABASE_URL") or "").strip())
+                or "sqlite" not in engine.lower(),
+                "engine": "sqlite"
+                if "sqlite" in engine.lower()
+                else ("postgres" if "postgres" in engine.lower() else engine.split(".")[-1] or "unknown"),
+                "host": host or None,
+                "name": str(name) if name and "sqlite" not in engine.lower() else None,
+                "is_neon": "neon.tech" in host.lower(),
+            }
         if want_db:
             try:
                 from django.db import connection
 
+                connection.close_if_unusable_or_obsolete()
                 with connection.cursor() as cursor:
                     cursor.execute("SELECT 1")
                     cursor.fetchone()
                 payload["db"] = "ok"
-            except Exception:
+            except Exception as exc:
                 payload["db"] = "error"
+                # Sanitized diagnostics help ops without leaking secrets.
+                msg = str(exc) or exc.__class__.__name__
+                for secret_key in ("password", "PASSWORD", "user:", "://"):
+                    if secret_key in msg and "://" in msg:
+                        msg = exc.__class__.__name__
+                        break
+                payload["db_error"] = {
+                    "type": exc.__class__.__name__,
+                    "message": msg[:300],
+                    "hint": (
+                        "Render cannot reach Postgres/Neon. Check Neon console "
+                        "(suspended / compute hours exhausted / reset password), "
+                        "then update DATABASE_URL on Render and redeploy."
+                    ),
+                }
         # Safe flags for debugging Bunny (never expose secret values)
         if request.query_params.get("bunny") in ("1", "true", "yes"):
-            cfg = get_bunny_library_configs()
-            default_lib = str(getattr(django_settings, "BUNNY_LIBRARY_ID", "") or "").strip()
-            default_cfg = cfg.get(default_lib, {}) if default_lib else {}
-            lib = bool(default_lib)
-            embed = bool((default_cfg.get("security_key") or "").strip())
-            upload = bool((default_cfg.get("stream_api_key") or "").strip())
-            per_library = {
-                lib_id: {
-                    "embed_token_key_set": bool((c.get("security_key") or "").strip()),
-                    "stream_api_key_set": bool((c.get("stream_api_key") or "").strip()),
-                    "is_default": bool(c.get("is_default")),
-                    "source": c.get("source", "env"),
-                    "label": c.get("label", ""),
+            try:
+                cfg = get_bunny_library_configs()
+            except Exception as exc:
+                payload["bunny"] = {
+                    "error": True,
+                    "type": exc.__class__.__name__,
+                    "message": (str(exc) or exc.__class__.__name__)[:200],
+                    "hint": "Bunny config failed (often because the database is unreachable).",
                 }
-                for lib_id, c in cfg.items()
-            }
-            payload["bunny"] = {
-                "library_id_set": lib,
-                "embed_token_key_set": embed,
-                "stream_api_key_set": upload,
-                "embed_ready": lib and embed,
-                "upload_ready": lib and upload,
-                "libraries_count": len(cfg),
-                "libraries": per_library,
-                "hint": (
-                    "Register libraries in Admin → Videos → Bunny Libraries, or set env keys. "
-                    "BUNNY_SECURITY_KEY is the Token authentication key from Stream → Security."
-                ),
-            }
+            else:
+                default_lib = str(getattr(django_settings, "BUNNY_LIBRARY_ID", "") or "").strip()
+                default_cfg = cfg.get(default_lib, {}) if default_lib else {}
+                lib = bool(default_lib)
+                embed = bool((default_cfg.get("security_key") or "").strip())
+                upload = bool((default_cfg.get("stream_api_key") or "").strip())
+                per_library = {
+                    lib_id: {
+                        "embed_token_key_set": bool((c.get("security_key") or "").strip()),
+                        "stream_api_key_set": bool((c.get("stream_api_key") or "").strip()),
+                        "is_default": bool(c.get("is_default")),
+                        "source": c.get("source", "env"),
+                        "label": c.get("label", ""),
+                    }
+                    for lib_id, c in cfg.items()
+                }
+                payload["bunny"] = {
+                    "library_id_set": lib,
+                    "embed_token_key_set": embed,
+                    "stream_api_key_set": upload,
+                    "embed_ready": lib and embed,
+                    "upload_ready": lib and upload,
+                    "libraries_count": len(cfg),
+                    "libraries": per_library,
+                    "hint": (
+                        "Register libraries in Admin → Videos → Bunny Libraries, or set env keys. "
+                        "BUNNY_SECURITY_KEY is the Token authentication key from Stream → Security."
+                    ),
+                }
         return Response(payload, status=status.HTTP_200_OK)
 
 
