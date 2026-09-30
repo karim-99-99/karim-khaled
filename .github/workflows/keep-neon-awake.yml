@@ -1,14 +1,18 @@
-# Light ping so Render stays warm. Do NOT keep Neon compute awake all day —
-# Neon Free (~100 CU-hours/month) will suspend when the quota is exhausted,
-# which makes every API call return 500 / empty data on the site.
+# Keep Neon awake only in the morning study window (Asia/Riyadh).
 #
-# Schedule: every 12 minutes during study hours (11:00–23:00 Riyadh = 08:00–20:00 UTC).
+# Awake: 09:00–13:00 Riyadh (= 06:00–09:59 UTC)
+# Sleep: 13:00–09:00 Riyadh (no pings — Neon Free can autosuspend)
+#
+# Ping every 4 minutes so compute does not idle past Neon's ~5 min suspend.
+# Must stay well under ~100 CU-hours/month on Neon Free (~4h/day ≈ 120h worst
+# case; real use is lower if the process is not always running).
+#
 # Fail the job when db != ok so GitHub alerts when Neon/Render DB is broken.
 name: Keep Neon awake
 
 on:
   schedule:
-    - cron: "*/12 8-20 * * *"
+    - cron: "*/4 6-9 * * *"
   workflow_dispatch:
 
 jobs:
@@ -16,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Wake Render + check Neon
+      - name: Wake Render + check Neon (morning window only)
         run: |
           set -euo pipefail
           BODY=$(curl -fsS --max-time 90 \

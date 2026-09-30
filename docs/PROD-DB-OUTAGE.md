@@ -46,8 +46,19 @@ The previous keepalive cron pinged Neon every **4 minutes** for ~12 hours/day. T
    ```
    Expect JSON array, not 500.
 
+## Neon keepalive schedule (Asia/Riyadh)
+
+| Window | Behavior |
+|--------|----------|
+| **09:00–13:00** | Keep awake (WSGI `SELECT 1` every 4 min + GitHub cron `*/4` at 06–09 UTC) |
+| **13:00–09:00** | No keepalive — Neon Free may autosuspend (saves CU hours) |
+
+Override on Render with `NEON_KEEPALIVE_START_HOUR` / `NEON_KEEPALIVE_END_HOUR` (end exclusive), or `NEON_KEEPALIVE_DISABLED=1`.
+
+~4h/day worst case ≈ 120 CU-hours/month — close to Free’s ~100; if you still hit the cap, shorten the morning window or upgrade Neon.
+
 ## Code changes in this branch
 
 - Health `?db=1` returns sanitized `db_error` + `database` host metadata.
 - Bunny health no longer crashes with 500 when the DB is down.
-- Keepalive cron is less aggressive (`*/12`) and **fails** when `db != ok` so GitHub notifies you.
+- Keepalive limited to **09:00–13:00 Riyadh**; cron **fails** when `db != ok`.
