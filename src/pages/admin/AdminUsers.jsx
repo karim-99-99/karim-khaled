@@ -16,7 +16,7 @@ const AdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all"); // all, active, inactive
+  const [filterStatus, setFilterStatus] = useState("inactive"); // all, active, inactive — default pending activations
   const [selectedUser, setSelectedUser] = useState(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -58,15 +58,30 @@ const AdminUsers = () => {
     try {
       if (useBackend) {
         const allUsers = await backendApi.getUsers();
-        const managed = allUsers.filter(
-          (u) => u.role === "student" || u.role === "content_admin"
-        );
+        const managed = allUsers
+          .filter((u) => u.role === "student" || u.role === "content_admin")
+          // Newest / inactive-first so pending activations are obvious
+          .sort((a, b) => {
+            const ai = a.isActive === true ? 1 : 0;
+            const bi = b.isActive === true ? 1 : 0;
+            if (ai !== bi) return ai - bi;
+            const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bt - at;
+          });
         setUsers(managed);
       } else {
         const allUsers = getUsersLocal();
-        const managed = allUsers.filter(
-          (u) => u.role === "student" || u.role === "content_admin"
-        );
+        const managed = allUsers
+          .filter((u) => u.role === "student" || u.role === "content_admin")
+          .sort((a, b) => {
+            const ai = a.isActive === true ? 1 : 0;
+            const bi = b.isActive === true ? 1 : 0;
+            if (ai !== bi) return ai - bi;
+            const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bt - at;
+          });
         setUsers(managed);
       }
     } catch (error) {
