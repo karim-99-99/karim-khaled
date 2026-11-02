@@ -83,6 +83,13 @@ class LessonMediaPagination(PageNumberPagination):
     max_page_size = 2000
 
 
+class UserPagination(PageNumberPagination):
+    """Admin user list: many students; avoid hiding new signups behind PAGE_SIZE=20."""
+    page_size = 500
+    page_size_query_param = 'page_size'
+    max_page_size = 5000
+
+
 class IsAdminUser(permissions.BasePermission):
     """مدير كامل فقط (إدارة مستخدمين، تتبع، مجموعات)."""
 
@@ -564,16 +571,30 @@ class AdminResetPasswordView(APIView):
 
 class UserViewSet(viewsets.ModelViewSet):
     """User management (admin only for list/update, users can view themselves)"""
-    queryset = User.objects.all()
+    queryset = User.objects.all().order_by('-date_joined', '-id')
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
+    pagination_class = UserPagination
+    search_fields = ['username', 'email', 'first_name', 'last_name', 'phone']
+    ordering_fields = ['date_joined', 'username', 'is_active_account', 'id']
+    ordering = ['-date_joined', '-id']
 
     def get_queryset(self):
         user = self.request.user
         if not user.is_authenticated:
             return User.objects.none()
         if getattr(user, 'role', None) == 'admin':
-            return User.objects.all()
+            qs = User.objects.all().order_by('-date_joined', '-id')
+            # Optional filters for admin UI: ?role=student&is_active_account=false
+            role = (self.request.query_params.get('role') or '').strip()
+            if role:
+                qs = qs.filter(role=role)
+            active = (self.request.query_params.get('is_active_account') or '').strip().lower()
+            if active in ('1', 'true', 'yes'):
+                qs = qs.filter(is_active_account=True)
+            elif active in ('0', 'false', 'no'):
+                qs = qs.filter(is_active_account=False)
+            return qs
         return User.objects.filter(pk=user.pk)
 
     def get_serializer_class(self):
