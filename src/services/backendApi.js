@@ -157,10 +157,13 @@ const request = async (path, options = {}) => {
 };
 
 /** Follow DRF pagination until all rows are loaded (global PAGE_SIZE defaults to 20). */
-const fetchAllPaginated = async (path) => {
+const fetchAllPaginated = async (path, { maxPages = 100 } = {}) => {
   const items = [];
   let nextPath = path;
+  let pages = 0;
   while (nextPath) {
+    pages += 1;
+    if (pages > maxPages) break;
     const data = await request(nextPath);
     if (Array.isArray(data)) {
       items.push(...data);
@@ -299,8 +302,8 @@ export const mapUserFromBackend = (u) => ({
 });
 
 export const getUsers = async () => {
-  const list = await request("/users/");
-  const arr = Array.isArray(list) ? list : list?.results || [];
+  // Must follow all pages: PAGE_SIZE used to hide new students after the first 20.
+  const arr = await fetchAllPaginated("/users/?page_size=500", { maxPages: 50 });
   return arr.map(mapUserFromBackend);
 };
 
