@@ -564,16 +564,18 @@ class AdminResetPasswordView(APIView):
 
 class UserViewSet(viewsets.ModelViewSet):
     """User management (admin only for list/update, users can view themselves)"""
-    queryset = User.objects.all()
+    queryset = User.objects.all().order_by('-date_joined')
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
+    # Admin needs every student (including inactive new registrations), not only page 1.
+    pagination_class = None
 
     def get_queryset(self):
         user = self.request.user
         if not user.is_authenticated:
             return User.objects.none()
         if getattr(user, 'role', None) == 'admin':
-            return User.objects.all()
+            return User.objects.all().order_by('-date_joined')
         return User.objects.filter(pk=user.pk)
 
     def get_serializer_class(self):

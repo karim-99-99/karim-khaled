@@ -299,8 +299,8 @@ export const mapUserFromBackend = (u) => ({
 });
 
 export const getUsers = async () => {
-  const list = await request("/users/");
-  const arr = Array.isArray(list) ? list : list?.results || [];
+  // PAGE_SIZE is 20 — must follow pagination or new registrations never appear for the admin.
+  const arr = await fetchAllPaginated("/users/?ordering=-date_joined");
   return arr.map(mapUserFromBackend);
 };
 
