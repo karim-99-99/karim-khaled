@@ -56,18 +56,26 @@ const AdminUsers = () => {
   const loadUsers = async () => {
     setLoading(true);
     try {
+      const sortNewestFirst = (list) =>
+        [...list].sort((a, b) => {
+          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tb - ta;
+        });
+
       if (useBackend) {
         const allUsers = await backendApi.getUsers();
         const managed = allUsers.filter(
           (u) => u.role === "student" || u.role === "content_admin"
         );
-        setUsers(managed);
+        // Newest registrations first so pending/inactive accounts are easy to activate.
+        setUsers(sortNewestFirst(managed));
       } else {
         const allUsers = getUsersLocal();
         const managed = allUsers.filter(
           (u) => u.role === "student" || u.role === "content_admin"
         );
-        setUsers(managed);
+        setUsers(sortNewestFirst(managed));
       }
     } catch (error) {
       console.error("Error loading users:", error);
