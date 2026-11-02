@@ -100,6 +100,16 @@ const AdminUsers = () => {
       );
     }
 
+    // Pending (inactive) + newest registrations first so every new signup is easy to activate
+    filtered = [...filtered].sort((a, b) => {
+      const aActive = a.isActive === true ? 1 : 0;
+      const bActive = b.isActive === true ? 1 : 0;
+      if (aActive !== bActive) return aActive - bActive;
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    });
+
     setFilteredUsers(filtered);
   };
 

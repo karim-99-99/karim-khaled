@@ -299,8 +299,9 @@ export const mapUserFromBackend = (u) => ({
 });
 
 export const getUsers = async () => {
-  const list = await request("/users/");
-  const arr = Array.isArray(list) ? list : list?.results || [];
+  // Global PAGE_SIZE is 20 — follow all pages so every registered account
+  // (including inactive / not-yet-activated students) appears on the admin page.
+  const arr = await fetchAllPaginated("/users/?page_size=500");
   return arr.map(mapUserFromBackend);
 };
 
