@@ -83,6 +83,13 @@ class LessonMediaPagination(PageNumberPagination):
     max_page_size = 2000
 
 
+class UsersPagination(PageNumberPagination):
+    """Admin users list must include every registered account (active + inactive)."""
+    page_size = 500
+    page_size_query_param = 'page_size'
+    max_page_size = 5000
+
+
 class IsAdminUser(permissions.BasePermission):
     """مدير كامل فقط (إدارة مستخدمين، تتبع، مجموعات)."""
 
@@ -567,13 +574,15 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
+    pagination_class = UsersPagination
 
     def get_queryset(self):
         user = self.request.user
         if not user.is_authenticated:
             return User.objects.none()
         if getattr(user, 'role', None) == 'admin':
-            return User.objects.all()
+            # Newest registrations first so pending (inactive) accounts are easy to find
+            return User.objects.all().order_by('-date_joined', '-id')
         return User.objects.filter(pk=user.pk)
 
     def get_serializer_class(self):
