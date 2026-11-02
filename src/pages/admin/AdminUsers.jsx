@@ -16,7 +16,7 @@ const AdminUsers = () => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all"); // all, active, inactive
+  const [filterStatus, setFilterStatus] = useState("inactive"); // all, active, inactive — default pending activations
   const [selectedUser, setSelectedUser] = useState(null);
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -53,19 +53,44 @@ const AdminUsers = () => {
     filterUsers();
   }, [users, searchTerm, filterStatus]);
 
+  const sortForActivation = (list) =>
+    [...list].sort((a, b) => {
+      // Inactive first, then newest — so pending activations are obvious on every device
+      const ai = a.isActive === true ? 1 : 0;
+      const bi = b.isActive === true ? 1 : 0;
+      if (ai !== bi) return ai - bi;
+      const at = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bt - at;
+    });
+
   const loadUsers = async () => {
     setLoading(true);
     try {
       if (useBackend) {
         const allUsers = await backendApi.getUsers();
-        const managed = allUsers.filter(
-          (u) => u.role === "student" || u.role === "content_admin"
+        const managed = sortForActivation(
+          allUsers.filter(
+            (u) => u.role === "student" || u.role === "content_admin"
+          )
         );
         setUsers(managed);
       } else {
+        // localStorage is device-only — if API is configured, require a real login token
+        if (backendApi.isApiBaseConfigured()) {
+          alert(
+            isArabicBrowser()
+              ? "يجب تسجيل الدخول من جديد لعرض كل الحسابات من السيرفر على هذا الجهاز."
+              : "Please log in again to load all accounts from the server on this device."
+          );
+          setUsers([]);
+          return;
+        }
         const allUsers = getUsersLocal();
-        const managed = allUsers.filter(
-          (u) => u.role === "student" || u.role === "content_admin"
+        const managed = sortForActivation(
+          allUsers.filter(
+            (u) => u.role === "student" || u.role === "content_admin"
+          )
         );
         setUsers(managed);
       }
