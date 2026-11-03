@@ -9,7 +9,14 @@ from .models import (
     QuizAttempt, VideoWatch, StudentGroup, StudentGroupMembership,
     BunnyStreamLibrary,
 )
-from .utils import is_bunny_video_id, extract_bunny_video_id
+from .utils import (
+    is_bunny_video_id,
+    extract_bunny_video_id,
+    normalize_email,
+    normalize_phone,
+    email_taken,
+    phone_taken,
+)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -32,6 +39,8 @@ class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, required=True, validators=[validate_password])
     password2 = serializers.CharField(write_only=True, required=True)
     avatar_choice = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    email = serializers.EmailField(required=True)
+    phone = serializers.CharField(required=True, allow_blank=False, max_length=20)
 
     class Meta:
         model = User
@@ -40,6 +49,28 @@ class UserCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password': {'write_only': True},
         }
+
+    def validate_email(self, value):
+        email = normalize_email(value)
+        if not email:
+            raise serializers.ValidationError('البريد الإلكتروني مطلوب.')
+        if email_taken(email):
+            raise serializers.ValidationError(
+                'هذا البريد الإلكتروني مستخدم بالفعل. لا يمكن إنشاء أكثر من حساب بنفس الإيميل.'
+            )
+        return email
+
+    def validate_phone(self, value):
+        phone = normalize_phone(value)
+        if not phone:
+            raise serializers.ValidationError('رقم الهاتف مطلوب.')
+        if len(phone) < 8:
+            raise serializers.ValidationError('رقم الهاتف غير صالح.')
+        if phone_taken(phone):
+            raise serializers.ValidationError(
+                'رقم الهاتف هذا مستخدم بالفعل. لا يمكن إنشاء أكثر من حساب بنفس الرقم.'
+            )
+        return phone
 
     def validate(self, attrs):
         if attrs['password'] != attrs['password2']:
@@ -56,6 +87,9 @@ class UserCreateSerializer(serializers.ModelSerializer):
         valid_roles = {c[0] for c in User.ROLE_CHOICES}
         if role not in valid_roles:
             raise serializers.ValidationError({'role': 'Invalid role'})
+        # Re-normalize after role decision (students must have unique email+phone)
+        attrs['email'] = normalize_email(attrs.get('email'))
+        attrs['phone'] = normalize_phone(attrs.get('phone'))
         return attrs
 
     def create(self, validated_data):
@@ -65,6 +99,9 @@ class UserCreateSerializer(serializers.ModelSerializer):
         role = validated_data.get('role', 'student')
         if role == 'student':
             validated_data.setdefault('allow_multi_device', True)
+        validated_data['email'] = normalize_email(validated_data.get('email'))
+        phone = normalize_phone(validated_data.get('phone'))
+        validated_data['phone'] = phone or None
         user = User.objects.create_user(**validated_data, password=password)
         if avatar_choice:
             user.avatar_choice = avatar_choice
@@ -89,6 +126,26 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Invalid role')
         return value
 
+    def validate_email(self, value):
+        email = normalize_email(value)
+        if not email:
+            return ''
+        if email_taken(email, exclude_user_id=getattr(self.instance, 'pk', None)):
+            raise serializers.ValidationError(
+                'هذا البريد الإلكتروني مستخدم بالفعل لحساب آخر.'
+            )
+        return email
+
+    def validate_phone(self, value):
+        phone = normalize_phone(value)
+        if not phone:
+            return None
+        if phone_taken(phone, exclude_user_id=getattr(self.instance, 'pk', None)):
+            raise serializers.ValidationError(
+                'رقم الهاتف هذا مستخدم بالفعل لحساب آخر.'
+            )
+        return phone
+
     def update(self, instance, validated_data):
         new_role = validated_data.get('role', instance.role)
         if new_role == 'content_admin' and instance.role != 'content_admin':
@@ -104,6 +161,12 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             )
             if until is not None and until < today:
                 validated_data['account_active_until'] = None
+
+        if 'email' in validated_data:
+            validated_data['email'] = normalize_email(validated_data.get('email'))
+        if 'phone' in validated_data:
+            phone = normalize_phone(validated_data.get('phone'))
+            validated_data['phone'] = phone or None
 
         prev_multi = instance.allow_multi_device
         new_multi = validated_data.get('allow_multi_device', prev_multi)

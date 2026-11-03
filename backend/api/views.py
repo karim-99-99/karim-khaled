@@ -312,11 +312,23 @@ class TelegramAuthView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        from .utils import normalize_phone, phone_taken
+
         tid = profile['telegram_id']
         user = User.objects.filter(telegram_id=tid).first()
         created = False
+        tg_phone = normalize_phone(profile.get('phone') or '')
 
         if not user:
+            # Same phone cannot register a second account (Telegram or form).
+            if tg_phone and phone_taken(tg_phone):
+                return Response(
+                    {
+                        'error': 'رقم الهاتف هذا مستخدم بالفعل. لا يمكن إنشاء أكثر من حساب بنفس الرقم.',
+                        'code': 'phone_taken',
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             # Create student account (inactive until admin activates — same as register)
             base_username = profile.get('telegram_username') or f'tg_{tid}'
             username = base_username[:140]
@@ -335,7 +347,7 @@ class TelegramAuthView(APIView):
                 allow_multi_device=True,
                 telegram_id=tid,
                 telegram_username=profile.get('telegram_username'),
-                phone=profile.get('phone') or '',
+                phone=tg_phone or None,
             )
             user.set_unusable_password()
             ip = get_client_ip(request)
@@ -352,8 +364,16 @@ class TelegramAuthView(APIView):
             if profile.get('first_name') and not user.first_name:
                 user.first_name = profile['first_name'][:150]
                 updates.append('first_name')
-            if profile.get('phone') and user.phone != profile['phone']:
-                user.phone = profile['phone']
+            if tg_phone and normalize_phone(user.phone or '') != tg_phone:
+                if phone_taken(tg_phone, exclude_user_id=user.pk):
+                    return Response(
+                        {
+                            'error': 'رقم الهاتف هذا مستخدم بالفعل لحساب آخر.',
+                            'code': 'phone_taken',
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                user.phone = tg_phone
                 updates.append('phone')
             if updates:
                 user.save(update_fields=updates)
