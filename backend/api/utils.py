@@ -9,6 +9,68 @@ BUNNY_VIDEO_UUID_RE = re.compile(
 BUNNY_VIDEO_NUMERIC_RE = re.compile(r'^\d{6,}$')
 
 
+def normalize_email(value):
+    """Lowercase trimmed email; empty string if missing."""
+    if value is None:
+        return ''
+    return str(value).strip().lower()
+
+
+def normalize_phone(value):
+    """
+    Normalize phone for uniqueness checks / storage.
+    Saudi mobiles like +9665xxxxxxxx / 9665xxxxxxxx → 05xxxxxxxx.
+    Returns '' when empty/invalid-empty.
+    """
+    if value is None:
+        return ''
+    raw = str(value).strip()
+    if not raw:
+        return ''
+    digits = re.sub(r'\D', '', raw)
+    if not digits:
+        return ''
+    if digits.startswith('00966') and len(digits) > 5:
+        digits = digits[5:]
+        if not digits.startswith('0'):
+            digits = '0' + digits
+    elif digits.startswith('966') and len(digits) >= 12:
+        digits = '0' + digits[3:]
+    return digits
+
+
+def email_taken(email, exclude_user_id=None):
+    """True if another user already has this email (case-insensitive, non-empty)."""
+    from api.models import User
+
+    email = normalize_email(email)
+    if not email:
+        return False
+    qs = User.objects.filter(email__iexact=email)
+    if exclude_user_id is not None:
+        qs = qs.exclude(pk=exclude_user_id)
+    return qs.exists()
+
+
+def phone_taken(phone, exclude_user_id=None):
+    """
+    True if another user already has this phone (normalized digit forms).
+    Matches common variants: 05…, 9665…, +9665…
+    """
+    from api.models import User
+
+    phone = normalize_phone(phone)
+    if not phone:
+        return False
+    qs = User.objects.exclude(phone__isnull=True).exclude(phone='')
+    if exclude_user_id is not None:
+        qs = qs.exclude(pk=exclude_user_id)
+    for existing in qs.only('id', 'phone').iterator():
+        if normalize_phone(existing.phone) == phone:
+            return True
+    return False
+
+
 def normalize_client_ip(ip):
     """Strip IPv4-mapped IPv6 and optional :port so device-lock compares stay stable."""
     if not ip:

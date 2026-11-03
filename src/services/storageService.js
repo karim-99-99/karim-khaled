@@ -80,6 +80,18 @@ export const logout = () => {
   }
 };
 
+const normalizePhoneLocal = (value) => {
+  if (!value) return "";
+  let digits = String(value).replace(/\D/g, "");
+  if (digits.startsWith("00966") && digits.length > 5) {
+    digits = digits.slice(5);
+    if (!digits.startsWith("0")) digits = `0${digits}`;
+  } else if (digits.startsWith("966") && digits.length >= 12) {
+    digits = `0${digits.slice(3)}`;
+  }
+  return digits;
+};
+
 // Get user by email
 export const getUserByEmail = (email) => {
   try {
@@ -92,6 +104,23 @@ export const getUserByEmail = (email) => {
     return users.find(user => user.email.toLowerCase().trim() === normalizedEmail) || null;
   } catch (error) {
     console.error('Error getting user by email:', error);
+    return null;
+  }
+};
+
+export const getUserByPhone = (phone) => {
+  try {
+    const normalized = normalizePhoneLocal(phone);
+    if (!normalized) return null;
+    const users = getUsers();
+    return (
+      users.find(
+        (user) =>
+          user.phone && normalizePhoneLocal(user.phone) === normalized
+      ) || null
+    );
+  } catch (error) {
+    console.error("Error getting user by phone:", error);
     return null;
   }
 };
@@ -142,7 +171,17 @@ export const addUser = (userData) => {
     const users = getUsers();
     // Check if email already exists
     if (getUserByEmail(userData.email)) {
-      throw new Error('البريد الإلكتروني مستخدم بالفعل');
+      throw new Error(
+        "هذا البريد الإلكتروني مستخدم بالفعل. لا يمكن إنشاء أكثر من حساب بنفس الإيميل."
+      );
+    }
+    if (!userData.phone || !normalizePhoneLocal(userData.phone)) {
+      throw new Error("يرجى إدخال رقم الهاتف");
+    }
+    if (getUserByPhone(userData.phone)) {
+      throw new Error(
+        "رقم الهاتف هذا مستخدم بالفعل. لا يمكن إنشاء أكثر من حساب بنفس الرقم."
+      );
     }
     // Check if username already exists
     if (userData.username && getUserByUsername(userData.username)) {

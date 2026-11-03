@@ -59,6 +59,10 @@ const Register = () => {
       setError("يرجى إدخال البريد الإلكتروني");
       return;
     }
+    if (!formData.phone.trim()) {
+      setError("يرجى إدخال رقم الهاتف");
+      return;
+    }
     if (!formData.password || formData.password.length < 6) {
       setError("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       return;
@@ -78,7 +82,7 @@ const Register = () => {
           password2: formData.password,
           first_name: formData.name.trim(),
           last_name: "",
-          phone: formData.phone.trim() || "",
+          phone: formData.phone.trim(),
           role: "student",
           avatar_choice: formData.avatarChoice || "male_gulf",
         });
@@ -93,7 +97,7 @@ const Register = () => {
     }
 
     if (getUserByEmail(formData.email)) {
-      setError("البريد الإلكتروني مستخدم بالفعل");
+      setError("هذا البريد الإلكتروني مستخدم بالفعل. لا يمكن إنشاء أكثر من حساب بنفس الإيميل.");
       return;
     }
     if (getUserByUsername(formData.username)) {
@@ -211,6 +215,7 @@ const Register = () => {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  required
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none transition"
                   placeholder={isArabicBrowser() ? "05xxxxxxxx" : "05xxxxxxxx"}
                   dir="ltr"
