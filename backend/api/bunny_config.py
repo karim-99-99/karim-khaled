@@ -53,7 +53,13 @@ def _load_libraries_from_database(configs):
     except Exception:
         return
 
-    for row in BunnyStreamLibrary.objects.filter(is_active=True):
+    try:
+        rows = list(BunnyStreamLibrary.objects.filter(is_active=True))
+    except Exception:
+        # DB may be down (Neon suspended / bad DATABASE_URL). Keep env-only config.
+        return
+
+    for row in rows:
         lib = str(row.library_id or "").strip()
         if not lib:
             continue
