@@ -46,8 +46,9 @@ const DailyTasksAdmin = () => {
   const [groups, setGroups] = useState([]);
   const [sections, setSections] = useState([]);
   const [groupId, setGroupId] = useState("");
-  const [startDate, setStartDate] = useState(todayIso());
-  const [endDate, setEndDate] = useState(addDays(todayIso(), 6));
+  const [taskDate, setTaskDate] = useState(todayIso());
+  const [viewFrom, setViewFrom] = useState(addDays(todayIso(), -6));
+  const [viewTo, setViewTo] = useState(todayIso());
   const [subjectId, setSubjectId] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [chapterId, setChapterId] = useState("");
@@ -94,7 +95,7 @@ const DailyTasksAdmin = () => {
     };
   }, [chapterId]);
 
-  const loadBoard = async (nextGroup = groupId, from = startDate, to = endDate) => {
+  const loadBoard = async (nextGroup = groupId, from = viewFrom, to = viewTo) => {
     if (!nextGroup || !from || !to) return;
     setBusy(true);
     setError("");
@@ -129,25 +130,30 @@ const DailyTasksAdmin = () => {
   const saveTasks = async () => {
     setMessage("");
     setError("");
-    if (!groupId || !picked.length) {
-      setError("اختر المجموعة وواجباً أو بنكاً واحداً على الأقل");
+    if (!groupId || !taskDate || !picked.length) {
+      setError("اختر المجموعة واليوم وواجباً أو بنكاً واحداً على الأقل");
       return;
     }
     setBusy(true);
     try {
       const result = await createDailyTasks({
         group_id: groupId,
-        start_date: startDate,
-        end_date: endDate,
+        task_date: taskDate,
         lesson_ids: picked.map((item) => item.id),
       });
       setMessage(
-        `تم تعيين ${result?.created || 0} مهمة${
+        `تم تعيين ${result?.created || 0} مهمة ليوم ${formatDay(taskDate)}${
           result?.skipped ? `، وتخطي ${result.skipped} مكررة` : ""
         }.`
       );
       setPicked([]);
-      await loadBoard();
+      setViewFrom(taskDate < viewFrom ? taskDate : viewFrom);
+      setViewTo(taskDate > viewTo ? taskDate : viewTo);
+      await loadBoard(
+        groupId,
+        taskDate < viewFrom ? taskDate : viewFrom,
+        taskDate > viewTo ? taskDate : viewTo
+      );
     } catch (err) {
       setError(err?.message || "تعذر حفظ المهام");
     } finally {
@@ -189,11 +195,11 @@ const DailyTasksAdmin = () => {
           المهام اليومية
         </h1>
         <p className="text-center text-gray-600 mb-6">
-          عيّن بنوك وواجبات كل مجموعة لأي مدة. الطالب يرى اليوم والأيام السابقة فقط.
+          عيّن واجب أو بنك لمجموعة في يوم محدد. يظهر للطالب في ذلك اليوم فقط ويختفي بنهايته.
         </p>
 
         <div className="bg-white rounded-2xl shadow p-4 md:p-6 mb-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <label className="block text-sm font-bold text-dark-700">
               المجموعة
               <select
@@ -214,22 +220,16 @@ const DailyTasksAdmin = () => {
               </select>
             </label>
             <label className="block text-sm font-bold text-dark-700">
-              من
+              يوم المهمة
               <input
                 type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
+                value={taskDate}
+                onChange={(event) => setTaskDate(event.target.value)}
                 className="mt-1 w-full px-3 py-2 border rounded-lg"
               />
-            </label>
-            <label className="block text-sm font-bold text-dark-700">
-              إلى
-              <input
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-                className="mt-1 w-full px-3 py-2 border rounded-lg"
-              />
+              <span className="mt-1 block text-xs font-medium text-gray-500">
+                التعيين ليوم واحد فقط — ليس لفترة متعددة الأيام
+              </span>
             </label>
           </div>
 
@@ -319,19 +319,48 @@ const DailyTasksAdmin = () => {
               disabled={busy}
               className="px-4 py-2 rounded-lg bg-amber-600 text-white font-bold hover:bg-amber-700 disabled:opacity-50"
             >
-              تعيين لهذه المدة
-            </button>
-            <button
-              type="button"
-              onClick={() => loadBoard()}
-              disabled={busy || !groupId}
-              className="px-4 py-2 rounded-lg bg-primary-500 text-white font-bold hover:bg-primary-600 disabled:opacity-50"
-            >
-              عرض المهام والنتائج
+              تعيين لهذا اليوم
             </button>
           </div>
           {message && <p className="text-emerald-700 font-bold">{message}</p>}
           {error && <p className="text-red-600 font-bold">{error}</p>}
+        </div>
+
+        <div className="bg-white rounded-2xl shadow p-4 md:p-6 mb-6 space-y-4">
+          <h2 className="font-extrabold text-dark-700">عرض المهام والنتائج</h2>
+          <p className="text-sm text-gray-600">
+            اختر فترة للعرض فقط (للمتابعة والتقارير). التعيين نفسه يبقى يوماً بيوم من الأعلى.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <label className="block text-sm font-bold text-dark-700">
+              من
+              <input
+                type="date"
+                value={viewFrom}
+                onChange={(event) => setViewFrom(event.target.value)}
+                className="mt-1 w-full px-3 py-2 border rounded-lg"
+              />
+            </label>
+            <label className="block text-sm font-bold text-dark-700">
+              إلى
+              <input
+                type="date"
+                value={viewTo}
+                onChange={(event) => setViewTo(event.target.value)}
+                className="mt-1 w-full px-3 py-2 border rounded-lg"
+              />
+            </label>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={() => loadBoard()}
+                disabled={busy || !groupId}
+                className="w-full px-4 py-2 rounded-lg bg-primary-500 text-white font-bold hover:bg-primary-600 disabled:opacity-50"
+              >
+                عرض المهام والنتائج
+              </button>
+            </div>
+          </div>
         </div>
 
         {Object.keys(groupedAssignments).length > 0 && (
