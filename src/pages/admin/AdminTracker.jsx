@@ -7,6 +7,7 @@ import {
   getAdminStudentDetail,
   getStudentGroups,
   getSections,
+  getLevelsByChapter,
   getTrackerByLesson,
   getSuspiciousActivity,
   isBackendOn,
@@ -42,6 +43,7 @@ const AdminTracker = () => {
   const [byLessonCategoryId, setByLessonCategoryId] = useState("");
   const [byLessonChapterId, setByLessonChapterId] = useState("");
   const [byLessonLessonId, setByLessonLessonId] = useState("");
+  const [chapterLessons, setChapterLessons] = useState([]);
   const [byLessonData, setByLessonData] = useState(null);
   const [byLessonLoading, setByLessonLoading] = useState(false);
   const [expandedGroupIds, setExpandedGroupIds] = useState(new Set());
@@ -55,7 +57,28 @@ const AdminTracker = () => {
   const selectedCategory = categories.find((c) => c.id === byLessonCategoryId);
   const chapters = selectedCategory?.chapters || [];
   const selectedChapter = chapters.find((ch) => ch.id === byLessonChapterId);
-  const lessons = selectedChapter?.items || [];
+  const lessons = chapterLessons.length
+    ? chapterLessons
+    : selectedChapter?.items || [];
+
+  useEffect(() => {
+    if (!byLessonChapterId || !isBackendOn()) {
+      setChapterLessons([]);
+      return;
+    }
+    let cancelled = false;
+    setChapterLessons([]);
+    getLevelsByChapter(byLessonChapterId)
+      .then((list) => {
+        if (!cancelled) setChapterLessons(Array.isArray(list) ? list : []);
+      })
+      .catch(() => {
+        if (!cancelled) setChapterLessons([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [byLessonChapterId]);
 
   useEffect(() => {
     getAdminTrackerSummary()
@@ -197,12 +220,14 @@ const AdminTracker = () => {
           </div>
           <div className="bg-white rounded-xl shadow p-4 border-t-4 border-blue-500">
             <div className="text-3xl font-bold text-blue-600">
-              {students.length
-                ? Math.round(
-                    students.reduce((a, s) => a + (s.avg_exam_score || 0), 0) /
-                      students.length
-                  )
-                : 0}
+              {data?.overall_avg_latest != null
+                ? Math.round(data.overall_avg_latest)
+                : students.length
+                  ? Math.round(
+                      students.reduce((a, s) => a + (s.avg_exam_score || 0), 0) /
+                        students.length
+                    )
+                  : 0}
               %
             </div>
             <div className="text-sm text-gray-600">متوسط الدرجات</div>
@@ -273,6 +298,7 @@ const AdminTracker = () => {
                   className="px-3 py-2 border rounded-lg min-w-[160px]"
                 >
                   <option value="">اختر المجموعة</option>
+                  <option value="all">كل الطلاب</option>
                   {flattenGroups(groups).map((g) => (
                     <option key={g.id} value={g.id}>{g.name}</option>
                   ))}
@@ -355,7 +381,10 @@ const AdminTracker = () => {
             </div>
             {byLessonData && (
               <div className="overflow-x-auto p-4 border-t">
-                <h3 className="font-bold text-dark-700 mb-2">{byLessonData.lesson_name} — {byLessonData.group_name}</h3>
+                <h3 className="font-bold text-dark-700 mb-1">{byLessonData.lesson_name} — {byLessonData.group_name}</h3>
+                <p className="text-sm text-gray-500 mb-2">
+                  الدرجات هنا هي آخر محاولة محفوظة. يظهر طلاب المجموعة، وأي طالب حل هذا الواجب حتى لو لم يُضَف إلى المجموعة.
+                </p>
                 <table className="w-full text-sm">
                   <thead className="bg-gray-100">
                     <tr>
@@ -430,6 +459,9 @@ const AdminTracker = () => {
                     عدد المحاولات
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
+                    واجبات منجزة
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
                     الأجوبة الخاطئة
                   </th>
                   <th className="px-4 py-3 text-right text-sm font-bold text-dark-700">
@@ -450,7 +482,7 @@ const AdminTracker = () => {
                 {students.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-8 text-center text-gray-500"
                     >
                       لا يوجد طلاب مسجلين
@@ -471,6 +503,11 @@ const AdminTracker = () => {
                       <td className="px-4 py-3">
                         <span className="font-bold text-green-600">
                           {s.total_exam_attempts || 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="font-bold text-teal-700">
+                          {s.homework_count || 0}
                         </span>
                       </td>
                       <td className="px-4 py-3">

@@ -2,6 +2,7 @@ import os
 import uuid
 import hashlib
 import time
+import unicodedata
 from io import StringIO
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
@@ -192,6 +193,93 @@ class RegisterView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+_ARABIC_DIGIT_TRANS = str.maketrans(
+    '٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹',
+    '01234567890123456789',
+)
+_ALEF_VARIANTS = ('أ', 'إ', 'آ', 'ٱ')
+
+
+def _normalize_login_text(value):
+    """Fold Arabic keyboard differences that make a real account look unknown."""
+    text = unicodedata.normalize('NFKC', '' if value is None else str(value))
+    text = text.translate(_ARABIC_DIGIT_TRANS)
+    text = ''.join(ch for ch in text if unicodedata.category(ch) != 'Mn')
+    for ch in _ALEF_VARIANTS:
+        text = text.replace(ch, 'ا')
+    text = text.replace('ى', 'ي').replace('ة', 'ه').replace('ـ', '')
+    return ' '.join(text.split()).casefold()
+
+
+def _password_variants(password):
+    raw = '' if password is None else str(password)
+    stripped = raw.strip()
+    digit = stripped.translate(_ARABIC_DIGIT_TRANS)
+    variants = []
+    for item in (raw, stripped, digit):
+        if item and item not in variants:
+            variants.append(item)
+    return variants
+
+
+def _password_matches(user, password):
+    for variant in _password_variants(password):
+        if user.check_password(variant):
+            return True
+    return False
+
+
+def _users_for_login(username_or_email):
+    """
+    Resolve the account the student meant to open.
+    Exact username/email wins. Otherwise match a normalized name, email, or phone
+    so Arabic-keyboard differences do not reject a valid account.
+    """
+    raw = str(username_or_email or '').strip()
+    if not raw:
+        return []
+
+    exact = list(User.objects.filter(username__iexact=raw))
+    if not exact and '@' in raw:
+        exact = list(User.objects.filter(email__iexact=raw))
+    if exact:
+        return exact
+
+    norm = _normalize_login_text(raw)
+    if norm:
+        exact = list(User.objects.filter(username__iexact=norm))
+        if not exact and '@' in norm:
+            exact = list(User.objects.filter(email__iexact=norm))
+        if exact:
+            return exact
+
+    matched = []
+    seen = set()
+    digits = ''.join(ch for ch in norm if ch.isdigit())
+    for user in User.objects.all().iterator():
+        labels = (
+            user.username,
+            user.email or '',
+            user.first_name or '',
+            f'{(user.first_name or "").strip()} {(user.last_name or "").strip()}',
+            user.phone or '',
+        )
+        hit = any(
+            _normalize_login_text(label) == norm
+            for label in labels
+            if label and str(label).strip()
+        )
+        if not hit and digits:
+            phone_digits = ''.join(
+                ch for ch in _normalize_login_text(user.phone or '') if ch.isdigit()
+            )
+            hit = bool(phone_digits) and phone_digits == digits
+        if hit and user.pk not in seen:
+            seen.add(user.pk)
+            matched.append(user)
+    return matched
+
+
 class LoginView(APIView):
     """User login endpoint"""
     permission_classes = [permissions.AllowAny]
@@ -200,34 +288,47 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             username_or_email = serializer.validated_data['username']
-            password = request.data.get('password')
-            
-            # Try to authenticate with username first
-            user = authenticate(username=username_or_email, password=password)
-            
-            # If failed, try with email
-            if not user and '@' in username_or_email:
-                try:
-                    user_obj = User.objects.get(email=username_or_email)
-                    user = authenticate(username=user_obj.username, password=password)
-                except User.DoesNotExist:
-                    user = None
-            
-            if user:
-                denied = _student_access_denied_response(user, request)
-                if denied is not None:
-                    return denied
-                token, created = Token.objects.get_or_create(user=user)
-                login(request, user)
-                return Response({
-                    'token': token.key,
-                    'user': UserSerializer(user).data
-                })
-            else:
+            password = serializer.validated_data.get('password', request.data.get('password'))
+            candidates = _users_for_login(username_or_email)
+            matched = [user for user in candidates if _password_matches(user, password)]
+
+            # Same display name on more than one account, and the password fits more than one:
+            # do not guess which student is signing in.
+            if len(matched) != 1:
+                if len(candidates) == 1 and not candidates[0].has_usable_password():
+                    return Response(
+                        {
+                            'error': 'No password is set for this account. Sign in with Telegram, or ask the admin to set a password.',
+                            'code': 'password_not_set',
+                        },
+                        status=status.HTTP_401_UNAUTHORIZED,
+                    )
                 return Response(
                     {'error': 'Invalid credentials'},
                     status=status.HTTP_401_UNAUTHORIZED
                 )
+
+            user = matched[0]
+            # Django's authenticate() hides inactive users as "invalid credentials".
+            # Activation in this app is is_active_account, so a student the admin
+            # already activated must still be able to sign in.
+            if (
+                not user.is_active
+                and user.role == 'student'
+                and user.is_active_account
+            ):
+                user.is_active = True
+                user.save(update_fields=['is_active'])
+
+            denied = _student_access_denied_response(user, request)
+            if denied is not None:
+                return denied
+            token, created = Token.objects.get_or_create(user=user)
+            login(request, user)
+            return Response({
+                'token': token.key,
+                'user': UserSerializer(user).data
+            })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -655,6 +756,7 @@ class UserViewSet(viewsets.ModelViewSet):
 
 class SectionViewSet(viewsets.ReadOnlyModelViewSet):
     """Sections viewset (read-only). List/retrieve public; payload omits lesson rows."""
+    pagination_class = None
     queryset = Section.objects.prefetch_related(
         Prefetch(
             'subjects__categories__chapters',
@@ -921,6 +1023,7 @@ class LessonViewSet(viewsets.ModelViewSet):
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticatedDeviceAllowed]
+    pagination_class = LessonMediaPagination
     lookup_field = 'id'
     lookup_url_kwarg = 'pk'
 
@@ -1699,6 +1802,7 @@ class StudentGroupViewSet(viewsets.ModelViewSet):
 class QuizAttemptViewSet(viewsets.ModelViewSet):
     """Quiz attempt tracking - students create & list own; admin lists all."""
     permission_classes = [IsAuthenticatedDeviceAllowed]
+    pagination_class = LessonMediaPagination
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -2103,37 +2207,79 @@ class TrackerStudentResultsView(APIView):
 
 
 class TrackerAdminSummaryView(APIView):
-    """Admin overview: per-student stats, averages, video watch counts, incorrect answers."""
+    """Admin overview: every student, with the latest grade per homework."""
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        from django.db.models import Count, Avg
         from collections import defaultdict
-        students = User.objects.filter(role='student', is_active=True)
-        result = []
-        for s in students:
-            attempts = QuizAttempt.objects.filter(user=s).aggregate(
-                total_attempts=Count('id'),
-                avg_score=Avg('score'),
-                avg_duration=Avg('duration_seconds')
-            )
-            total_video_watches = VideoWatch.objects.filter(user=s).aggregate(
+        students = list(
+            User.objects.filter(role='student').order_by('first_name', 'username')
+        )
+        student_ids = [s.id for s in students]
+
+        latest_by_user_lesson = {}
+        attempt_counts = defaultdict(int)
+        if student_ids:
+            attempts = QuizAttempt.objects.filter(user_id__in=student_ids).order_by('-completed_at')
+            for att in attempts:
+                attempt_counts[att.user_id] += 1
+                key = (att.user_id, att.lesson_id)
+                if key not in latest_by_user_lesson:
+                    latest_by_user_lesson[key] = att
+
+        homework_lessons = defaultdict(set)
+        latest_scores = defaultdict(list)
+        latest_durations = defaultdict(list)
+        for (uid, lid), att in latest_by_user_lesson.items():
+            homework_lessons[uid].add(lid)
+            latest_scores[uid].append(att.score or 0)
+            latest_durations[uid].append(att.duration_seconds or 0)
+
+        if student_ids:
+            progress_pairs = StudentProgress.objects.filter(
+                user_id__in=student_ids,
+                answered_at__isnull=False,
+            ).exclude(lesson_id__isnull=True).values_list('user_id', 'lesson_id')
+            for uid, lid in progress_pairs:
+                homework_lessons[uid].add(lid)
+
+        video_map = {}
+        incorrect_map = {}
+        if student_ids:
+            for row in VideoWatch.objects.filter(user_id__in=student_ids).values('user_id').annotate(
                 t=Sum('watch_count')
-            ).get('t') or 0
-            incorrect_count = IncorrectAnswer.objects.filter(user=s).count()
+            ):
+                video_map[row['user_id']] = row['t'] or 0
+            for row in IncorrectAnswer.objects.filter(user_id__in=student_ids).values('user_id').annotate(
+                t=Count('id')
+            ):
+                incorrect_map[row['user_id']] = row['t'] or 0
+
+        result = []
+        graded_avgs = []
+        for s in students:
+            scores = latest_scores.get(s.id) or []
+            durations = latest_durations.get(s.id) or []
+            avg_score = round(sum(scores) / len(scores), 1) if scores else 0
+            if scores:
+                graded_avgs.append(avg_score)
             result.append({
                 'user_id': s.id,
                 'username': s.username,
                 'first_name': s.first_name or s.username,
-                'total_exam_attempts': attempts['total_attempts'] or 0,
-                'avg_exam_score': round(attempts['avg_score'] or 0, 1),
-                'avg_exam_duration_seconds': round(attempts['avg_duration'] or 0),
-                'total_video_watches': total_video_watches,
-                'incorrect_answers_count': incorrect_count,
+                'total_exam_attempts': attempt_counts.get(s.id, 0),
+                'homework_count': len(homework_lessons.get(s.id) or ()),
+                'avg_exam_score': avg_score,
+                'avg_exam_duration_seconds': round(sum(durations) / len(durations)) if durations else 0,
+                'total_video_watches': video_map.get(s.id, 0),
+                'incorrect_answers_count': incorrect_map.get(s.id, 0),
+                'is_active_account': bool(s.is_active_account),
             })
+        overall = round(sum(graded_avgs) / len(graded_avgs), 1) if graded_avgs else 0
         return Response({
             'students': result,
             'total_incorrect_answers': sum(r['incorrect_answers_count'] for r in result),
+            'overall_avg_latest': overall,
         })
 
 
@@ -2150,25 +2296,49 @@ class TrackerAdminStudentDetailView(APIView):
         except User.DoesNotExist:
             return Response({'error': 'Student not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        lessons = Lesson.objects.exclude(
+        latest_attempt = {}
+        attempt_counts = {}
+        duration_sum = {}
+        for att in QuizAttempt.objects.filter(user=student).order_by('-completed_at'):
+            attempt_counts[att.lesson_id] = attempt_counts.get(att.lesson_id, 0) + 1
+            duration_sum[att.lesson_id] = duration_sum.get(att.lesson_id, 0) + (att.duration_seconds or 0)
+            if att.lesson_id not in latest_attempt:
+                latest_attempt[att.lesson_id] = att
+
+        progress_rows = StudentProgress.objects.filter(
+            user=student,
+            answered_at__isnull=False,
+        ).exclude(lesson_id__isnull=True).values('lesson_id').annotate(
+            answered=Count('id'),
+            correct=Count('id', filter=Q(is_correct=True)),
+        )
+        progress_map = {row['lesson_id']: row for row in progress_rows}
+
+        engaged_ids = set(latest_attempt) | set(progress_map)
+        lessons = Lesson.objects.filter(id__in=engaged_ids).exclude(
             chapter__category__subject__section_id__in=DISABLED_SECTION_IDS
         ).select_related('chapter', 'chapter__category', 'chapter__category__subject')
 
-        attempts = QuizAttempt.objects.filter(user=student).values('lesson_id').annotate(
-            attempt_count=Count('id'),
-            last_score=Max('score'),
-            avg_duration=Avg('duration_seconds')
-        )
-        attempt_map = {a['lesson_id']: a for a in attempts}
-
-        vw_agg = VideoWatch.objects.filter(user=student).values('lesson_id').annotate(
+        vw_agg = VideoWatch.objects.filter(user=student, lesson_id__in=engaged_ids).values('lesson_id').annotate(
             total=Sum('watch_count')
         )
         vw_map = {v['lesson_id']: v['total'] for v in vw_agg}
 
         items = []
         for les in lessons:
-            info = attempt_map.get(les.id, {})
+            att = latest_attempt.get(les.id)
+            prog = progress_map.get(les.id) or {}
+            count = attempt_counts.get(les.id, 0)
+            answered = prog.get('answered') or 0
+            correct = prog.get('correct') or 0
+            if att is not None:
+                last_score = att.score
+            elif answered:
+                last_score = round(correct / answered * 100, 1)
+                count = max(count, 1)
+            else:
+                last_score = None
+            dur_total = duration_sum.get(les.id, 0)
             ch = les.chapter
             cat = ch.category if ch else None
             subj = cat.subject if cat else None
@@ -2184,10 +2354,13 @@ class TrackerAdminStudentDetailView(APIView):
                 'subject_id': subj.id if subj else None,
                 'subject_name': subj.name if subj else '',
                 'is_bank': is_bank,
-                'attempt_count': info.get('attempt_count', 0),
-                'last_score': info.get('last_score'),
-                'avg_duration_seconds': info.get('avg_duration'),
+                'attempt_count': count,
+                'last_score': last_score,
+                'avg_duration_seconds': round(dur_total / count) if count else None,
                 'video_watch_count': vw_map.get(les.id, 0),
+                'answered_questions': answered,
+                'correct_answers': correct,
+                'completed_at': att.completed_at.isoformat() if att and att.completed_at else None,
             })
 
         # Compute chart data: average by subject and by category
@@ -2399,10 +2572,13 @@ class TrackerByLessonView(APIView):
                 {'error': 'group_id and lesson_id required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        try:
-            group = StudentGroup.objects.get(pk=group_id)
-        except StudentGroup.DoesNotExist:
-            return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
+        show_all = str(group_id) == 'all'
+        group = None
+        if not show_all:
+            try:
+                group = StudentGroup.objects.get(pk=group_id)
+            except StudentGroup.DoesNotExist:
+                return Response({'error': 'Group not found'}, status=status.HTTP_404_NOT_FOUND)
         try:
             lesson = Lesson.objects.get(pk=lesson_id)
         except Lesson.DoesNotExist:
@@ -2413,14 +2589,31 @@ class TrackerByLessonView(APIView):
         points_per_question = 1.0
         max_score = len(q_ids) * points_per_question if q_ids else 0
 
-        member_user_ids = list(
-            StudentGroupMembership.objects.filter(group=group).values_list('user_id', flat=True)
-        )
-        students = User.objects.filter(id__in=member_user_ids, role='student').order_by('first_name', 'username')
+        if show_all:
+            student_ids = list(
+                User.objects.filter(role='student').values_list('id', flat=True)
+            )
+            group_name = 'كل الطلاب'
+        else:
+            student_ids = list(
+                StudentGroupMembership.objects.filter(group=group).values_list('user_id', flat=True)
+            )
+            # A student who solved this homework but was never placed in the
+            # classroom still belongs on the grade sheet.
+            student_ids = list(set(student_ids) | set(
+                QuizAttempt.objects.filter(lesson_id=lesson_id).values_list('user_id', flat=True)
+            ) | set(
+                StudentProgress.objects.filter(
+                    lesson_id=lesson_id,
+                    answered_at__isnull=False,
+                ).values_list('user_id', flat=True)
+            ))
+            group_name = group.name
+        students = User.objects.filter(id__in=student_ids, role='student').order_by('first_name', 'username')
 
         all_attempts = list(
             QuizAttempt.objects.filter(
-                user_id__in=member_user_ids,
+                user_id__in=student_ids,
                 lesson_id=lesson_id
             ).order_by('user_id', '-completed_at')
         )
@@ -2435,30 +2628,60 @@ class TrackerByLessonView(APIView):
                 }
         incorrect_by_user = {}
         for ia in IncorrectAnswer.objects.filter(
-            user_id__in=member_user_ids,
+            user_id__in=student_ids,
             lesson_id=lesson_id
         ).values('user_id', 'question_id'):
-            incorrect_by_user.setdefault(ia['user_id'], set()).add(ia['question_id'])
+            incorrect_by_user.setdefault(ia['user_id'], set()).add(str(ia['question_id']))
+
+        progress_by_user = {}
+        for row in StudentProgress.objects.filter(
+            user_id__in=student_ids,
+            lesson_id=lesson_id,
+            answered_at__isnull=False,
+        ).values('user_id', 'question_id', 'is_correct'):
+            progress_by_user.setdefault(row['user_id'], {})[str(row['question_id'])] = bool(row['is_correct'])
 
         rows = []
         for user in students:
             uid = user.id
             att = attempts.get(uid, {})
             wrong_ids = incorrect_by_user.get(uid, set())
+            progress = progress_by_user.get(uid, {})
             started_at = att.get('last_started')
             completed_at = att.get('last_completed')
-            status_ar = 'مكتمل' if completed_at else ('قيد التنفيذ' if started_at else 'لم يبدأ')
             duration = att.get('last_duration') or 0
             score_pct = att.get('last_score')
-            score_total = round((len(q_ids) - len(wrong_ids)) * points_per_question, 1) if q_ids else 0
+            answered_any = bool(progress) or bool(wrong_ids) or bool(completed_at or started_at)
+            if completed_at or (q_ids and len(progress) >= len(q_ids)):
+                status_ar = 'مكتمل'
+            elif answered_any:
+                status_ar = 'قيد التنفيذ'
+            else:
+                status_ar = 'لم يبدأ'
+
             if score_pct is not None and max_score and max_score > 0:
-                score_total = round(score_pct / 100 * max_score, 1)
+                score_total = round(float(score_pct) / 100.0 * max_score, 1)
+            elif progress and q_ids:
+                correct_n = sum(1 for ok in progress.values() if ok)
+                score_total = round(correct_n * points_per_question, 1)
+            elif answered_any:
+                score_total = 0
+            else:
+                score_total = None
 
             q_scores = {}
+            perfect = score_pct is not None and float(score_pct) >= 99.9
             for qid in q_ids:
-                if qid in wrong_ids:
+                qkey = str(qid)
+                if qkey in progress:
+                    ok = progress[qkey]
+                    q_scores[qid] = {
+                        'score': points_per_question if ok else 0.0,
+                        'correct': ok,
+                    }
+                elif qkey in wrong_ids:
                     q_scores[qid] = {'score': 0.0, 'correct': False}
-                elif started_at or completed_at:
+                elif completed_at and (perfect or wrong_ids):
                     q_scores[qid] = {'score': points_per_question, 'correct': True}
                 else:
                     q_scores[qid] = {'score': None, 'correct': None}
@@ -2482,7 +2705,7 @@ class TrackerByLessonView(APIView):
             'lesson_id': lesson_id,
             'lesson_name': lesson.name,
             'group_id': group_id,
-            'group_name': group.name,
+            'group_name': group_name,
             'questions': [{'id': qid, 'label': label} for qid, label in question_slots],
             'points_per_question': points_per_question,
             'rows': rows,

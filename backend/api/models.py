@@ -630,6 +630,33 @@ class TigerTestUsedQuestion(models.Model):
         return f"{self.user.username} — {self.question_key}"
 
 
+class DailyTask(models.Model):
+    """Homework or bank assigned to one group on one calendar day."""
+
+    group = models.ForeignKey(
+        StudentGroup, on_delete=models.CASCADE, related_name='daily_tasks'
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE, related_name='daily_tasks'
+    )
+    task_date = models.DateField(db_index=True)
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='daily_tasks_created',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['task_date', 'id']
+        unique_together = [['group', 'lesson', 'task_date']]
+        indexes = [
+            models.Index(fields=['group', 'task_date'], name='api_dailytask_group_date_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.group.name} — {self.task_date} — {self.lesson.name}"
+
+
 class TigerTestSettings(models.Model):
     """Singleton: which verbal/quant banks (lessons) feed محاكي النمر."""
 

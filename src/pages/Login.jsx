@@ -94,7 +94,22 @@ const Login = () => {
               "3. تحقق من إعدادات CORS_ALLOWED_ORIGINS في Render"
           );
         } else {
-          setError(err.message || "فشل تسجيل الدخول");
+          const raw = err.message || "";
+          if (err.code === "password_not_set") {
+            setError(
+              isArabicBrowser()
+                ? "هذا الحساب بدون كلمة مرور. ادخل عبر تيليجرام، أو اطلب من الإدارة تعيين كلمة مرور."
+                : "This account has no password. Sign in with Telegram, or ask the admin to set one."
+            );
+          } else {
+            setError(
+              /invalid credentials/i.test(raw)
+                ? isArabicBrowser()
+                  ? "اسم المستخدم أو كلمة المرور غير صحيحة"
+                  : "Invalid username or password"
+                : raw || "فشل تسجيل الدخول"
+            );
+          }
         }
       } finally {
         setLoading(false);

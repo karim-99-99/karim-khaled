@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import views
 from . import tiger_test_views
+from . import daily_tasks
 
 router = DefaultRouter()
 router.register(r'users', views.UserViewSet, basename='user')
@@ -48,6 +49,11 @@ urlpatterns = [
     path('tracker/incorrect-answers/<str:question_id>/', views.IncorrectAnswerDetailView.as_view(), name='incorrect-answers-detail'),
     path('tracker/admin-incorrect-answers/', views.AdminIncorrectAnswersView.as_view(), name='tracker-admin-incorrect-answers'),
     path('tracker/by-lesson/', views.TrackerByLessonView.as_view(), name='tracker-by-lesson'),
+    path('daily-tasks/groups/', daily_tasks.DailyTaskGroupListView.as_view(), name='daily-tasks-groups'),
+    path('daily-tasks/mine/', daily_tasks.DailyTaskMineView.as_view(), name='daily-tasks-mine'),
+    path('daily-tasks/assignments/', daily_tasks.DailyTaskAssignmentView.as_view(), name='daily-tasks-assignments'),
+    path('daily-tasks/assignments/<int:pk>/', daily_tasks.DailyTaskAssignmentDetailView.as_view(), name='daily-tasks-assignment-detail'),
+    path('daily-tasks/report/', daily_tasks.DailyTaskReportView.as_view(), name='daily-tasks-report'),
     path('tiger-test/banks/', tiger_test_views.TigerTestBanksView.as_view(), name='tiger-test-banks'),
     path('tiger-test/active/', tiger_test_views.TigerTestActiveView.as_view(), name='tiger-test-active'),
     path('tiger-test/start/', tiger_test_views.TigerTestStartView.as_view(), name='tiger-test-start'),

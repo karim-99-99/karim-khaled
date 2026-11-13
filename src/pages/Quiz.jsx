@@ -449,8 +449,9 @@ const Quiz = () => {
     // Clear saved progress
     clearSavedProgress();
 
-    // Fire tracker saves in the background — don't block navigation to result.
-    // The user sees the score instantly; any failure is logged silently.
+    // Save the grade before leaving this page so the teacher dashboard
+    // receives the attempt even if the student closes the result screen.
+    const trackerSaves = [];
     if (currentUser && isBackendOn()) {
       const startedAt = quizStartTimeRef.current || Date.now() - 60000;
       const completedAt = Date.now();
@@ -477,17 +478,19 @@ const Quiz = () => {
           });
         }
       });
-      saveQuizAttempt({
-        lesson: actualItemId,
-        score,
-        correct_count: correctCount,
-        total_questions: questions.length,
-        started_at: new Date(startedAt).toISOString(),
-        completed_at: new Date(completedAt).toISOString(),
-        duration_seconds: durationSeconds,
-      }).catch((err) => {
-        console.warn("Could not save quiz attempt to tracker:", err);
-      });
+      trackerSaves.push(
+        saveQuizAttempt({
+          lesson: actualItemId,
+          score,
+          correct_count: correctCount,
+          total_questions: questions.length,
+          started_at: new Date(startedAt).toISOString(),
+          completed_at: new Date(completedAt).toISOString(),
+          duration_seconds: durationSeconds,
+        }).catch((err) => {
+          console.warn("Could not save quiz attempt to tracker:", err);
+        })
+      );
       const toRecord = questions
         .map((q) => {
           const userAnswer = ans[q.id];
@@ -500,15 +503,22 @@ const Quiz = () => {
         })
         .filter(Boolean);
       if (toRecord.length) {
-        recordLessonQuizAnswers(actualItemId, toRecord).catch((err) => {
-          console.warn("Could not record lesson answers for results:", err);
-        });
+        trackerSaves.push(
+          recordLessonQuizAnswers(actualItemId, toRecord).catch((err) => {
+            console.warn("Could not record lesson answers for results:", err);
+          })
+        );
       }
       if (incorrectItems.length > 0) {
-        addIncorrectAnswers(incorrectItems).catch((err) => {
-          console.warn("Could not save incorrect answers:", err);
-        });
+        trackerSaves.push(
+          addIncorrectAnswers(incorrectItems).catch((err) => {
+            console.warn("Could not save incorrect answers:", err);
+          })
+        );
       }
+    }
+    if (trackerSaves.length) {
+      await Promise.all(trackerSaves);
     }
 
     if (currentUser) {

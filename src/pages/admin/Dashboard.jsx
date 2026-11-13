@@ -43,6 +43,14 @@ const Dashboard = () => {
           </button>
 
           <button
+            onClick={() => navigate("/admin/daily-tasks")}
+            className="bg-amber-600 hover:bg-amber-700 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
+          >
+            <span className="text-2xl">📅</span>
+            <span>المهام اليومية</span>
+          </button>
+
+          <button
             onClick={() => navigate("/admin/tiger-banks")}
             className="bg-rose-600 hover:bg-rose-700 text-white p-6 md:p-7 rounded-2xl font-extrabold transition shadow-lg hover:shadow-2xl flex items-center justify-center gap-3 text-lg md:text-xl"
           >

@@ -13,6 +13,7 @@ import Header from "../components/Header";
 import CourseScatteredBackground from "../components/CourseScatteredBackground";
 import CourseNavButton from "../components/CourseNavButton";
 import TigerSimulatorBanner from "../components/TigerSimulatorBanner";
+import DailyTasksEntry from "../components/DailyTasksEntry";
 import { resolveCourseBackgroundVariant } from "../data/courseBackgroundWords";
 import {
   hasSectionAccess,
@@ -491,6 +492,7 @@ const Home = () => {
             الدورات
           </h1>
           <TigerSimulatorBanner />
+          <DailyTasksEntry />
         </div>
 
         <div className="max-w-4xl mx-auto">

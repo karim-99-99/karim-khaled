@@ -3,7 +3,7 @@ from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from .models import (
     User, Section, Subject, Category, Chapter, Lesson,
     Question, Answer, Video, File, StudentProgress, LessonProgress,
-    StudentGroup, StudentGroupMembership
+    StudentGroup, StudentGroupMembership, DailyTask,
 )
 
 
@@ -131,6 +131,14 @@ class StudentGroupAdmin(admin.ModelAdmin):
     search_fields = ['name']
     inlines = [StudentGroupMembershipInline]
     raw_id_fields = ['parent']
+
+
+@admin.register(DailyTask)
+class DailyTaskAdmin(admin.ModelAdmin):
+    list_display = ['task_date', 'group', 'lesson', 'created_by', 'created_at']
+    list_filter = ['task_date', 'group']
+    search_fields = ['lesson__name', 'group__name']
+    raw_id_fields = ['group', 'lesson', 'created_by']
 
 
 @admin.register(StudentGroupMembership)

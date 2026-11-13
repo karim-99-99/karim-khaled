@@ -458,8 +458,7 @@ export const getSections = async (options = {}) => {
       return _sectionsCache.data;
     }
   }
-  const raw = await request("/sections/");
-  const data = Array.isArray(raw) ? raw : raw?.results || [];
+  const data = await fetchAllPaginated("/sections/");
   _sectionsCache = { at: Date.now(), data };
   return data;
 };
@@ -472,15 +471,13 @@ export const invalidateSectionsCache = () => {
 };
 
 export const getSubjects = async () => {
-  const list = await request("/subjects/");
-  return Array.isArray(list) ? list : list?.results || [];
+  return fetchAllPaginated("/subjects/");
 };
 
 export const getCategoriesBySubject = async (subjectId) => {
-  const list = await request(
+  return fetchAllPaginated(
     `/categories/?subject_id=${encodeURIComponent(subjectId)}`
   );
-  return Array.isArray(list) ? list : list?.results || [];
 };
 
 export const getSubjectById = async (subjectId) => {
@@ -500,10 +497,9 @@ export const getSectionById = async (sectionId) => {
 };
 
 export const getChaptersByCategory = async (categoryId) => {
-  const list = await request(
+  const arr = await fetchAllPaginated(
     `/chapters/?category_id=${encodeURIComponent(categoryId)}`
   );
-  const arr = Array.isArray(list) ? list : list?.results || [];
   return arr.map((ch) => ({
     ...ch,
     has_test: ch.has_test,
@@ -515,10 +511,9 @@ export const getChaptersByCategory = async (categoryId) => {
 };
 
 export const getLevelsByChapter = async (chapterId) => {
-  const list = await request(
+  const arr = await fetchAllPaginated(
     `/lessons/?chapter_id=${encodeURIComponent(chapterId)}`
   );
-  const arr = Array.isArray(list) ? list : list?.results || [];
   return arr.map((l) => ({
     ...l,
     hasTest: !!l.has_test,
@@ -1595,8 +1590,7 @@ export const getQuizAttempts = async (filters = {}) => {
   if (filters.chapter_id) params.set("chapter_id", filters.chapter_id);
   const qs = params.toString();
   const path = qs ? `/tracker/quiz-attempts/?${qs}` : "/tracker/quiz-attempts/";
-  const list = await request(path);
-  return Array.isArray(list) ? list : list?.results || [];
+  return fetchAllPaginated(path);
 };
 
 /** Current user's lesson progress (in-progress, not yet completed). */
@@ -1844,4 +1838,44 @@ export const updateTigerBanks = async (verbalBankIds, quantBankIds) => {
       quant_bank_ids: quantBankIds,
     }),
   });
+};
+
+export const getMyDailyTasks = async () => {
+  return request("/daily-tasks/mine/");
+};
+
+export const getDailyTaskGroups = async () => {
+  const list = await request("/daily-tasks/groups/");
+  return Array.isArray(list) ? list : [];
+};
+
+export const getDailyTaskAssignments = async (groupId, from, to) => {
+  const params = new URLSearchParams({ group_id: groupId, from, to });
+  return request(`/daily-tasks/assignments/?${params}`);
+};
+
+export const createDailyTasks = async (payload) => {
+  return request("/daily-tasks/assignments/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+};
+
+export const deleteDailyTask = async (taskId) => {
+  return request(`/daily-tasks/assignments/${encodeURIComponent(taskId)}/`, {
+    method: "DELETE",
+  });
+};
+
+export const getDailyTaskReport = async (groupId, from, to) => {
+  const params = new URLSearchParams({ group_id: groupId, from, to });
+  return request(`/daily-tasks/report/?${params}`);
+};
+
+export const dailyTaskQuizPath = (task) => {
+  const path = task?.path || {};
+  if (!path.section_id || !path.subject_id || !path.category_id || !path.chapter_id || !path.item_id) {
+    return null;
+  }
+  return `/section/${encodeURIComponent(path.section_id)}/subject/${encodeURIComponent(path.subject_id)}/category/${encodeURIComponent(path.category_id)}/chapter/${encodeURIComponent(path.chapter_id)}/item/${encodeURIComponent(path.item_id)}/quiz`;
 };

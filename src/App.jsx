@@ -32,6 +32,7 @@ const Video = lazy(() => import("./pages/Video.jsx"));
 const FileViewer = lazy(() => import("./pages/FileViewer.jsx"));
 const TestMathType = lazy(() => import("./pages/TestMathType.jsx"));
 const TigerTest = lazy(() => import("./pages/TigerTest.jsx"));
+const DailyTasks = lazy(() => import("./pages/DailyTasks.jsx"));
 const Foundation = lazy(() => import("./pages/Foundation.jsx"));
 const TryFree = lazy(() => import("./pages/TryFree.jsx"));
 const TryFreeLesson = lazy(() => import("./pages/TryFreeLesson.jsx"));
@@ -55,6 +56,7 @@ const TryFreeManagement = lazy(() =>
   import("./pages/admin/TryFreeManagement.jsx")
 );
 const TigerBanks = lazy(() => import("./pages/admin/TigerBanks.jsx"));
+const DailyTasksAdmin = lazy(() => import("./pages/admin/DailyTasksAdmin.jsx"));
 const StudentTracker = lazy(() => import("./pages/StudentTracker.jsx"));
 const IncorrectAnswers = lazy(() => import("./pages/IncorrectAnswers.jsx"));
 const Profile = lazy(() => import("./pages/Profile.jsx"));
@@ -235,6 +237,14 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/daily-tasks"
+                  element={
+                    <ProtectedRoute>
+                      <DailyTasks />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Result page - shows quiz result */}
                 <Route
@@ -395,6 +405,17 @@ function App() {
                       checkActive={false}
                     >
                       <TigerBanks />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/admin/daily-tasks"
+                  element={
+                    <ProtectedRoute
+                      allowedRoles={["admin", "content_admin"]}
+                      checkActive={false}
+                    >
+                      <DailyTasksAdmin />
                     </ProtectedRoute>
                   }
                 />
