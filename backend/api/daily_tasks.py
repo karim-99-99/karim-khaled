@@ -11,9 +11,6 @@ from rest_framework.views import APIView
 from .models import DailyTask, Lesson, QuizAttempt, StudentGroup, StudentGroupMembership, User
 from .permissions import IsAuthenticatedDeviceAllowed, IsStaffUser
 
-MAX_SPAN_DAYS = 180
-
-
 def _parse_date(value):
     if not value:
         return None
@@ -158,10 +155,13 @@ class DailyTaskMineView(APIView):
             })
 
         today_tasks = by_date.get(today, [])
+        previous_days = [day for day in days if not day['is_today']]
         return Response({
             'today': today.isoformat(),
             'today_tasks': today_tasks,
+            'has_today_tasks': bool(today_tasks),
             'all_today_solved': bool(today_tasks) and all(item['solved'] for item in today_tasks),
+            'has_previous_tasks': any(day['tasks'] for day in previous_days),
             'days': days,
         })
 
@@ -206,20 +206,29 @@ class DailyTaskAssignmentView(APIView):
         })
 
     def post(self, request):
+        """Assign banks/homework to a group for one calendar day (not a multi-day span)."""
         group_id = request.data.get('group_id')
+        task_date = _parse_date(request.data.get('task_date'))
+        # Backward compatible: start_date/end_date still accepted, but must be the same day.
         start = _parse_date(request.data.get('start_date'))
         end = _parse_date(request.data.get('end_date'))
         lesson_ids = request.data.get('lesson_ids') or []
-        if not group_id or not start or not end or not isinstance(lesson_ids, list) or not lesson_ids:
+
+        if task_date:
+            day = task_date
+        elif start and end:
+            if start != end:
+                return Response(
+                    {'error': 'التعيين يكون ليوم واحد فقط. اختر يوم المهمة وليس فترة.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            day = start
+        else:
+            day = None
+
+        if not group_id or not day or not isinstance(lesson_ids, list) or not lesson_ids:
             return Response(
-                {'error': 'اختر المجموعة والمدة وواجباً أو بنكاً واحداً على الأقل'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if end < start:
-            start, end = end, start
-        if (end - start).days > MAX_SPAN_DAYS:
-            return Response(
-                {'error': f'أقصى مدة هي {MAX_SPAN_DAYS} يوماً'},
+                {'error': 'اختر المجموعة واليوم وواجباً أو بنكاً واحداً على الأقل'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         try:
@@ -233,21 +242,21 @@ class DailyTaskAssignmentView(APIView):
 
         created = 0
         skipped = 0
-        day = start
-        while day <= end:
-            for lesson in lessons:
-                _, was_created = DailyTask.objects.get_or_create(
-                    group=group,
-                    lesson=lesson,
-                    task_date=day,
-                    defaults={'created_by': request.user if request.user.is_authenticated else None},
-                )
-                if was_created:
-                    created += 1
-                else:
-                    skipped += 1
-            day += datetime.timedelta(days=1)
-        return Response({'created': created, 'skipped': skipped}, status=status.HTTP_201_CREATED)
+        for lesson in lessons:
+            _, was_created = DailyTask.objects.get_or_create(
+                group=group,
+                lesson=lesson,
+                task_date=day,
+                defaults={'created_by': request.user if request.user.is_authenticated else None},
+            )
+            if was_created:
+                created += 1
+            else:
+                skipped += 1
+        return Response(
+            {'created': created, 'skipped': skipped, 'task_date': day.isoformat()},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class DailyTaskAssignmentDetailView(APIView):
