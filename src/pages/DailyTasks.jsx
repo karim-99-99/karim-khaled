@@ -1,124 +1,128 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import { dailyTaskQuizPath, getMyDailyTasks } from "../services/backendApi";
-import { splitTasksByKind, taskKindLabel } from "../utils/dailyTaskGroups";
+import {
+  formatArabicTaskDate,
+  isQuantitativeSubject,
+  subjectBadgeLabel,
+  taskSubtitle,
+} from "../utils/dailyTaskGroups";
 
-function formatDay(iso, isToday) {
-  const label = new Date(`${iso}T12:00:00`).toLocaleDateString("ar-EG", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  return isToday ? `اليوم — ${label}` : label;
+function CheckIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+      <path
+        d="M5 10.5l3.2 3.2L15 6.8"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
 }
 
-function TaskCard({ task, onOpen }) {
-  const kind = taskKindLabel(task);
-  const isBank = kind === "تجميعات";
-
-  if (task.solved) {
-    return (
-      <button
-        type="button"
-        onClick={() => onOpen(task)}
-        className="w-full rounded-2xl border-2 border-emerald-500 bg-gradient-to-l from-emerald-500 to-emerald-600 px-4 py-4 text-right text-white shadow-sm transition hover:from-emerald-600 hover:to-emerald-700"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <span className="mb-1 inline-flex rounded-full bg-white/20 px-2.5 py-0.5 text-xs font-bold">
-              {kind}
-            </span>
-            <div className="text-base font-extrabold md:text-lg">{task.lesson_name}</div>
-          </div>
-          <span className="text-sm font-bold whitespace-nowrap md:text-base">تم الاجتياز</span>
-        </div>
-        <div className="mt-1.5 text-sm text-emerald-50">
-          الدرجة {Math.round(task.latest_score || 0)}% — حُلّت {task.attempt_count}{" "}
-          {task.attempt_count === 1 ? "مرة" : "مرات"}
-        </div>
-      </button>
-    );
-  }
-
-  const pendingClasses = isBank
-    ? "border-accent-300 bg-gradient-to-l from-accent-50 via-white to-white hover:border-accent-400 hover:shadow-md"
-    : "border-primary-300 bg-gradient-to-l from-primary-50 via-white to-white hover:border-primary-400 hover:shadow-md";
-  const badgeClasses = isBank
-    ? "bg-accent-100 text-accent-800 border-accent-200"
-    : "bg-primary-100 text-primary-800 border-primary-200";
-  const actionClasses = isBank ? "text-accent-700" : "text-primary-700";
+function TaskRow({ task, index, onOpen }) {
+  const quant = isQuantitativeSubject(task);
+  const badge = subjectBadgeLabel(task);
+  const ringTone = task.solved
+    ? "border-emerald-500 bg-emerald-500 text-white"
+    : quant
+      ? "border-accent-500 text-accent-700"
+      : "border-primary-500 text-primary-700";
+  const badgeTone = quant
+    ? "bg-accent-50 text-accent-800 border-accent-200"
+    : "bg-primary-50 text-primary-800 border-primary-200";
+  const actionTone = task.solved
+    ? "bg-emerald-100 text-emerald-700"
+    : quant
+      ? "bg-accent-500 text-white hover:bg-accent-600"
+      : "bg-primary-500 text-white hover:bg-primary-600";
 
   return (
     <button
       type="button"
       onClick={() => onOpen(task)}
-      className={`w-full rounded-2xl border-2 px-4 py-4 text-right text-dark-800 shadow-sm transition ${pendingClasses}`}
+      className="flex w-full items-center gap-3 border-b border-dashed border-gray-200 px-4 py-4 text-right transition last:border-b-0 hover:bg-secondary-50/70"
     >
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <span className={`mb-1 inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold ${badgeClasses}`}>
-            {kind}
-          </span>
-          <div className="text-base font-extrabold md:text-lg">{task.lesson_name}</div>
-        </div>
-        <span className={`text-sm font-bold whitespace-nowrap md:text-base ${actionClasses}`}>
-          ابدأ / أكمل
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-black ${ringTone}`}
+      >
+        {task.solved ? <CheckIcon /> : index}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-base font-extrabold text-dark-800 md:text-lg">{task.lesson_name}</span>
+          {badge ? (
+            <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold md:text-xs ${badgeTone}`}>
+              {badge}
+            </span>
+          ) : null}
         </span>
-      </div>
-      <div className="mt-1.5 text-sm text-gray-600">اضغط للدخول وإكمال الواجب</div>
+        <span className="mt-0.5 block text-xs font-medium text-dark-400 md:text-sm">{taskSubtitle(task)}</span>
+        {task.solved ? (
+          <span className="mt-1 block text-xs font-semibold text-emerald-700">
+            الدرجة {Math.round(task.latest_score || 0)}% — حُلّت {task.attempt_count}{" "}
+            {task.attempt_count === 1 ? "مرة" : "مرات"}
+          </span>
+        ) : null}
+      </span>
+      <span
+        className={`inline-flex shrink-0 items-center justify-center rounded-full px-4 py-2 text-sm font-extrabold transition ${actionTone}`}
+      >
+        {task.solved ? "تم" : "ابدأ"}
+      </span>
     </button>
   );
 }
 
-function KindSection({ title, subtitle, tone, tasks, onOpen }) {
-  if (!tasks.length) return null;
-  const wrap =
-    tone === "accent"
-      ? "border-accent-200/80 bg-gradient-to-b from-accent-50/80 to-white"
-      : "border-primary-200/80 bg-gradient-to-b from-primary-50/80 to-white";
-  const heading =
-    tone === "accent"
-      ? "text-accent-900 border-accent-200"
-      : "text-primary-900 border-primary-200";
+function DayCard({ day, onOpen, emphasize }) {
+  const solved = (day.tasks || []).filter((task) => task.solved).length;
+  const total = (day.tasks || []).length;
+  const progressPct = total ? Math.round((solved / total) * 100) : 0;
 
   return (
-    <div className={`rounded-2xl border p-3 md:p-4 ${wrap}`}>
-      <div className={`mb-3 flex flex-wrap items-end justify-between gap-2 border-b pb-2 ${heading}`}>
+    <section
+      className={`overflow-hidden rounded-[22px] border bg-white shadow-[0_10px_28px_rgba(0,0,0,0.06)] ${
+        emphasize ? "border-primary-100" : "border-gray-100"
+      }`}
+    >
+      <div
+        className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3.5 text-white md:px-5 ${
+          emphasize
+            ? "bg-gradient-to-l from-primary-500 via-primary-500 to-primary-400"
+            : "bg-gradient-to-l from-dark-600 to-dark-500"
+        }`}
+      >
         <div>
-          <h3 className="text-base font-black md:text-lg">{title}</h3>
-          <p className="text-xs font-medium opacity-80 md:text-sm">{subtitle}</p>
+          <h2 className="text-lg font-extrabold md:text-xl">
+            {day.is_today ? "المهام اليومية" : formatArabicTaskDate(day.date)}
+          </h2>
+          <p className="mt-0.5 text-xs font-semibold text-white/90 md:text-sm">
+            {day.is_today ? formatArabicTaskDate(day.date) : day.all_solved ? "اكتملت كلها" : "يوجد واجبات ناقصة"}
+          </p>
         </div>
-        <span className="text-xs font-bold opacity-70">{tasks.length} مهمة</span>
+        {total > 0 ? (
+          <div className="min-w-[9rem] flex-1 sm:max-w-[12rem] sm:flex-none">
+            <div className="mb-1 flex items-center justify-between text-xs font-bold text-white/95">
+              <span>التقدم</span>
+              <span>
+                {solved}/{total}
+              </span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-black/20">
+              <div className="h-full rounded-full bg-white transition-all" style={{ width: `${progressPct}%` }} />
+            </div>
+          </div>
+        ) : null}
       </div>
-      <div className="space-y-3">
-        {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} onOpen={onOpen} />
+      <div>
+        {(day.tasks || []).map((task, index) => (
+          <TaskRow key={task.id} task={task} index={index + 1} onOpen={onOpen} />
         ))}
       </div>
-    </div>
-  );
-}
-
-function DayTaskGroups({ tasks, onOpen }) {
-  const { foundation, banks } = splitTasksByKind(tasks);
-  return (
-    <div className="space-y-4">
-      <KindSection
-        title="التأسيس"
-        subtitle="ابدأ من الصفر خطوة بخطوة"
-        tone="primary"
-        tasks={foundation}
-        onOpen={onOpen}
-      />
-      <KindSection
-        title="التجميعات"
-        subtitle="تدريبات مطابقة للاختبار"
-        tone="accent"
-        tasks={banks}
-        onOpen={onOpen}
-      />
-    </div>
+    </section>
   );
 }
 
@@ -162,21 +166,19 @@ const DailyTasks = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-secondary-50 via-gray-50 to-accent-50/40">
+    <div className="min-h-screen bg-[#f7f3ec]">
       <Header />
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="mx-auto max-w-3xl px-4 py-8">
         <button
           type="button"
           onClick={() => navigate("/courses")}
-          className="text-primary-600 hover:text-primary-700 font-medium mb-4"
+          className="mb-4 font-medium text-primary-600 hover:text-primary-700"
         >
           ← رجوع للدورات
         </button>
-        <h1 className="text-2xl md:text-3xl font-extrabold text-dark-700 text-center mb-2">
-          مهام يومية
-        </h1>
-        <p className="text-center text-gray-600 mb-8">
-          مهام اليوم مقسّمة لتأسيس وتجميعات، وتختفي بنهاية اليوم. السابقة تبقى متاحة للإكمال.
+        <h1 className="mb-2 text-center text-2xl font-extrabold text-dark-700 md:text-3xl">مهام يومية</h1>
+        <p className="mb-8 text-center text-gray-600">
+          واجب اليوم يظهر هنا ويختفي بنهاية اليوم. الواجبات السابقة تبقى متاحة للإكمال.
         </p>
 
         {loading ? (
@@ -185,75 +187,63 @@ const DailyTasks = () => {
           <p className="text-center text-red-600">{error}</p>
         ) : (
           <div className="space-y-8">
-            <section className="overflow-hidden rounded-3xl border border-secondary-200 bg-white/90 shadow-md">
-              <h2 className="bg-gradient-to-l from-primary-500 to-accent-500 px-4 py-3.5 text-lg font-extrabold text-white">
-                {todayDay ? formatDay(todayDay.date, true) : "واجب اليوم"}
-              </h2>
-              <div className="p-4">
-                {(todayDay?.tasks || []).length > 0 ? (
-                  <DayTaskGroups tasks={todayDay.tasks} onOpen={openTask} />
-                ) : (
-                  <div className="rounded-2xl border border-dashed border-primary-300 bg-primary-50/70 px-4 py-6 text-center">
-                    <p className="text-lg font-extrabold text-dark-700">راجع واجباتك السابقة</p>
-                    <p className="mt-2 text-sm text-gray-600 md:text-base">
-                      لا يوجد واجب لهذا اليوم. شوف اللي خلصته واللي لسه فاتك وأكمله من القسم التالي.
-                    </p>
-                    {previousDays.length > 0 && (
-                      <a
-                        href="#previous-tasks"
-                        className="mt-4 inline-flex rounded-xl bg-primary-500 px-4 py-2.5 text-sm font-black text-white hover:bg-primary-600 md:text-base"
-                      >
-                        الانتقال للواجبات السابقة
-                      </a>
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
+            {todayDay?.tasks?.length ? (
+              <DayCard day={todayDay} onOpen={openTask} emphasize />
+            ) : (
+              <section className="overflow-hidden rounded-[22px] border border-primary-100 bg-white shadow-md">
+                <div className="bg-gradient-to-l from-primary-500 to-primary-400 px-4 py-3.5 text-white">
+                  <h2 className="text-lg font-extrabold">المهام اليومية</h2>
+                  <p className="text-sm font-semibold text-white/90">
+                    {formatArabicTaskDate(data?.today)}
+                  </p>
+                </div>
+                <div className="px-4 py-8 text-center">
+                  <p className="text-lg font-extrabold text-dark-700">راجع واجباتك السابقة</p>
+                  <p className="mt-2 text-sm text-gray-600 md:text-base">
+                    لا يوجد واجب لهذا اليوم. شوف اللي خلصته واللي لسه فاتك وأكمله من القسم التالي.
+                  </p>
+                  {previousDays.length > 0 ? (
+                    <a
+                      href="#previous-tasks"
+                      className="mt-4 inline-flex rounded-full bg-primary-500 px-4 py-2.5 text-sm font-black text-white hover:bg-primary-600"
+                    >
+                      الانتقال للواجبات السابقة
+                    </a>
+                  ) : null}
+                </div>
+              </section>
+            )}
 
             <section id="previous-tasks" className="scroll-mt-6">
               <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
                 <h2 className="text-xl font-extrabold text-dark-700">الواجبات السابقة</h2>
-                {previousDays.length > 0 && (
+                {previousDays.length > 0 ? (
                   <p className="text-sm font-bold text-gray-600">
                     مكتمل: <span className="text-emerald-700">{previousStats.done}</span>
                     {" · "}
                     لم يُكتمل: <span className="text-red-600">{previousStats.pending}</span>
                   </p>
-                )}
+                ) : null}
               </div>
 
               {previousDays.length === 0 ? (
-                <div className="rounded-3xl bg-white p-8 text-center text-gray-600 shadow">
+                <div className="rounded-[22px] bg-white p-8 text-center text-gray-600 shadow">
                   لا توجد واجبات سابقة بعد. المهام الجديدة تظهر في يومها.
                 </div>
               ) : (
                 <div className="space-y-5">
                   {previousDays.map((day) => (
-                    <section
-                      key={day.date}
-                      className="overflow-hidden rounded-3xl border border-gray-100 bg-white shadow"
-                    >
-                      <h3 className="flex flex-wrap items-center justify-between gap-2 bg-gray-50 px-4 py-3 font-extrabold text-dark-700">
-                        <span>{formatDay(day.date, false)}</span>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs font-bold ${
-                            day.all_solved
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-red-100 text-red-700"
-                          }`}
-                        >
-                          {day.all_solved ? "اكتملت كلها" : "يوجد واجبات ناقصة"}
-                        </span>
-                      </h3>
-                      <div className="p-4">
-                        <DayTaskGroups tasks={day.tasks} onOpen={openTask} />
-                      </div>
-                    </section>
+                    <DayCard key={day.date} day={day} onOpen={openTask} />
                   ))}
                 </div>
               )}
             </section>
+
+            <div className="text-center">
+              <Link to="/courses" className="font-bold text-primary-700 hover:underline">
+                العودة للدورات
+              </Link>
+            </div>
           </div>
         )}
       </div>

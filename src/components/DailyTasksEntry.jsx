@@ -3,73 +3,74 @@ import { Link } from "react-router-dom";
 import { getCurrentUser } from "../services/storageService";
 import { dailyTaskQuizPath, getMyDailyTasks, isBackendOn } from "../services/backendApi";
 import { isContentStaff } from "../utils/roles";
-import { splitTasksByKind } from "../utils/dailyTaskGroups";
+import {
+  formatArabicTaskDate,
+  isQuantitativeSubject,
+  subjectBadgeLabel,
+  taskSubtitle,
+} from "../utils/dailyTaskGroups";
 
-const shellBase =
-  "mx-auto mb-3 w-full max-w-md overflow-hidden rounded-3xl border shadow-lg transition";
-
-function TaskChip({ task }) {
-  const quizPath = dailyTaskQuizPath(task);
-  const isBank = Boolean(task.is_bank) || (task.category_name || "").includes("تجميع");
-
-  if (task.solved) {
-    return (
-      <Link
-        key={task.id}
-        to={quizPath || "/daily-tasks"}
-        className="block rounded-2xl border border-emerald-200/80 bg-emerald-50/95 px-3 py-2.5 text-right shadow-sm transition hover:-translate-y-0.5 hover:bg-emerald-100"
-      >
-        <span className="block text-base font-extrabold leading-snug text-emerald-900 md:text-lg">
-          {task.lesson_name}
-        </span>
-        <span className="mt-0.5 block text-xs font-bold text-emerald-700 md:text-sm">تم الاجتياز</span>
-      </Link>
-    );
-  }
-
-  if (isBank) {
-    return (
-      <Link
-        key={task.id}
-        to={quizPath || "/daily-tasks"}
-        className="block rounded-2xl border border-accent-300/80 bg-gradient-to-l from-accent-50 to-white px-3 py-2.5 text-right shadow-sm transition hover:-translate-y-0.5 hover:border-accent-400 hover:shadow-md"
-      >
-        <span className="block text-base font-extrabold leading-snug text-accent-900 md:text-lg">
-          {task.lesson_name}
-        </span>
-        <span className="mt-0.5 block text-xs font-bold text-accent-700 md:text-sm">تجميعات — ابدأ الآن</span>
-      </Link>
-    );
-  }
-
+function CheckIcon() {
   return (
-    <Link
-      key={task.id}
-      to={quizPath || "/daily-tasks"}
-      className="block rounded-2xl border border-primary-300/80 bg-gradient-to-l from-primary-50 to-white px-3 py-2.5 text-right shadow-sm transition hover:-translate-y-0.5 hover:border-primary-400 hover:shadow-md"
-    >
-      <span className="block text-base font-extrabold leading-snug text-primary-900 md:text-lg">
-        {task.lesson_name}
-      </span>
-      <span className="mt-0.5 block text-xs font-bold text-primary-700 md:text-sm">تأسيس — ابدأ الآن</span>
-    </Link>
+    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" aria-hidden="true">
+      <path
+        d="M5 10.5l3.2 3.2L15 6.8"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
-function KindBlock({ title, hint, tasks, tone }) {
-  if (!tasks.length) return null;
-  const header =
-    tone === "accent"
-      ? "bg-accent-500/15 text-accent-900 border-accent-200/70"
-      : "bg-primary-500/15 text-primary-900 border-primary-200/70";
+function TaskRow({ task, index }) {
+  const quizPath = dailyTaskQuizPath(task);
+  const quant = isQuantitativeSubject(task);
+  const badge = subjectBadgeLabel(task);
+  const ringTone = task.solved
+    ? "border-emerald-500 bg-emerald-500 text-white"
+    : quant
+      ? "border-accent-500 text-accent-700"
+      : "border-primary-500 text-primary-700";
+  const badgeTone = quant
+    ? "bg-accent-50 text-accent-800 border-accent-200"
+    : "bg-primary-50 text-primary-800 border-primary-200";
+  const actionTone = task.solved
+    ? "bg-emerald-100 text-emerald-700"
+    : quant
+      ? "bg-accent-500 text-white hover:bg-accent-600"
+      : "bg-primary-500 text-white hover:bg-primary-600";
+
   return (
-    <div className="rounded-2xl border border-white/40 bg-white/55 p-2.5 backdrop-blur-sm">
-      <div className={`mb-2 flex items-center justify-between gap-2 rounded-xl border px-2.5 py-1.5 ${header}`}>
-        <span className="text-sm font-black md:text-base">{title}</span>
-        <span className="text-[11px] font-bold opacity-80 md:text-xs">{hint}</span>
-      </div>
-      <div className="flex flex-col gap-2">{tasks.map((task) => <TaskChip key={task.id} task={task} />)}</div>
-    </div>
+    <Link
+      to={quizPath || "/daily-tasks"}
+      className="flex items-center gap-3 border-b border-dashed border-gray-200 px-4 py-3.5 text-right transition last:border-b-0 hover:bg-secondary-50/60"
+    >
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 text-sm font-black ${ringTone}`}
+      >
+        {task.solved ? <CheckIcon /> : index}
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-base font-extrabold text-dark-800 md:text-lg">{task.lesson_name}</span>
+          {badge ? (
+            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-bold md:text-xs ${badgeTone}`}>
+              {badge}
+            </span>
+          ) : null}
+        </span>
+        <span className="mt-0.5 block text-xs font-medium text-dark-400 md:text-sm">{taskSubtitle(task)}</span>
+      </span>
+
+      <span
+        className={`inline-flex shrink-0 items-center justify-center rounded-full px-3.5 py-1.5 text-sm font-extrabold transition ${actionTone}`}
+      >
+        {task.solved ? "تم" : "ابدأ"}
+      </span>
+    </Link>
   );
 }
 
@@ -78,6 +79,7 @@ const DailyTasksEntry = () => {
   const staff = isContentStaff(user);
   const studentKey = !staff && user?.role === "student" ? user.id || user.username || "student" : "";
   const [todayTasks, setTodayTasks] = useState([]);
+  const [todayIso, setTodayIso] = useState("");
   const [hasPrevious, setHasPrevious] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
@@ -89,6 +91,7 @@ const DailyTasksEntry = () => {
         if (cancelled) return;
         const today = data?.today_tasks || [];
         setTodayTasks(today);
+        setTodayIso(data?.today || "");
         const previousDays = (data?.days || []).filter((day) => !day.is_today);
         setHasPrevious(previousDays.some((day) => (day.tasks || []).length > 0));
         setLoaded(true);
@@ -96,6 +99,7 @@ const DailyTasksEntry = () => {
       .catch(() => {
         if (cancelled) return;
         setTodayTasks([]);
+        setTodayIso("");
         setHasPrevious(false);
         setLoaded(true);
       });
@@ -104,16 +108,20 @@ const DailyTasksEntry = () => {
     };
   }, [studentKey]);
 
-  const { foundation, banks } = useMemo(() => splitTasksByKind(todayTasks), [todayTasks]);
-  const allSolved = todayTasks.length > 0 && todayTasks.every((task) => task.solved);
+  const solvedCount = useMemo(
+    () => todayTasks.filter((task) => task.solved).length,
+    [todayTasks]
+  );
+  const totalCount = todayTasks.length;
+  const progressPct = totalCount ? Math.round((solvedCount / totalCount) * 100) : 0;
 
   if (staff) {
     return (
       <Link
         to="/admin/daily-tasks"
-        className={`${shellBase} border-primary-300 bg-gradient-to-br from-primary-500 via-primary-600 to-primary-800 px-4 py-4 text-center text-white hover:-translate-y-0.5`}
+        className="mx-auto mb-3 block w-full max-w-4xl overflow-hidden rounded-[22px] bg-gradient-to-l from-primary-500 to-primary-600 px-5 py-4 text-center text-white shadow-lg transition hover:-translate-y-0.5"
       >
-        <span className="block text-xl font-black leading-tight md:text-2xl">مهام يومية</span>
+        <span className="block text-xl font-black md:text-2xl">المهام اليومية</span>
         <span className="mt-1 block text-sm font-semibold text-primary-50 md:text-base">
           تعيين تأسيس وتجميعات كل مجموعة ليوم محدد
         </span>
@@ -125,9 +133,9 @@ const DailyTasksEntry = () => {
     return (
       <Link
         to="/login?redirect=/daily-tasks"
-        className={`${shellBase} border-primary-300 bg-gradient-to-br from-primary-500 via-primary-600 to-primary-800 px-4 py-4 text-center text-white hover:-translate-y-0.5`}
+        className="mx-auto mb-3 block w-full max-w-4xl overflow-hidden rounded-[22px] bg-gradient-to-l from-primary-500 to-primary-600 px-5 py-4 text-center text-white shadow-lg transition hover:-translate-y-0.5"
       >
-        <span className="block text-xl font-black leading-tight md:text-2xl">مهام يومية</span>
+        <span className="block text-xl font-black md:text-2xl">المهام اليومية</span>
         <span className="mt-1 block text-sm font-semibold text-primary-50 md:text-base">
           سجّل الدخول لترى واجب اليوم
         </span>
@@ -135,65 +143,69 @@ const DailyTasksEntry = () => {
     );
   }
 
-  const shellTone = allSolved
-    ? "border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-accent-50"
-    : "border-secondary-300 bg-gradient-to-br from-secondary-50 via-white to-accent-50";
-
   return (
-    <div className={`${shellBase} ${shellTone} px-3.5 py-3.5 text-center`}>
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-primary-500/90 via-primary-600 to-accent-600/90 px-3 py-3 text-white shadow-md">
-        <div className="pointer-events-none absolute -left-6 -top-8 h-24 w-24 rounded-full bg-white/15 blur-xl" />
-        <div className="pointer-events-none absolute -bottom-10 -right-4 h-28 w-28 rounded-full bg-beige-300/30 blur-2xl" />
-        <Link to="/daily-tasks" className="relative block text-xl font-black leading-tight tracking-tight hover:underline md:text-2xl">
-          مهام يومية
-        </Link>
-        <p className="relative mt-1 text-xs font-semibold text-white/90 md:text-sm">
-          واجب اليوم فقط — مقسّم لتأسيس وتجميعات
-        </p>
+    <div className="mx-auto mb-3 w-full max-w-4xl overflow-hidden rounded-[22px] border border-primary-100 bg-white text-right shadow-[0_12px_30px_rgba(214,112,32,0.12)]">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-l from-primary-500 via-primary-500 to-primary-400 px-4 py-3.5 text-white md:px-5">
+        <div className="min-w-0">
+          <Link to="/daily-tasks" className="block text-xl font-black leading-tight hover:underline md:text-2xl">
+            المهام اليومية
+          </Link>
+          <p className="mt-0.5 text-xs font-semibold text-white/90 md:text-sm">
+            {formatArabicTaskDate(todayIso)}
+          </p>
+        </div>
+
+        {totalCount > 0 ? (
+          <div className="min-w-[9.5rem] flex-1 sm:max-w-[13rem] sm:flex-none">
+            <div className="mb-1 flex items-center justify-between text-xs font-bold text-white/95">
+              <span>التقدم</span>
+              <span>
+                {solvedCount}/{totalCount}
+              </span>
+            </div>
+            <div className="h-2.5 overflow-hidden rounded-full bg-primary-800/25">
+              <div
+                className="h-full rounded-full bg-white transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      <div className="mt-3 flex flex-col gap-2.5">
+      <div className="bg-white">
         {!loaded ? (
-          <span className="text-sm font-semibold text-dark-500">جاري التحميل...</span>
+          <p className="px-4 py-6 text-center text-sm font-semibold text-dark-500">جاري التحميل...</p>
         ) : todayTasks.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-primary-300 bg-primary-50/70 px-3 py-3.5">
-            <p className="text-base font-extrabold leading-snug text-dark-700 md:text-lg">راجع واجباتك السابقة</p>
+          <div className="px-4 py-6 text-center">
+            <p className="text-lg font-extrabold text-dark-700">راجع واجباتك السابقة</p>
             <p className="mt-1 text-sm font-medium text-dark-500">
               لا يوجد واجب لهذا اليوم. شوف اللي خلصته واللي لسه فاتك وأكمله.
             </p>
             <Link
               to="/daily-tasks"
-              className="mt-2.5 inline-flex items-center justify-center rounded-xl bg-primary-500 px-4 py-2 text-sm font-black text-white shadow-sm transition hover:bg-primary-600 md:text-base"
+              className="mt-3 inline-flex rounded-full bg-primary-500 px-4 py-2 text-sm font-black text-white hover:bg-primary-600"
             >
               {hasPrevious ? "عرض كل الواجبات السابقة" : "فتح صفحة المهام السابقة"}
             </Link>
           </div>
         ) : (
-          <>
-            <KindBlock
-              title="التأسيس"
-              hint="خطوة بخطوة"
-              tasks={foundation}
-              tone="primary"
-            />
-            <KindBlock
-              title="التجميعات"
-              hint="تدريب على الاختبار"
-              tasks={banks}
-              tone="accent"
-            />
-          </>
+          todayTasks.map((task, index) => (
+            <TaskRow key={task.id} task={task} index={index + 1} />
+          ))
         )}
       </div>
 
-      {loaded && todayTasks.length > 0 && (
-        <Link
-          to="/daily-tasks"
-          className="mt-3 inline-block text-sm font-bold text-primary-700 underline-offset-2 hover:underline md:text-base"
-        >
-          الواجبات السابقة ←
-        </Link>
-      )}
+      {loaded && todayTasks.length > 0 ? (
+        <div className="border-t border-gray-100 bg-secondary-50/50 px-4 py-2.5 text-center">
+          <Link
+            to="/daily-tasks"
+            className="text-sm font-bold text-primary-700 underline-offset-2 hover:underline md:text-base"
+          >
+            الواجبات السابقة ←
+          </Link>
+        </div>
+      ) : null}
     </div>
   );
 };

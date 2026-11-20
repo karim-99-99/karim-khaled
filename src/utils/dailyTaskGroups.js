@@ -17,3 +17,42 @@ export function taskKindLabel(task) {
   if (name.includes("تأسيس")) return "تأسيس";
   return "تأسيس";
 }
+
+export function isQuantitativeSubject(task) {
+  const subject = task?.subject_name || "";
+  return subject.includes("كمي");
+}
+
+export function isVerbalSubject(task) {
+  const subject = task?.subject_name || "";
+  return subject.includes("لفظي");
+}
+
+export function subjectBadgeLabel(task) {
+  if (isQuantitativeSubject(task)) return "كمي";
+  if (isVerbalSubject(task)) return "لفظي";
+  return task?.subject_name || "";
+}
+
+/** Subtitle under the lesson name, matching the courses page design. */
+export function taskSubtitle(task) {
+  const kind = taskKindLabel(task);
+  if (kind === "تجميعات") return "بنك أسئلة - تجميعات";
+  if (task?.chapter_name) return `واجب - ${task.chapter_name}`;
+  return "واجب - تأسيس";
+}
+
+export function formatArabicTaskDate(iso) {
+  if (!iso) {
+    return new Date().toLocaleDateString("ar-EG", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+  }
+  return new Date(`${iso}T12:00:00`).toLocaleDateString("ar-EG", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+}
