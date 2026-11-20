@@ -139,6 +139,13 @@ const DailyTasks = () => {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (loading || !data) return;
+    if (window.location.hash !== "#previous-tasks") return;
+    const node = document.getElementById("previous-tasks");
+    if (node) node.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loading, data]);
+
   const todayDay = useMemo(
     () => (data?.days || []).find((day) => day.is_today) || null,
     [data]
@@ -198,16 +205,18 @@ const DailyTasks = () => {
                   </p>
                 </div>
                 <div className="px-4 py-8 text-center">
-                  <p className="text-lg font-extrabold text-dark-700">راجع واجباتك السابقة</p>
+                  <p className="text-lg font-extrabold text-dark-700 md:text-xl">
+                    استكمال ما لم يتم خلال الأسبوع ومراجعة المهام السابقة
+                  </p>
                   <p className="mt-2 text-sm text-gray-600 md:text-base">
-                    لا يوجد واجب لهذا اليوم. شوف اللي خلصته واللي لسه فاتك وأكمله من القسم التالي.
+                    لا يوجد واجب لهذا اليوم. من القسم التالي تشوف كل المهام السابقة، اللي خلصته واللي لسه، وتضغط تكمل الناقص.
                   </p>
                   {previousDays.length > 0 ? (
                     <a
                       href="#previous-tasks"
                       className="mt-4 inline-flex rounded-full bg-primary-500 px-4 py-2.5 text-sm font-black text-white hover:bg-primary-600"
                     >
-                      الانتقال للواجبات السابقة
+                      مراجعة المهام السابقة وإكمالها
                     </a>
                   ) : null}
                 </div>

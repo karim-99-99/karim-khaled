@@ -177,18 +177,20 @@ const DailyTasksEntry = () => {
         {!loaded ? (
           <p className="px-4 py-6 text-center text-sm font-semibold text-dark-500">جاري التحميل...</p>
         ) : todayTasks.length === 0 ? (
-          <div className="px-4 py-6 text-center">
-            <p className="text-lg font-extrabold text-dark-700">راجع واجباتك السابقة</p>
-            <p className="mt-1 text-sm font-medium text-dark-500">
-              لا يوجد واجب لهذا اليوم. شوف اللي خلصته واللي لسه فاتك وأكمله.
+          <Link
+            to="/daily-tasks#previous-tasks"
+            className="block px-4 py-6 text-center transition hover:bg-primary-50/70"
+          >
+            <p className="text-lg font-extrabold text-dark-700 md:text-xl">
+              استكمال ما لم يتم خلال الأسبوع ومراجعة المهام السابقة
             </p>
-            <Link
-              to="/daily-tasks"
-              className="mt-3 inline-flex rounded-full bg-primary-500 px-4 py-2 text-sm font-black text-white hover:bg-primary-600"
-            >
-              {hasPrevious ? "عرض كل الواجبات السابقة" : "فتح صفحة المهام السابقة"}
-            </Link>
-          </div>
+            <p className="mt-1.5 text-sm font-medium text-dark-500">
+              لا يوجد واجب لهذا اليوم. اضغط هنا لتشوف المهام السابقة، اللي خلصته واللي لسه، وأكمل الناقص.
+            </p>
+            <span className="mt-3 inline-flex rounded-full bg-primary-500 px-4 py-2.5 text-sm font-black text-white md:text-base">
+              مراجعة المهام السابقة وإكمالها
+            </span>
+          </Link>
         ) : (
           todayTasks.map((task, index) => (
             <TaskRow key={task.id} task={task} index={index + 1} />

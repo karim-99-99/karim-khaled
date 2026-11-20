@@ -223,6 +223,10 @@ class DailyTaskAssignmentView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             day = start
+        elif start:
+            day = start
+        elif end:
+            day = end
         else:
             day = None
 

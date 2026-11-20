@@ -136,9 +136,12 @@ const DailyTasksAdmin = () => {
     }
     setBusy(true);
     try {
+      // Send task_date and start/end (same day) so both new and older backends accept the assign.
       const result = await createDailyTasks({
         group_id: groupId,
         task_date: taskDate,
+        start_date: taskDate,
+        end_date: taskDate,
         lesson_ids: picked.map((item) => item.id),
       });
       setMessage(
