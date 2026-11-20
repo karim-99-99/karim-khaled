@@ -487,45 +487,49 @@ const Home = () => {
       <div
         className="relative max-w-6xl mx-auto px-4 py-8 md:py-12"
       >
-        <div className="text-center mb-6 md:mb-8">
-          <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-dark-600 mb-3 leading-tight">
+        <div className="mb-6 text-center md:mb-8">
+          <h1 className="mb-4 text-2xl font-bold leading-tight text-dark-600 md:text-3xl lg:text-4xl">
             الدورات
           </h1>
           <TigerSimulatorBanner />
           <DailyTasksEntry />
         </div>
 
-        <div className="max-w-4xl mx-auto">
+        <div className="mx-auto max-w-4xl">
           {deviceRestricted && currentUser && !isAdmin && (
-            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
-              <p className="text-dark-700 font-medium">{DEVICE_RESTRICTED_AR}</p>
+            <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-center">
+              <p className="font-medium text-dark-700">{DEVICE_RESTRICTED_AR}</p>
             </div>
           )}
           {loading ? (
-            <div className="text-center py-12">
+            <div className="py-12 text-center">
               <p className="text-xl text-gray-600">جاري التحميل...</p>
             </div>
           ) : !section ? (
-            <div className="text-center py-12">
+            <div className="py-12 text-center">
               <p className="text-xl text-gray-600">لا توجد بيانات متاحة</p>
             </div>
           ) : subjects.length === 0 ? (
-            <div className="text-center py-12">
+            <div className="py-12 text-center">
               <p className="text-xl text-gray-600">لا توجد مواد متاحة</p>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-4 md:p-6">
+            <div className="rounded-[22px] border border-gray-100 bg-white p-4 shadow-lg md:p-6">
               {/* Tabs مثل الصورة */}
-              <div className="flex items-center justify-center mb-6">
-                <div className="bg-gray-100 rounded-full p-1 flex gap-1 w-full max-w-md">
+              <div className="mb-6 flex items-center justify-center">
+                <div className="flex w-full max-w-md gap-1 rounded-full bg-gray-100 p-1">
                   {subjects.map((subj) => {
                     const isActive = subj.id === selectedSubjectId;
-                    const label =
-                      subj.name === "اللفظي"
-                        ? "القسم اللفظي"
-                        : subj.name === "الكمي"
+                    const isVerbal = subj.name === "اللفظي";
+                    const isQuant = subj.name === "الكمي";
+                    const label = isVerbal
+                      ? "القسم اللفظي"
+                      : isQuant
                         ? "القسم الكمي"
                         : subj.name;
+                    const activeTone = isQuant
+                      ? "bg-accent-500 text-white shadow"
+                      : "bg-primary-500 text-white shadow";
                     return (
                       <button
                         key={subj.id}
@@ -534,10 +538,8 @@ const Home = () => {
                           setSelectedSubjectId(subj.id);
                           setSelectedCategoryId(""); // reset category when switching subject
                         }}
-                        className={`flex-1 py-2 px-4 rounded-full font-bold text-sm md:text-base transition ${
-                          isActive
-                            ? "bg-primary-500 text-white shadow"
-                            : "bg-transparent text-dark-600 hover:bg-white"
+                        className={`flex-1 rounded-full px-4 py-2.5 text-sm font-bold transition md:text-base ${
+                          isActive ? activeTone : "bg-transparent text-dark-600 hover:bg-white"
                         }`}
                       >
                         {label}
@@ -548,7 +550,13 @@ const Home = () => {
               </div>
 
               {/* اختيار التأسيس / التجميعات */}
-              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${selectedCategoryId || pressedCardId ? 'course-nav-group course-nav-group--has-selection' : ''}`}>
+              <div
+                className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${
+                  selectedCategoryId || pressedCardId
+                    ? "course-nav-group course-nav-group--has-selection"
+                    : ""
+                }`}
+              >
                 {categories.map((category) => {
                   const isTasis = category.name === "التأسيس";
                   const isSelected = selectedCategoryId === category.id;
@@ -568,26 +576,24 @@ const Home = () => {
                       dimmed={!!selectedCategoryId && !isSelected}
                       variant={cardVariant}
                       onClick={() => handleCategoryClick(category.id)}
-                      className={`border-2 rounded-2xl p-5 hover:shadow-xl transition-all duration-300 text-right ${
-                        isSelected ? "" : "bg-secondary-50 border-secondary-200"
+                      className={`rounded-[20px] border-2 p-5 text-right transition-all duration-300 hover:shadow-xl ${
+                        isSelected ? "" : "border-gray-200 bg-white"
                       }`}
                     >
                       <div className="relative z-10">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="text-4xl">
-                            {isTasis ? "🧩" : "🧠"}
-                          </div>
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="text-4xl">{isTasis ? "🧩" : "🧠"}</div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs md:text-sm px-3 py-1 rounded-full bg-accent-50 text-accent-800 border border-accent-200 font-semibold">
+                            <span className="rounded-full border border-accent-200 bg-accent-50 px-3 py-1 text-xs font-semibold text-accent-800 md:text-sm">
                               {category.chapters?.length || 0}{" "}
                               {category.name === "التجميعات" ? "مستويات" : "أقسام"}
                             </span>
                           </div>
                         </div>
-                        <div className="text-xl md:text-2xl font-extrabold text-dark-900 mb-1">
+                        <div className="mb-1 text-xl font-extrabold text-dark-900 md:text-2xl">
                           {category.name}
                         </div>
-                        <div className="text-sm md:text-base text-dark-600 font-medium">
+                        <div className="text-sm font-medium text-dark-600 md:text-base">
                           {isTasis
                             ? "ابدأ من الصفر خطوة بخطوة"
                             : "تدريبات وتجميعات مطابقة للاختبار"}
